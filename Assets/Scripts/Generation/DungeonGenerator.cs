@@ -33,6 +33,15 @@ public class DungeonGenerator : MonoBehaviour
     [Range(1, 10)]
     private int maximumDepth = 4;
 
+    [Header("Room Settings")]
+    [SerializeField]
+    [Min(3)]
+    private int minimumRoomSize = 5;
+
+    [SerializeField]
+    [Min(1)]
+    private int roomPadding = 1;
+
     [Header("Random Generation")]
     [Tooltip("Using the same seed will reproduce the same dungeon.")]
     [SerializeField]
@@ -47,11 +56,18 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private bool showPartitions = true;
 
+    [Tooltip("Draw generated room boundaries in the Scene view.")]
+    [SerializeField]
+    private bool showRooms = true;
+
     // Root of the BSP tree.
     private BSPNode rootNode;
 
     // Cached final partitions.
     private List<BSPNode> leafNodes = new List<BSPNode>();
+
+    // Rooms generated inside the final BSP leaf partitions.
+    private List<Room> rooms = new List<Room>();
 
     // System.Random is used rather than UnityEngine.Random so each
     // generator can have its own reproducible random sequence.
@@ -82,6 +98,13 @@ public class DungeonGenerator : MonoBehaviour
     /// </summary>
     public void GenerateDungeon()
     {
+        // Stop immediately if the Inspector settings cannot produce
+        // structurally valid rooms.
+        if (!ValidateGenerationSettings())
+        {
+            return;
+        }
+
         // A fixed seed creates the same sequence of random numbers,
         // allowing a generated dungeon to be reproduced exactly.
         random = new System.Random(seed);
@@ -103,9 +126,30 @@ public class DungeonGenerator : MonoBehaviour
         leafNodes.Clear();
         rootNode.GetLeafNodes(leafNodes);
 
+        // Generate one room inside each final BSP partition.
+        rooms.Clear();
+
+        foreach (BSPNode leaf in leafNodes)
+        {
+            Room room = leaf.GenerateRoom(
+                random,
+                minimumRoomSize,
+                roomPadding
+            );
+
+            if (room != null)
+            {
+                rooms.Add(room);
+            }
+        }
+
+        bool roomsValid = ValidateRooms();
+
         UnityEngine.Debug.Log(
             $"Dungeon generated with seed {seed}. " +
-            $"Created {leafNodes.Count} leaf partitions."
+            $"Created {leafNodes.Count} leaf partitions and " +
+            $"{rooms.Count} rooms. " +
+            $"Room validation: {(roomsValid ? "PASSED" : "FAILED")}."
         );
     }
 
@@ -126,34 +170,138 @@ public class DungeonGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Draw the generated BSP partitions in Unity's Scene view.
-    /// Gizmos are used so this debug visualisation does not become
-    /// part of the actual game world.
+    /// Draws development/debug information in the Scene view.
+    ///
+    /// Green rectangles represent BSP leaf partitions.
+    /// Yellow rectangles represent generated rooms.
+    ///
+    /// Gizmos allow us to inspect the algorithm without creating
+    /// permanent rendering objects purely for debugging.
     /// </summary>
     private void OnDrawGizmos()
     {
-        if (!showPartitions || leafNodes == null)
-            return;
+        // -------------------------
+        // Draw BSP leaf partitions
+        // -------------------------
 
-        Gizmos.color = Color.green;
-
-        foreach (BSPNode node in leafNodes)
+        if (showPartitions && leafNodes != null)
         {
-            RectInt bounds = node.Bounds;
+            Gizmos.color = Color.green;
 
-            Vector3 centre = new Vector3(
-                bounds.x + bounds.width / 2f,
-                bounds.y + bounds.height / 2f,
-                0f
-            );
-
-            Vector3 size = new Vector3(
-                bounds.width,
-                bounds.height,
-                0f
-            );
-
-            Gizmos.DrawWireCube(centre, size);
+            foreach (BSPNode node in leafNodes)
+            {
+                DrawRectangle(node.Bounds);
+            }
         }
+
+        // -------------------------
+        // Draw generated rooms
+        // -------------------------
+
+        if (showRooms && rooms != null)
+        {
+            Gizmos.color = Color.yellow;
+
+            foreach (Room room in rooms)
+            {
+                DrawRectangle(room.Bounds);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper method used by the debug visualisation so rectangle
+    /// drawing logic is not duplicated for partitions and rooms.
+    /// </summary>
+    private void DrawRectangle(RectInt bounds)
+    {
+        Vector3 centre = new Vector3(
+            bounds.x + bounds.width / 2f,
+            bounds.y + bounds.height / 2f,
+            0f
+        );
+
+        Vector3 size = new Vector3(
+            bounds.width,
+            bounds.height,
+            0f
+        );
+
+        Gizmos.DrawWireCube(centre, size);
+    }
+
+    /// <summary>
+    /// Performs basic checks on generated rooms.
+    ///
+    /// More extensive validation will later be moved into DungeonValidator,
+    /// but this gives Iteration 1 an immediate automated correctness check.
+    /// </summary>
+    private bool ValidateRooms()
+    {
+        // Every final BSP partition is expected to contain exactly one room.
+        // A difference in these counts means room generation was incomplete.
+        if (rooms.Count != leafNodes.Count)
+        {
+            UnityEngine.Debug.LogError(
+                $"Room validation failed. Generated {rooms.Count} rooms " +
+                $"for {leafNodes.Count} leaf partitions."
+            );
+
+            return false;
+        }
+
+        foreach (Room room in rooms)
+        {
+            if (!room.IsInsideParentPartition())
+            {
+                UnityEngine.Debug.LogError(
+                    $"Room {room.Bounds} extends outside its BSP partition " +
+                    $"{room.ParentPartition.Bounds}."
+                );
+
+                return false;
+            }
+
+            if (room.Width < minimumRoomSize ||
+                room.Height < minimumRoomSize)
+            {
+                UnityEngine.Debug.LogError(
+                    $"Room {room.Bounds} is below the minimum room size."
+                );
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Checks whether the current generation settings are compatible.
+    ///
+    /// A BSP partition must be large enough to contain the minimum room
+    /// size plus the requested padding on both sides.
+    /// 
+    /// Checking this before generation prevents the algorithm from running
+    /// with settings that cannot guarantee a room in every leaf partition.
+    /// </summary>
+    private bool ValidateGenerationSettings()
+    {
+        int requiredPartitionSize =
+            minimumRoomSize + (roomPadding * 2);
+
+        if (minimumPartitionSize < requiredPartitionSize)
+        {
+            UnityEngine.Debug.LogError(
+                $"Invalid generation settings. Minimum partition size " +
+                $"is {minimumPartitionSize}, but at least " +
+                $"{requiredPartitionSize} is required for a minimum room " +
+                $"size of {minimumRoomSize} with padding {roomPadding}."
+            );
+
+            return false;
+        }
+
+        return true;
     }
 }

@@ -154,9 +154,12 @@ MonoBehaviour:
   dungeonHeight: 50
   minimumPartitionSize: 10
   maximumDepth: 4
+  minimumRoomSize: 5
+  roomPadding: 1
   seed: 12345
   useRandomSeed: 0
   showPartitions: 1
+  showRooms: 1
 --- !u!4 &1044558307
 Transform:
   m_ObjectHideFlags: 0

@@ -21,6 +21,9 @@ public class BSPNode
     public BSPNode LeftChild { get; private set; }
     public BSPNode RightChild { get; private set; }
 
+    // A room can be assigned to a leaf partition after BSP splitting is complete.
+    public Room Room { get; private set; }
+
     // Useful for debugging and for limiting recursion.
     public int Depth { get; private set; }
 
@@ -147,6 +150,68 @@ public class BSPNode
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Generates a rectangular room inside this BSP leaf.
+    ///
+    /// Padding prevents the room from touching the partition boundary.
+    /// Room dimensions and position are random, but use the seeded random
+    /// number generator supplied by DungeonGenerator.
+    /// </summary>
+    public Room GenerateRoom(
+        System.Random random,
+        int minimumRoomSize,
+        int padding)
+    {
+        // Rooms should only be created in final BSP partitions.
+        if (!IsLeaf())
+            return null;
+
+        // Calculate the space available after leaving padding on both sides.
+        int availableWidth = Bounds.width - (padding * 2);
+        int availableHeight = Bounds.height - (padding * 2);
+
+        // The partition cannot contain a valid room with the current settings.
+        if (availableWidth < minimumRoomSize ||
+            availableHeight < minimumRoomSize)
+        {
+            return null;
+        }
+
+        // Randomise the room dimensions.
+        // The upper bound of Random.Next is exclusive, hence the +1.
+        int roomWidth = random.Next(
+            minimumRoomSize,
+            availableWidth + 1
+        );
+
+        int roomHeight = random.Next(
+            minimumRoomSize,
+            availableHeight + 1
+        );
+
+        // Work out how far the room can move while remaining inside
+        // the padded area of the partition.
+        int maximumXOffset = availableWidth - roomWidth;
+        int maximumYOffset = availableHeight - roomHeight;
+
+        int xOffset = random.Next(0, maximumXOffset + 1);
+        int yOffset = random.Next(0, maximumYOffset + 1);
+
+        int roomX = Bounds.x + padding + xOffset;
+        int roomY = Bounds.y + padding + yOffset;
+
+        RectInt roomBounds = new RectInt(
+            roomX,
+            roomY,
+            roomWidth,
+            roomHeight
+        );
+
+        Room = new Room(roomBounds, this);
+
+        return Room;
     }
 
     /// <summary>
