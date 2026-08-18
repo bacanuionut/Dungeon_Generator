@@ -84,6 +84,17 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private PlayerController playerController;
 
+    [Tooltip("Visual object used to show the generated dungeon exit.")]
+    [SerializeField]
+    private GameObject exitObject;
+
+    // Gameplay state for the currently generated dungeon.
+    private bool dungeonCompleted;
+    private int completionMovementCount;
+
+    public bool DungeonCompleted => dungeonCompleted;
+    public int CompletionMovementCount => completionMovementCount;
+
     /// <summary>
     /// Provides read access to the final generated dungeon grid.
     ///
@@ -117,6 +128,17 @@ public class DungeonGenerator : MonoBehaviour
     // Rooms generated inside the final BSP leaf partitions.
     private List<Room> rooms = new List<Room>();
 
+    // Gameplay rooms selected after the dungeon graph has been created.
+    private Room startRoom;
+    public Room StartRoom => startRoom;
+
+    private Room exitRoom;
+    public Room ExitRoom => exitRoom;
+
+    // Logical number of graph connections between start and exit.
+    private int startToExitDistance;
+    public int StartToExitDistance => startToExitDistance;
+
     // System.Random is used rather than UnityEngine.Random so each
     // generator can have its own reproducible random sequence.
     private System.Random random;
@@ -146,6 +168,9 @@ public class DungeonGenerator : MonoBehaviour
     /// </summary>
     public void GenerateDungeon()
     {
+        dungeonCompleted = false;
+        completionMovementCount = 0;
+
         // Stop immediately if the Inspector settings cannot produce
         // structurally valid rooms.
         if (!ValidateGenerationSettings())
@@ -209,6 +234,12 @@ public class DungeonGenerator : MonoBehaviour
                 dungeonGraph
             );
 
+        // Gameplay placement depends on the validated room graph.
+        if (graphConnected)
+        {
+            SelectStartAndExitRooms();
+        }
+
         // Generate physical corridors only if the logical graph is valid.
         corridors.Clear();
 
@@ -252,10 +283,23 @@ public class DungeonGenerator : MonoBehaviour
                 corridors
             );
 
+        bool playablePathValid =
+            gridValid &&
+            DungeonValidator.HasWalkablePath(
+                dungeonGrid,
+                GetPlayerSpawnPosition(),
+                GetExitPosition()
+            );
+
         // Render only a completely validated dungeon.
         if (gridValid && dungeonRenderer != null)
         {
             dungeonRenderer.Render(dungeonGrid);
+        }
+
+        if (gridValid)
+        {
+            PositionExit();
         }
 
         // Gameplay is initialised only after a completely valid dungeon
@@ -277,7 +321,8 @@ public class DungeonGenerator : MonoBehaviour
             $"Room validation: {(roomsValid ? "PASSED" : "FAILED")}. " +
             $"Connectivity: {(graphConnected ? "PASSED" : "FAILED")}. " +
             $"Corridor validation: {(corridorsValid ? "PASSED" : "FAILED")}." +
-            $"Grid validation: {(gridValid ? "PASSED" : "FAILED")}."
+            $"Grid validation: {(gridValid ? "PASSED" : "FAILED")}." +
+            $"Playable path: {(playablePathValid ? "PASSED" : "FAILED")}."
         );
     }
 
@@ -557,28 +602,138 @@ public class DungeonGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Returns a suitable starting position for the player.
-    ///
-    /// The first generated room is currently used as the starting room.
-    /// The centre of the room provides a guaranteed walkable coordinate
-    /// because room generation has already been validated.
+    /// Returns the centre of the selected gameplay start room.
     /// </summary>
     public Vector2Int GetPlayerSpawnPosition()
     {
-        if (rooms == null || rooms.Count == 0)
+        if (startRoom == null)
         {
             UnityEngine.Debug.LogWarning(
-                "Cannot find player spawn position because no rooms exist."
+                "Cannot find player spawn because no start room has been selected."
             );
 
             return Vector2Int.zero;
         }
 
-        RectInt startingRoom = rooms[0].Bounds;
+        return startRoom.Centre;
+    }
 
-        return new Vector2Int(
-            startingRoom.xMin + startingRoom.width / 2,
-            startingRoom.yMin + startingRoom.height / 2
+    /// <summary>
+    /// Selects gameplay start and exit rooms.
+    ///
+    /// The first generated room is used as the deterministic start room.
+    /// BFS graph distances are then calculated and one of the furthest
+    /// rooms is selected as the exit.
+    ///
+    /// This ensures the exit is logically separated from the start
+    /// instead of being placed in an arbitrary nearby room.
+    /// </summary>
+    private void SelectStartAndExitRooms()
+    {
+        startRoom = null;
+        exitRoom = null;
+        startToExitDistance = 0;
+
+        if (rooms == null ||
+            rooms.Count == 0 ||
+            dungeonGraph == null)
+        {
+            return;
+        }
+
+        startRoom = rooms[0];
+
+        Dictionary<Room, int> distances =
+            DungeonValidator.CalculateRoomDistances(
+                startRoom,
+                dungeonGraph
+            );
+
+        int furthestDistance = -1;
+
+        foreach (KeyValuePair<Room, int> entry in distances)
+        {
+            // Never select the starting room as the exit.
+            if (entry.Key == startRoom)
+            {
+                continue;
+            }
+
+            if (entry.Value > furthestDistance)
+            {
+                furthestDistance = entry.Value;
+                exitRoom = entry.Key;
+            }
+        }
+
+        if (exitRoom != null)
+        {
+            startToExitDistance = furthestDistance;
+
+            UnityEngine.Debug.Log(
+                $"Start room selected at {startRoom.Centre}. " +
+                $"Exit room selected at {exitRoom.Centre}. " +
+                $"Logical distance: {startToExitDistance}."
+            );
+        }
+    }
+
+    /// <summary>
+    /// Moves the exit visual to the centre of the selected exit room.
+    /// </summary>
+    private void PositionExit()
+    {
+        if (exitObject == null || exitRoom == null)
+        {
+            return;
+        }
+
+        Vector2Int exitPosition =
+            exitRoom.Centre;
+
+        exitObject.transform.position =
+            new Vector3(
+                exitPosition.x + 0.5f,
+                exitPosition.y + 0.5f,
+                -2f
+            );
+
+        exitObject.SetActive(true);
+    }
+
+    /// <summary>
+    /// Returns the grid coordinate used by the dungeon exit.
+    /// </summary>
+    public Vector2Int GetExitPosition()
+    {
+        if (exitRoom == null)
+        {
+            return Vector2Int.zero;
+        }
+
+        return exitRoom.Centre;
+    }
+
+    /// <summary>
+    /// Marks the current dungeon as completed.
+    ///
+    /// The guard prevents completion from being recorded more than once
+    /// if the player remains on or returns to the exit cell.
+    /// </summary>
+    public void CompleteDungeon(int movementCount)
+    {
+        if (dungeonCompleted)
+        {
+            return;
+        }
+
+        dungeonCompleted = true;
+        completionMovementCount = movementCount;
+
+        UnityEngine.Debug.Log(
+            $"DUNGEON COMPLETE - Seed {seed}. " +
+            $"Player reached the exit in {completionMovementCount} movements. " +
+            $"Start-to-exit logical distance: {startToExitDistance}."
         );
     }
 }

@@ -23,7 +23,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private float movementDelay = 0.12f;
 
-
     // Current logical position in the dungeon grid.
     private Vector2Int gridPosition;
 
@@ -33,6 +32,12 @@ public class PlayerController : MonoBehaviour
     // Player becomes active only after being placed into
     // a successfully generated dungeon.
     private bool initialised;
+
+    // Number of successful grid movements made since the
+    // current dungeon was generated.
+    private int movementCount;
+
+    public int MovementCount => movementCount;
 
 
     /// <summary>
@@ -80,6 +85,14 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void InitialisePlayer()
     {
+        movementCount = 0;
+
+        UpdateWorldPosition();
+
+        UnityEngine.Debug.Log(
+            $"Player spawned at grid position {gridPosition}."
+        );
+
         if (dungeonGenerator == null)
         {
             UnityEngine.Debug.LogError(
@@ -173,9 +186,13 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        gridPosition = targetPosition;
+        gridPosition = targetPosition;        
 
         UpdateWorldPosition();
+
+        movementCount++;
+
+        CheckForExit();
     }
 
 
@@ -191,5 +208,27 @@ public class PlayerController : MonoBehaviour
                 gridPosition.y + 0.5f,
                 -1f
             );
+    }
+
+    /// <summary>
+    /// Checks whether the player's current grid position is the
+    /// generated exit position.
+    /// </summary>
+    private void CheckForExit()
+    {
+        if (dungeonGenerator == null)
+        {
+            return;
+        }
+
+        Vector2Int exitPosition =
+            dungeonGenerator.GetExitPosition();
+
+        if (gridPosition == exitPosition)
+        {
+            dungeonGenerator.CompleteDungeon(
+                movementCount
+            );
+        }
     }
 }

@@ -212,4 +212,135 @@ public static class DungeonValidator
 
         return true;
     }
+
+    /// <summary>
+    /// Calculates the shortest logical graph distance from one room
+    /// to every room reachable through DungeonGraph.
+    ///
+    /// Distances are measured in graph edges rather than physical
+    /// corridor length. The starting room therefore has distance 0,
+    /// directly connected rooms have distance 1, and so on.
+    /// </summary>
+    public static Dictionary<Room, int> CalculateRoomDistances(
+        Room startRoom,
+        DungeonGraph graph)
+    {
+        Dictionary<Room, int> distances =
+            new Dictionary<Room, int>();
+
+        if (startRoom == null || graph == null)
+        {
+            return distances;
+        }
+
+        Queue<Room> queue = new Queue<Room>();
+
+        distances[startRoom] = 0;
+        queue.Enqueue(startRoom);
+
+        while (queue.Count > 0)
+        {
+            Room currentRoom = queue.Dequeue();
+
+            int currentDistance =
+                distances[currentRoom];
+
+            foreach (DungeonGraph.RoomConnection connection
+                     in graph.Connections)
+            {
+                Room neighbour = null;
+
+                if (connection.RoomA == currentRoom)
+                {
+                    neighbour = connection.RoomB;
+                }
+                else if (connection.RoomB == currentRoom)
+                {
+                    neighbour = connection.RoomA;
+                }
+
+                if (neighbour == null ||
+                    distances.ContainsKey(neighbour))
+                {
+                    continue;
+                }
+
+                distances[neighbour] =
+                    currentDistance + 1;
+
+                queue.Enqueue(neighbour);
+            }
+        }
+
+        return distances;
+    }
+
+    /// <summary>
+    /// Checks whether a walkable route exists between two exact
+    /// grid coordinates in the final DungeonGrid.
+    ///
+    /// This validates the final playable representation rather than
+    /// relying only on logical room connectivity.
+    /// </summary>
+    public static bool HasWalkablePath(
+        DungeonGrid grid,
+        Vector2Int start,
+        Vector2Int destination)
+    {
+        if (grid == null)
+        {
+            return false;
+        }
+
+        if (!grid.IsWalkable(start) ||
+            !grid.IsWalkable(destination))
+        {
+            return false;
+        }
+
+        Queue<Vector2Int> queue =
+            new Queue<Vector2Int>();
+
+        HashSet<Vector2Int> visited =
+            new HashSet<Vector2Int>();
+
+        Vector2Int[] directions =
+        {
+        Vector2Int.up,
+        Vector2Int.down,
+        Vector2Int.left,
+        Vector2Int.right
+    };
+
+        queue.Enqueue(start);
+        visited.Add(start);
+
+        while (queue.Count > 0)
+        {
+            Vector2Int current =
+                queue.Dequeue();
+
+            if (current == destination)
+            {
+                return true;
+            }
+
+            foreach (Vector2Int direction in directions)
+            {
+                Vector2Int neighbour =
+                    current + direction;
+
+                if (!grid.IsWalkable(neighbour) ||
+                    visited.Contains(neighbour))
+                {
+                    continue;
+                }
+
+                visited.Add(neighbour);
+                queue.Enqueue(neighbour);
+            }
+        }
+
+        return false;
+    }
 }
