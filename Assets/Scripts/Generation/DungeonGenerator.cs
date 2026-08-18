@@ -68,6 +68,35 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private bool showCorridors = true;
 
+    [Tooltip("Draw the final combined walkable dungeon grid.")]
+    [SerializeField]
+    private bool showDungeonGrid = false;
+
+    [Header("Rendering")]
+
+    [Tooltip("Renderer used to display the generated dungeon.")]
+    [SerializeField]
+    private DungeonRenderer dungeonRenderer;
+
+    [Header("Gameplay")]
+
+    [Tooltip("Player that will be placed into the generated dungeon.")]
+    [SerializeField]
+    private PlayerController playerController;
+
+    /// <summary>
+    /// Provides read access to the final generated dungeon grid.
+    ///
+    /// Other systems such as player movement can query the dungeon,
+    /// while DungeonGenerator remains responsible for creating it.
+    /// </summary>
+    public DungeonGrid Grid => dungeonGrid;
+
+    // Unified grid representation of all walkable dungeon space.
+    // This combines room and corridor cells after generation.
+    private DungeonGrid dungeonGrid =
+        new DungeonGrid();
+
     // Converts logical graph connections into physical grid-based paths.
     private CorridorGenerator corridorGenerator =
         new CorridorGenerator();
@@ -199,15 +228,56 @@ public class DungeonGenerator : MonoBehaviour
                 dungeonGraph
             );
 
+        // Build the final walkable dungeon representation only after
+        // the generated rooms and corridors have passed validation.
+        dungeonGrid.Clear();
+
+        if (roomsValid && graphConnected && corridorsValid)
+        {
+            dungeonGrid.Build(
+                rooms,
+                corridors
+            );
+        }
+
+        // Validate that the final unified grid contains all generated
+        // room and corridor cells.
+        bool gridValid =
+            roomsValid &&
+            graphConnected &&
+            corridorsValid &&
+            DungeonValidator.ValidateDungeonGrid(
+                dungeonGrid,
+                rooms,
+                corridors
+            );
+
+        // Render only a completely validated dungeon.
+        if (gridValid && dungeonRenderer != null)
+        {
+            dungeonRenderer.Render(dungeonGrid);
+        }
+
+        // Gameplay is initialised only after a completely valid dungeon
+        // has been generated.
+        if (gridValid && playerController != null)
+        {
+            playerController.InitialisePlayer();
+        }
+
         UnityEngine.Debug.Log(
             $"Dungeon generated with seed {seed}. " +
             $"Created {leafNodes.Count} leaf partitions, " +
             $"{rooms.Count} rooms, " +
             $"{dungeonGraph.Connections.Count} logical connections and " +
             $"{corridors.Count} corridors. " +
+            $"Floor cells: {dungeonGrid.FloorCellCount} " +
+            $"(room cells: {dungeonGrid.RoomCellCount}, " +
+            $"corridor cells: {dungeonGrid.CorridorCellCount}). " +
             $"Room validation: {(roomsValid ? "PASSED" : "FAILED")}. " +
             $"Connectivity: {(graphConnected ? "PASSED" : "FAILED")}. " +
-            $"Corridor validation: {(corridorsValid ? "PASSED" : "FAILED")}."
+            $"Corridor validation: {(corridorsValid ? "PASSED" : "FAILED")}." +
+            $"Grid validation: {(gridValid ? "PASSED" : "FAILED")}."
         );
     }
 
@@ -327,6 +397,31 @@ public class DungeonGenerator : MonoBehaviour
                         size
                     );
                 }
+            }
+        }
+
+        // -------------------------
+        // Draw final dungeon grid
+        // -------------------------
+
+        if (showDungeonGrid && dungeonGrid != null)
+        {
+            Gizmos.color = Color.white;
+
+            foreach (Vector2Int cell in dungeonGrid.FloorCells)
+            {
+                Vector3 centre = new Vector3(
+                    cell.x + 0.5f,
+                    cell.y + 0.5f,
+                    0f
+                );
+
+                // Filled cubes make it easy to verify that rooms and
+                // corridors have become one continuous floor representation.
+                Gizmos.DrawCube(
+                    centre,
+                    new Vector3(0.9f, 0.9f, 0.01f)
+                );
             }
         }
     }
@@ -459,5 +554,31 @@ public class DungeonGenerator : MonoBehaviour
         // Process the rest of the BSP tree.
         BuildDungeonGraph(node.LeftChild);
         BuildDungeonGraph(node.RightChild);
+    }
+
+    /// <summary>
+    /// Returns a suitable starting position for the player.
+    ///
+    /// The first generated room is currently used as the starting room.
+    /// The centre of the room provides a guaranteed walkable coordinate
+    /// because room generation has already been validated.
+    /// </summary>
+    public Vector2Int GetPlayerSpawnPosition()
+    {
+        if (rooms == null || rooms.Count == 0)
+        {
+            UnityEngine.Debug.LogWarning(
+                "Cannot find player spawn position because no rooms exist."
+            );
+
+            return Vector2Int.zero;
+        }
+
+        RectInt startingRoom = rooms[0].Bounds;
+
+        return new Vector2Int(
+            startingRoom.xMin + startingRoom.width / 2,
+            startingRoom.yMin + startingRoom.height / 2
+        );
     }
 }

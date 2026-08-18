@@ -145,4 +145,71 @@ public static class DungeonValidator
 
         return true;
     }
+
+    /// <summary>
+    /// Validates the final unified dungeon grid.
+    ///
+    /// Every cell belonging to a generated room and every cell belonging
+    /// to a generated corridor must exist in the final walkable floor set.
+    /// This checks that no generated geometry was lost when the separate
+    /// room and corridor data was combined into DungeonGrid.
+    /// </summary>
+    public static bool ValidateDungeonGrid(
+        DungeonGrid grid,
+        List<Room> rooms,
+        List<CorridorGenerator.Corridor> corridors)
+    {
+        if (grid == null || rooms == null || corridors == null)
+        {
+            return false;
+        }
+
+        if (grid.FloorCellCount == 0)
+        {
+            return false;
+        }
+
+        // Check every cell belonging to every generated room.
+        foreach (Room room in rooms)
+        {
+            if (room == null)
+            {
+                return false;
+            }
+
+            RectInt bounds = room.Bounds;
+
+            for (int x = bounds.xMin; x < bounds.xMax; x++)
+            {
+                for (int y = bounds.yMin; y < bounds.yMax; y++)
+                {
+                    Vector2Int cell = new Vector2Int(x, y);
+
+                    if (!grid.IsWalkable(cell))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Check every generated corridor cell.
+        foreach (CorridorGenerator.Corridor corridor in corridors)
+        {
+            if (corridor == null || corridor.Cells == null)
+            {
+                return false;
+            }
+
+            foreach (Vector2Int cell in corridor.Cells)
+            {
+                if (!grid.IsWalkable(cell))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 }
