@@ -1,6 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Text;
 using UnityEngine;
+using static System.Net.Mime.MediaTypeNames;
 
 /// <summary>
 /// Runs the dungeon generator across multiple deterministic seeds
@@ -27,6 +31,16 @@ public class DungeonBatchEvaluator : MonoBehaviour
     [Tooltip("Press this key during Play mode to run the batch.")]
     [SerializeField]
     private KeyCode runKey = KeyCode.B;
+
+    [Header("CSV Export")]
+
+    [Tooltip("File name used when exporting individual dungeon metrics.")]
+    [SerializeField]
+    private string csvFileName = "DungeonBatchResults.csv";
+
+    [Tooltip("Automatically export the individual results after a batch completes.")]
+    [SerializeField]
+    private bool exportToCsv = true;
 
 
     private void Update()
@@ -90,6 +104,17 @@ public class DungeonBatchEvaluator : MonoBehaviour
             results,
             failedTests
         );
+
+        // Keep the individual results as well as the aggregate summary.
+        // This allows the evaluation data to be analysed later using
+        // spreadsheets, graphs or statistical tools.
+        if (exportToCsv)
+        {
+            ExportResultsToCsv(
+                results,
+                failedTests
+            );
+        }
     }
 
 
@@ -209,6 +234,116 @@ public class DungeonBatchEvaluator : MonoBehaviour
             $"Min: {minGraphDistance}, Max: {maxGraphDistance}\n" +
 
             "=============================================="
+        );
+    }
+
+    /// <summary>
+    /// Exports the individual result from every successful generated
+    /// dungeon to a CSV file.
+    ///
+    /// The batch summary is useful for quick inspection in Unity, while
+    /// the CSV preserves the underlying per-seed data for later analysis.
+    /// </summary>
+    private void ExportResultsToCsv(
+        List<DungeonMetrics.Result> results,
+        int failedTests)
+    {
+        if (results == null || results.Count == 0)
+        {
+            UnityEngine.Debug.LogWarning(
+                "CSV export skipped because there are no successful results."
+            );
+
+            return;
+        }
+
+        StringBuilder csv =
+            new StringBuilder();
+
+        // Column headings.
+        csv.AppendLine(
+            "Seed," +
+            "Rooms," +
+            "Connections," +
+            "Corridors," +
+            "FloorCells," +
+            "RoomCells," +
+            "CorridorCells," +
+            "AverageRoomArea," +
+            "SmallestRoomArea," +
+            "LargestRoomArea," +
+            "TotalCorridorLength," +
+            "AverageCorridorLength," +
+            "GraphDistance," +
+            "ShortestPlayablePath"
+        );
+
+        // One row represents one generated dungeon.
+        foreach (DungeonMetrics.Result result in results)
+        {
+            csv.Append(result.Seed).Append(",");
+            csv.Append(result.RoomCount).Append(",");
+            csv.Append(result.ConnectionCount).Append(",");
+            csv.Append(result.CorridorCount).Append(",");
+            csv.Append(result.FloorCellCount).Append(",");
+            csv.Append(result.RoomCellCount).Append(",");
+            csv.Append(result.CorridorCellCount).Append(",");
+
+            csv.Append(
+                result.AverageRoomArea.ToString(
+                    "F2",
+                    CultureInfo.InvariantCulture
+                )
+            ).Append(",");
+
+            csv.Append(result.SmallestRoomArea).Append(",");
+            csv.Append(result.LargestRoomArea).Append(",");
+            csv.Append(result.TotalCorridorLength).Append(",");
+
+            csv.Append(
+                result.AverageCorridorLength.ToString(
+                    "F2",
+                    CultureInfo.InvariantCulture
+                )
+            ).Append(",");
+
+            csv.Append(result.StartToExitGraphDistance).Append(",");
+            csv.Append(result.ShortestPlayablePathLength);
+
+            csv.AppendLine();
+        }
+
+        // Application.dataPath points to the project's Assets folder.
+        // We place evaluation output in a dedicated subfolder.
+        string evaluationFolder =
+            Path.Combine(
+                UnityEngine.Application.dataPath,
+                "EvaluationResults"
+            );
+
+        if (!Directory.Exists(evaluationFolder))
+        {
+            Directory.CreateDirectory(
+                evaluationFolder
+            );
+        }
+
+        string filePath =
+            Path.Combine(
+                evaluationFolder,
+                csvFileName
+            );
+
+        File.WriteAllText(
+            filePath,
+            csv.ToString()
+        );
+
+        UnityEngine.Debug.Log(
+            $"CSV EVALUATION DATA EXPORTED\n" +
+            $"Successful rows: {results.Count}\n" +
+            $"Failed generations: {failedTests}\n" +
+            $"File: {filePath}"
         );
     }
 }
