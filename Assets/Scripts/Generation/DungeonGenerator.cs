@@ -88,6 +88,16 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private GameObject exitObject;
 
+    // When true, generation runs without rendering or gameplay setup.
+    // This is used when evaluating many dungeon seeds automatically.
+    private bool batchEvaluationMode;
+
+    // Measurements calculated from the current generated dungeon.
+    private DungeonMetrics.Result currentMetrics;
+
+    public DungeonMetrics.Result CurrentMetrics =>
+        currentMetrics;
+
     // Gameplay state for the currently generated dungeon.
     private bool dungeonCompleted;
     private int completionMovementCount;
@@ -291,20 +301,43 @@ public class DungeonGenerator : MonoBehaviour
                 GetExitPosition()
             );
 
-        // Render only a completely validated dungeon.
-        if (gridValid && dungeonRenderer != null)
+        // Calculate quantitative measurements only when the final
+        // gameplay representation has passed validation.
+        currentMetrics = null;
+
+        if (playablePathValid)
         {
-            dungeonRenderer.Render(dungeonGrid);
+            currentMetrics =
+                DungeonMetrics.Calculate(
+                    seed,
+                    rooms,
+                    dungeonGraph,
+                    corridors,
+                    dungeonGrid,
+                    GetPlayerSpawnPosition(),
+                    GetExitPosition(),
+                    startToExitDistance
+                );
+
+            DungeonMetrics.LogResult(
+                currentMetrics
+            );
         }
 
-        if (gridValid)
+        // Render only a completely validated dungeon.
+        if (!batchEvaluationMode && gridValid && dungeonRenderer != null)
+            {
+                dungeonRenderer.Render(dungeonGrid);
+            }
+
+        if (!batchEvaluationMode && gridValid)
         {
             PositionExit();
         }
 
         // Gameplay is initialised only after a completely valid dungeon
         // has been generated.
-        if (gridValid && playerController != null)
+        if (!batchEvaluationMode && gridValid && playerController != null)
         {
             playerController.InitialisePlayer();
         }
@@ -735,5 +768,31 @@ public class DungeonGenerator : MonoBehaviour
             $"Player reached the exit in {completionMovementCount} movements. " +
             $"Start-to-exit logical distance: {startToExitDistance}."
         );
+    }
+
+    /// <summary>
+    /// Generates and evaluates one seed without rendering the dungeon
+    /// or initialising gameplay.
+    ///
+    /// Used by automated batch testing.
+    /// </summary>
+    public DungeonMetrics.Result EvaluateSeed(int testSeed)
+    {
+        int previousSeed = seed;
+        bool previousBatchMode = batchEvaluationMode;
+
+        batchEvaluationMode = true;
+        seed = testSeed;
+
+        GenerateDungeon();
+
+        DungeonMetrics.Result result =
+            currentMetrics;
+
+        // Restore the generator settings after evaluation.
+        seed = previousSeed;
+        batchEvaluationMode = previousBatchMode;
+
+        return result;
     }
 }
