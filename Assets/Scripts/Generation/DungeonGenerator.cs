@@ -60,6 +60,13 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private bool showRooms = true;
 
+    [Tooltip("Draw logical room connections in the Scene view.")]
+    [SerializeField]
+    private bool showConnections = true;
+
+    // Logical representation of which generated rooms should be connected.
+    private DungeonGraph dungeonGraph = new DungeonGraph();
+
     // Root of the BSP tree.
     private BSPNode rootNode;
 
@@ -145,11 +152,29 @@ public class DungeonGenerator : MonoBehaviour
 
         bool roomsValid = ValidateRooms();
 
+        // Build the logical room network only after valid rooms exist.
+        dungeonGraph.Clear();
+
+        if (roomsValid)
+        {
+            BuildDungeonGraph(rootNode);
+        }
+
+        // Validate the logical dungeon structure using graph traversal.
+        bool graphConnected =
+            roomsValid &&
+            DungeonValidator.IsFullyConnected(
+                rooms,
+                dungeonGraph
+            );
+
         UnityEngine.Debug.Log(
             $"Dungeon generated with seed {seed}. " +
-            $"Created {leafNodes.Count} leaf partitions and " +
-            $"{rooms.Count} rooms. " +
-            $"Room validation: {(roomsValid ? "PASSED" : "FAILED")}."
+            $"Created {leafNodes.Count} leaf partitions, " +
+            $"{rooms.Count} rooms and " +
+            $"{dungeonGraph.Connections.Count} logical connections. " +
+            $"Room validation: {(roomsValid ? "PASSED" : "FAILED")}. " +
+            $"Connectivity: {(graphConnected ? "PASSED" : "FAILED")}."
         );
     }
 
@@ -205,6 +230,36 @@ public class DungeonGenerator : MonoBehaviour
             foreach (Room room in rooms)
             {
                 DrawRectangle(room.Bounds);
+            }
+        }
+
+        // -------------------------
+        // Draw logical connections
+        // -------------------------
+
+        if (showConnections && dungeonGraph != null)
+        {
+            Gizmos.color = Color.cyan;
+
+            foreach (DungeonGraph.RoomConnection connection
+                     in dungeonGraph.Connections)
+            {
+                Vector2Int centreA = connection.RoomA.Centre;
+                Vector2Int centreB = connection.RoomB.Centre;
+
+                Vector3 start = new Vector3(
+                    centreA.x,
+                    centreA.y,
+                    0f
+                );
+
+                Vector3 end = new Vector3(
+                    centreB.x,
+                    centreB.y,
+                    0f
+                );
+
+                Gizmos.DrawLine(start, end);
             }
         }
     }
@@ -303,5 +358,39 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Recursively creates logical room connections using the BSP tree.
+    ///
+    /// At each branch of the tree, one room from the left subtree is
+    /// connected to one room from the right subtree. Repeating this for
+    /// every branch creates a connected structure across the dungeon.
+    /// </summary>
+    private void BuildDungeonGraph(BSPNode node)
+    {
+        if (node == null || node.IsLeaf())
+        {
+            return;
+        }
+
+        if (node.LeftChild != null &&
+            node.RightChild != null)
+        {
+            Room leftRoom =
+                node.LeftChild.GetRoomFromSubtree();
+
+            Room rightRoom =
+                node.RightChild.GetRoomFromSubtree();
+
+            dungeonGraph.AddConnection(
+                leftRoom,
+                rightRoom
+            );
+        }
+
+        // Process the rest of the BSP tree.
+        BuildDungeonGraph(node.LeftChild);
+        BuildDungeonGraph(node.RightChild);
     }
 }

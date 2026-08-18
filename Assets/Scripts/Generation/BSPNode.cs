@@ -232,4 +232,39 @@ public class BSPNode
         LeftChild?.GetLeafNodes(leaves);
         RightChild?.GetLeafNodes(leaves);
     }
+
+    /// <summary>
+    /// Returns one room contained somewhere within this node's subtree.
+    ///
+    /// Leaf nodes return their own room. Branch nodes search their
+    /// children recursively. This is useful when connecting the two
+    /// sides of a BSP split.
+    /// </summary>
+    public Room GetRoomFromSubtree()
+    {
+        // If this is a leaf, its generated room is the result.
+        if (IsLeaf())
+        {
+            return Room;
+        }
+
+        // Search the left subtree first.
+        if (LeftChild != null)
+        {
+            Room leftRoom = LeftChild.GetRoomFromSubtree();
+
+            if (leftRoom != null)
+            {
+                return leftRoom;
+            }
+        }
+
+        // If no room was found on the left, search the right subtree.
+        if (RightChild != null)
+        {
+            return RightChild.GetRoomFromSubtree();
+        }
+
+        return null;
+    }
 }
