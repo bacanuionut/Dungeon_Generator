@@ -49,7 +49,7 @@ public class DungeonGenerator : MonoBehaviour
 
     [Tooltip("Generate a new random seed each time generation starts.")]
     [SerializeField]
-    private bool useRandomSeed = false;
+    private bool useRandomSeed = false;    
 
     [Header("Debug Display")]
     [Tooltip("Draw BSP partition boundaries in the Scene view.")]
@@ -63,6 +63,18 @@ public class DungeonGenerator : MonoBehaviour
     [Tooltip("Draw logical room connections in the Scene view.")]
     [SerializeField]
     private bool showConnections = true;
+
+    [Tooltip("Draw the generated physical corridor cells.")]
+    [SerializeField]
+    private bool showCorridors = true;
+
+    // Converts logical graph connections into physical grid-based paths.
+    private CorridorGenerator corridorGenerator =
+        new CorridorGenerator();
+
+    // Physical corridors generated for the current dungeon.
+    private List<CorridorGenerator.Corridor> corridors =
+        new List<CorridorGenerator.Corridor>();
 
     // Logical representation of which generated rooms should be connected.
     private DungeonGraph dungeonGraph = new DungeonGraph();
@@ -168,13 +180,34 @@ public class DungeonGenerator : MonoBehaviour
                 dungeonGraph
             );
 
+        // Generate physical corridors only if the logical graph is valid.
+        corridors.Clear();
+
+        if (graphConnected)
+        {
+            corridors = corridorGenerator.GenerateCorridors(
+                dungeonGraph,
+                random
+            );
+        }
+
+        // Validate the actual grid paths independently from the logical graph.
+        bool corridorsValid =
+            graphConnected &&
+            DungeonValidator.ValidateCorridors(
+                corridors,
+                dungeonGraph
+            );
+
         UnityEngine.Debug.Log(
             $"Dungeon generated with seed {seed}. " +
             $"Created {leafNodes.Count} leaf partitions, " +
-            $"{rooms.Count} rooms and " +
-            $"{dungeonGraph.Connections.Count} logical connections. " +
+            $"{rooms.Count} rooms, " +
+            $"{dungeonGraph.Connections.Count} logical connections and " +
+            $"{corridors.Count} corridors. " +
             $"Room validation: {(roomsValid ? "PASSED" : "FAILED")}. " +
-            $"Connectivity: {(graphConnected ? "PASSED" : "FAILED")}."
+            $"Connectivity: {(graphConnected ? "PASSED" : "FAILED")}. " +
+            $"Corridor validation: {(corridorsValid ? "PASSED" : "FAILED")}."
         );
     }
 
@@ -260,6 +293,40 @@ public class DungeonGenerator : MonoBehaviour
                 );
 
                 Gizmos.DrawLine(start, end);
+            }
+        }
+
+        // -------------------------
+        // Draw physical corridors
+        // -------------------------
+
+        if (showCorridors && corridors != null)
+        {
+            Gizmos.color = Color.magenta;
+
+            foreach (CorridorGenerator.Corridor corridor in corridors)
+            {
+                foreach (Vector2Int cell in corridor.Cells)
+                {
+                    Vector3 centre = new Vector3(
+                        cell.x + 0.5f,
+                        cell.y + 0.5f,
+                        0f
+                    );
+
+                    // Slightly smaller than one grid unit so individual
+                    // corridor cells remain visible during debugging.
+                    Vector3 size = new Vector3(
+                        0.8f,
+                        0.8f,
+                        0f
+                    );
+
+                    Gizmos.DrawWireCube(
+                        centre,
+                        size
+                    );
+                }
             }
         }
     }

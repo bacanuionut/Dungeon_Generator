@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// Contains validation methods for analysing generated dungeons.
@@ -66,5 +67,82 @@ public static class DungeonValidator
 
         // Every room must have been reached from the starting room.
         return visited.Count == rooms.Count;
+    }
+
+    /// <summary>
+    /// Validates the physical corridor paths generated from the dungeon graph.
+    ///
+    /// Checks that:
+    /// 1. One physical corridor exists for every logical graph connection.
+    /// 2. Every corridor contains cells.
+    /// 3. Each corridor begins inside its first room.
+    /// 4. Each corridor ends inside its second room.
+    /// 5. Every step in the path moves exactly one grid cell horizontally
+    ///    or vertically.
+    /// </summary>
+    public static bool ValidateCorridors(
+        List<CorridorGenerator.Corridor> corridors,
+        DungeonGraph graph)
+    {
+        if (corridors == null || graph == null)
+        {
+            return false;
+        }
+
+        // Every logical connection should have one physical corridor.
+        if (corridors.Count != graph.Connections.Count)
+        {
+            return false;
+        }
+
+        foreach (CorridorGenerator.Corridor corridor in corridors)
+        {
+            if (corridor == null ||
+                corridor.Cells == null ||
+                corridor.Cells.Count == 0)
+            {
+                return false;
+            }
+
+            Vector2Int firstCell = corridor.Cells[0];
+            Vector2Int lastCell =
+                corridor.Cells[corridor.Cells.Count - 1];
+
+            // Corridor must start inside the first connected room.
+            if (!corridor.RoomA.Contains(firstCell))
+            {
+                return false;
+            }
+
+            // Corridor must finish inside the second connected room.
+            if (!corridor.RoomB.Contains(lastCell))
+            {
+                return false;
+            }
+
+            // Check every consecutive pair of cells.
+            for (int i = 1; i < corridor.Cells.Count; i++)
+            {
+                Vector2Int previous = corridor.Cells[i - 1];
+                Vector2Int current = corridor.Cells[i];
+
+                int xDifference =
+                    Mathf.Abs(current.x - previous.x);
+
+                int yDifference =
+                    Mathf.Abs(current.y - previous.y);
+
+                int manhattanDistance =
+                    xDifference + yDifference;
+
+                // Exactly 1 means one horizontal or vertical grid step.
+                if (manhattanDistance != 1)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 }

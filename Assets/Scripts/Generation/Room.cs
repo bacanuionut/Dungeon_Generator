@@ -58,4 +58,15 @@ public class Room
                Bounds.xMax <= partition.xMax &&
                Bounds.yMax <= partition.yMax;
     }
+
+    /// <summary>
+    /// Checks whether a grid position lies inside this room.
+    ///
+    /// This is useful when validating that corridors begin and end
+    /// inside the rooms they are intended to connect.
+    /// </summary>
+    public bool Contains(Vector2Int position)
+    {
+        return Bounds.Contains(position);
+    }
 }

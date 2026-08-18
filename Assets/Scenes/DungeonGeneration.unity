@@ -160,6 +160,8 @@ MonoBehaviour:
   useRandomSeed: 0
   showPartitions: 1
   showRooms: 1
+  showConnections: 1
+  showCorridors: 1
 --- !u!4 &1044558307
 Transform:
   m_ObjectHideFlags: 0
