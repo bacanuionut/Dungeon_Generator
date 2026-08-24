@@ -176,6 +176,8 @@ public class DungeonGenerator : MonoBehaviour
     // generator can have its own reproducible random sequence.
     private System.Random random;
 
+    public DungeonContentGenerator ContentGenerator => dungeonContentGenerator;
+
     private void Start()
     {
         GenerateDungeon();

@@ -60,6 +60,9 @@ public class PlayerController : MonoBehaviour
 
     public int MovementCount => movementCount;
 
+    private int treasuresCollected;
+
+    public int TreasuresCollected => treasuresCollected;
 
     /// <summary>
     /// Places the player at a valid generated starting position.
@@ -108,6 +111,7 @@ public class PlayerController : MonoBehaviour
     {
         currentHealth = maximumHealth;
         movementCount = 0;
+        treasuresCollected = 0;
 
         UpdateWorldPosition();
 
@@ -214,6 +218,8 @@ public class PlayerController : MonoBehaviour
 
         movementCount++;
 
+        CheckForItem();
+
         CheckForExit();
     }
 
@@ -288,6 +294,31 @@ public class PlayerController : MonoBehaviour
                 "========== GAME OVER ==========\n" +
                 "Player health reached zero.\n" +
                 "================================"
+            );
+        }
+    }
+
+    /// <summary>
+    /// Checks whether the player's current grid position contains a
+    /// procedurally generated collectible.
+    /// </summary>
+    private void CheckForItem()
+    {
+        if (dungeonGenerator == null ||
+            dungeonGenerator.ContentGenerator == null)
+        {
+            return;
+        }
+
+
+        if (dungeonGenerator.ContentGenerator.TryCollectItem(
+                gridPosition))
+        {
+            treasuresCollected++;
+
+            UnityEngine.Debug.Log(
+                $"TREASURE COLLECTED - " +
+                $"Total: {treasuresCollected}"
             );
         }
     }

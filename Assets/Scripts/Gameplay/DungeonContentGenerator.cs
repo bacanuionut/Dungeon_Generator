@@ -67,6 +67,12 @@ public class DungeonContentGenerator : MonoBehaviour
 
     private GameObject contentParent;
 
+    // Allows gameplay systems to find an item directly from a
+    // dungeon-grid position without using physics collision.
+    private readonly Dictionary<Vector2Int, GameObject> itemsByCell =
+        new Dictionary<Vector2Int, GameObject>();
+
+
     private readonly List<GameObject> enemyObjects =
         new List<GameObject>();
 
@@ -90,6 +96,7 @@ public class DungeonContentGenerator : MonoBehaviour
     {
         enemyObjects.Clear();
         itemObjects.Clear();
+        itemsByCell.Clear();
 
         if (contentParent != null)
         {
@@ -341,6 +348,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
         itemObjects.Add(item);
         occupiedCells.Add(cell);
+        itemsByCell[cell] = item;
     }
 
 
@@ -462,5 +470,45 @@ public class DungeonContentGenerator : MonoBehaviour
         renderer.GetPropertyBlock(properties);
         properties.SetColor("_Color", colour);
         renderer.SetPropertyBlock(properties);
+    }
+
+    /// <summary>
+    /// Attempts to collect an item from the supplied dungeon-grid cell.
+    ///
+    /// Returns true only when an item was actually present.
+    /// </summary>
+    public bool TryCollectItem(Vector2Int gridPosition)
+    {
+        GameObject item;
+
+        if (!itemsByCell.TryGetValue(
+                gridPosition,
+                out item))
+        {
+            return false;
+        }
+
+
+        itemsByCell.Remove(
+            gridPosition
+        );
+
+        itemObjects.Remove(
+            item
+        );
+
+
+        if (item != null)
+        {
+            Destroy(item);
+        }
+
+
+        UnityEngine.Debug.Log(
+            $"ITEM COLLECTED at " +
+            $"({gridPosition.x}, {gridPosition.y})"
+        );
+
+        return true;
     }
 }
