@@ -16,6 +16,20 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private DungeonGenerator dungeonGenerator;
 
+    [Header("Player Health")]
+
+    [Tooltip("Health restored whenever a new dungeon is started.")]
+    [SerializeField]
+    private int maximumHealth = 5;
+
+    private int currentHealth;
+
+
+    public int CurrentHealth => currentHealth;
+
+    public int MaximumHealth => maximumHealth;
+
+    public bool IsAlive => currentHealth > 0;
 
     [Header("Movement")]
 
@@ -25,6 +39,13 @@ public class PlayerController : MonoBehaviour
 
     // Current logical position in the dungeon grid.
     private Vector2Int gridPosition;
+
+    /// <summary>
+    /// Current player position in dungeon-grid coordinates.
+    /// Enemy AI uses this rather than converting world positions back
+    /// into grid coordinates.
+    /// </summary>
+    public Vector2Int GridPosition => gridPosition;
 
     // Prevents movement input from firing every rendered frame.
     private float nextMovementTime;
@@ -85,6 +106,7 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void InitialisePlayer()
     {
+        currentHealth = maximumHealth;
         movementCount = 0;
 
         UpdateWorldPosition();
@@ -228,6 +250,44 @@ public class PlayerController : MonoBehaviour
         {
             dungeonGenerator.CompleteDungeon(
                 movementCount
+            );
+        }
+    }
+
+    /// <summary>
+    /// Applies damage to the player.
+    ///
+    /// Enemy AI calls this when an enemy is adjacent and its
+    /// attack cooldown has expired.
+    /// </summary>
+    public void TakeDamage(int damage)
+    {
+        if (!initialised || currentHealth <= 0)
+            return;
+
+        if (damage <= 0)
+            return;
+
+        currentHealth =
+            Mathf.Max(
+                0,
+                currentHealth - damage
+            );
+
+        UnityEngine.Debug.Log(
+            $"PLAYER HIT - Damage: {damage}. " +
+            $"Health: {currentHealth}/{maximumHealth}"
+        );
+
+
+        if (currentHealth <= 0)
+        {
+            initialised = false;
+
+            UnityEngine.Debug.Log(
+                "========== GAME OVER ==========\n" +
+                "Player health reached zero.\n" +
+                "================================"
             );
         }
     }

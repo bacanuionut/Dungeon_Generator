@@ -88,6 +88,11 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private GameObject exitObject;
 
+    [Header("Procedural Content")]
+
+    [SerializeField]
+    private DungeonContentGenerator dungeonContentGenerator;
+
     // When true, generation runs without rendering or gameplay setup.
     // This is used when evaluating many dungeon seeds automatically.
     private bool batchEvaluationMode;
@@ -145,6 +150,24 @@ public class DungeonGenerator : MonoBehaviour
     private Room exitRoom;
     public Room ExitRoom => exitRoom;
 
+    /// <summary>
+    /// Read-only access to the generated rooms.
+    /// Used by systems such as procedural content placement.
+    /// </summary>
+    public IReadOnlyList<Room> Rooms => rooms;
+
+    /// <summary>
+    /// Gives other systems access to the logical room graph
+    /// without moving graph generation outside this class.
+    /// </summary>
+    public DungeonGraph Graph => dungeonGraph;
+
+    /// <summary>
+    /// The seed used for the current dungeon.
+    /// Content generation can use this to remain reproducible.
+    /// </summary>
+    public int CurrentSeed => seed;
+
     // Logical number of graph connections between start and exit.
     private int startToExitDistance;
     public int StartToExitDistance => startToExitDistance;
@@ -180,6 +203,13 @@ public class DungeonGenerator : MonoBehaviour
     {
         dungeonCompleted = false;
         completionMovementCount = 0;
+
+        // Remove gameplay content from the previous generation.
+        if (!batchEvaluationMode &&
+            dungeonContentGenerator != null)
+        {
+            dungeonContentGenerator.ClearContent();
+        }
 
         // Stop immediately if the Inspector settings cannot produce
         // structurally valid rooms.
@@ -342,6 +372,15 @@ public class DungeonGenerator : MonoBehaviour
             playerController.InitialisePlayer();
         }
 
+        // Gameplay content is only added after the complete dungeon has
+        // passed validation and gameplay has been initialised.
+        if (!batchEvaluationMode &&
+            playablePathValid &&
+            dungeonContentGenerator != null)
+        {
+            dungeonContentGenerator.GenerateContent(this);
+        }
+
         UnityEngine.Debug.Log(
             $"Dungeon generated with seed {seed}. " +
             $"Created {leafNodes.Count} leaf partitions, " +
@@ -359,10 +398,8 @@ public class DungeonGenerator : MonoBehaviour
         );
     }
 
-    /// <summary>
-    /// Recursively splits nodes until maximumDepth is reached
-    /// or the partition becomes too small to divide.
-    /// </summary>
+    // Recursively splits nodes until maximumDepth is reached
+    // or the partition becomes too small to divide.
     private void SplitRecursively(BSPNode node)
     {
         if (node.Depth >= maximumDepth)

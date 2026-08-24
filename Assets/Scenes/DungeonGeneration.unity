@@ -121,6 +121,59 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &655920708
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 655920710}
+  - component: {fileID: 655920709}
+  m_Layer: 0
+  m_Name: Dungeon Content Generator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &655920709
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 655920708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c829f85ce100d144fb592f32e6d41eee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerController: {fileID: 2142187895}
+  unlitMaterial: {fileID: 2100000, guid: 3728c06bb33f1d54ead0c964af138c5c, type: 2}
+  baseEnemyChance: 0.15
+  enemyChancePerGraphStep: 0.2
+  secondEnemyChance: 0.35
+  itemChance: 0.3
+  enemyColour: {r: 1, g: 0, b: 0, a: 1}
+  itemColour: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  enemyScale: 0.55
+  itemScale: 0.35
+--- !u!4 &655920710
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 655920708}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 35.68363, y: 18.401085, z: -15.358529}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 6
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &973729811
 GameObject:
   m_ObjectHideFlags: 0
@@ -154,6 +207,8 @@ MonoBehaviour:
   numberOfTests: 100
   startingSeed: 1
   runKey: 98
+  csvFileName: DungeonBatchResults.csv
+  exportToCsv: 1
 --- !u!4 &973729813
 Transform:
   m_ObjectHideFlags: 0
@@ -213,6 +268,7 @@ MonoBehaviour:
   dungeonRenderer: {fileID: 1128854572}
   playerController: {fileID: 2142187895}
   exitObject: {fileID: 1628025814}
+  dungeonContentGenerator: {fileID: 655920709}
 --- !u!4 &1044558307
 Transform:
   m_ObjectHideFlags: 0
@@ -470,6 +526,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dungeonGenerator: {fileID: 1044558306}
+  maximumHealth: 5
   movementDelay: 0.12
 --- !u!212 &2142187896
 SpriteRenderer:
