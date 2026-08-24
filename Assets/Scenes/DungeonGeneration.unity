@@ -265,6 +265,10 @@ MonoBehaviour:
   showConnections: 0
   showCorridors: 0
   showDungeonGrid: 0
+  useOrganicRoomShapes: 1
+  organicGrowthRadius: 2
+  organicInitialGrowthChance: 0.5
+  organicSmoothingIterations: 2
   dungeonRenderer: {fileID: 1128854572}
   playerController: {fileID: 2142187895}
   exitObject: {fileID: 1628025814}

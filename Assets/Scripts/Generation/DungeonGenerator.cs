@@ -72,6 +72,27 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private bool showDungeonGrid = false;
 
+    [Header("Organic Room Post-Processing")]
+
+    [Tooltip("Adds cellular-automata-inspired floor growth around BSP room edges.")]
+    [SerializeField]
+    private bool useOrganicRoomShapes = false;
+
+    [Tooltip("Maximum number of cells the room shape can grow beyond its rectangular BSP core.")]
+    [Range(1, 4)]
+    [SerializeField]
+    private int organicGrowthRadius = 2;
+
+    [Tooltip("Initial probability that a candidate edge cell begins as floor.")]
+    [Range(0f, 1f)]
+    [SerializeField]
+    private float organicInitialGrowthChance = 0.50f;
+
+    [Tooltip("Number of cellular smoothing passes.")]
+    [Range(0, 5)]
+    [SerializeField]
+    private int organicSmoothingIterations = 2;
+
     [Header("Rendering")]
 
     [Tooltip("Renderer used to display the generated dungeon.")]
@@ -310,6 +331,54 @@ public class DungeonGenerator : MonoBehaviour
             dungeonGrid.Build(
                 rooms,
                 corridors
+            );
+        }
+
+        // Optional room-shape post-processing.
+        //
+        // This happens after the BSP rooms and corridors have been converted
+        // to the common grid, but before final grid/playability validation.
+        if (corridorsValid &&
+            useOrganicRoomShapes)
+        {
+            // Keep the CA random sequence independent from the BSP and
+            // gameplay-content random sequences.
+            int organicSeed =
+                unchecked(
+                    seed * 613 +
+                    104729
+                );
+
+            System.Random organicRandom =
+                new System.Random(
+                    organicSeed
+                );
+
+
+            HashSet<Vector2Int> organicCells =
+                RoomShapePostProcessor.GenerateOrganicRoomCells(
+                    rooms,
+                    dungeonGrid,
+                    dungeonWidth,
+                    dungeonHeight,
+                    organicRandom,
+                    organicGrowthRadius,
+                    organicInitialGrowthChance,
+                    organicSmoothingIterations
+                );
+
+
+            dungeonGrid.AddOrganicRoomCells(
+                organicCells
+            );
+
+
+            UnityEngine.Debug.Log(
+                "ROOM SHAPE POST-PROCESSING\n" +
+                $"Seed: {seed}\n" +
+                $"Organic cells added: {dungeonGrid.OrganicRoomCellCount}\n" +
+                $"Growth radius: {organicGrowthRadius}\n" +
+                $"Smoothing iterations: {organicSmoothingIterations}"
             );
         }
 

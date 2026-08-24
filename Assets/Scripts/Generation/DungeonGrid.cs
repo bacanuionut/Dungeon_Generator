@@ -18,6 +18,12 @@ using UnityEngine;
 /// </summary>
 public class DungeonGrid
 {
+
+    // Extra floor cells created around BSP room edges by the
+    // cellular-automata post-processing stage.
+    private HashSet<Vector2Int> organicRoomCells =
+        new HashSet<Vector2Int>();
+
     // Every coordinate that forms part of the walkable dungeon.
     // HashSet prevents duplicate cells when rooms and corridors overlap.
     private HashSet<Vector2Int> floorCells =
@@ -31,6 +37,12 @@ public class DungeonGrid
     private HashSet<Vector2Int> corridorCells =
         new HashSet<Vector2Int>();
 
+
+    public IReadOnlyCollection<Vector2Int> OrganicRoomCells =>
+    organicRoomCells;
+
+    public int OrganicRoomCellCount =>
+        organicRoomCells.Count;
 
     /// <summary>
     /// All walkable cells in the dungeon.
@@ -100,6 +112,7 @@ public class DungeonGrid
         floorCells.Clear();
         roomCells.Clear();
         corridorCells.Clear();
+        organicRoomCells.Clear();
     }
 
 
@@ -175,5 +188,29 @@ public class DungeonGrid
     public bool IsWalkable(Vector2Int position)
     {
         return floorCells.Contains(position);
+    }
+
+    /// <summary>
+    /// Adds extra floor cells generated around room boundaries.
+    ///
+    /// These cells become part of the walkable dungeon but are kept
+    /// separately from the original rectangular BSP room cells.
+    /// </summary>
+    public void AddOrganicRoomCells(
+        IEnumerable<Vector2Int> cells)
+    {
+        if (cells == null)
+            return;
+
+        foreach (Vector2Int cell in cells)
+        {
+            // Only count genuinely new floor created by the
+            // post-processing stage.
+            if (!floorCells.Contains(cell))
+            {
+                organicRoomCells.Add(cell);
+                floorCells.Add(cell);
+            }
+        }
     }
 }
