@@ -16,6 +16,7 @@ public class EnemyController : MonoBehaviour
     {
         Patrol,
         Chase,
+        Investigate,
         Return,
         Attack
     }
@@ -32,6 +33,11 @@ public class EnemyController : MonoBehaviour
 
     private float nextAttackTime;
 
+    [Header("Investigation")]
+
+    [Tooltip("How long the enemy waits at the player's last known position before giving up.")]
+    [SerializeField]
+    private float investigationWaitTime = 1.25f;
 
     [Header("Movement")]
 
@@ -43,6 +49,15 @@ public class EnemyController : MonoBehaviour
     [SerializeField]
     private int detectionRange = 6;
 
+
+    // The most recent grid cell where this enemy actually saw the player.
+    private Vector2Int lastKnownPlayerPosition;
+
+    private bool hasLastKnownPlayerPosition;
+
+    private bool waitingAtLastKnownPosition;
+
+    private float investigationEndTime;
 
     private DungeonGenerator dungeonGenerator;
     private PlayerController playerController;
@@ -78,6 +93,10 @@ public class EnemyController : MonoBehaviour
         dungeonGenerator = generator;
         playerController = player;
         patrolRoom = room;
+
+        hasLastKnownPlayerPosition = false;
+        waitingAtLastKnownPosition = false;
+        investigationEndTime = 0f;
 
         gridPosition = startingPosition;
 
@@ -146,6 +165,10 @@ public class EnemyController : MonoBehaviour
                 UpdateChase();
                 break;
 
+            case EnemyState.Investigate:
+                UpdateInvestigate();
+                break;
+
             case EnemyState.Return:
                 UpdateReturn();
                 break;
@@ -154,8 +177,8 @@ public class EnemyController : MonoBehaviour
 
 
     /// <summary>
-    /// Selects the current AI behaviour from player distance and the
-    /// enemy's position relative to its original patrol room.
+    /// Updates enemy behaviour using distance, line of sight and the
+    /// player's last visible grid position.
     /// </summary>
     private void UpdateState()
     {
@@ -165,25 +188,46 @@ public class EnemyController : MonoBehaviour
                 playerController.GridPosition
             );
 
+
+        bool playerVisible =
+            HasLineOfSightToPlayer();
+
+
+        bool playerDetected =
+            distanceToPlayer <= detectionRange &&
+            playerVisible;
+
+
         EnemyState previousState =
             currentState;
 
 
-        // Adjacent enemies attack rather than trying to move onto
-        // the player's grid cell.
-        if (distanceToPlayer <= 1)
+        // If the player is currently visible and inside the detection
+        // range, remember exactly where they were seen.
+        if (playerDetected)
         {
-            currentState =
-                EnemyState.Attack;
-        }
+            lastKnownPlayerPosition =
+                playerController.GridPosition;
 
-        // A detected player who is not yet adjacent is chased.
-        else if (distanceToPlayer <= detectionRange)
-        {
-            currentState =
-                EnemyState.Chase;
-        }
+            hasLastKnownPlayerPosition =
+                true;
 
+            waitingAtLastKnownPosition =
+                false;
+
+
+            // Adjacent visible enemies attack.
+            if (distanceToPlayer <= 1)
+            {
+                currentState =
+                    EnemyState.Attack;
+            }
+            else
+            {
+                currentState =
+                    EnemyState.Chase;
+            }
+        }
         else
         {
             switch (currentState)
@@ -191,19 +235,26 @@ public class EnemyController : MonoBehaviour
                 case EnemyState.Chase:
                 case EnemyState.Attack:
 
-                    // If the player escapes while the enemy is outside
-                    // its original room, return home first.
-                    if (patrolRoom.Contains(gridPosition))
+                    // The enemy has just lost the player.
+                    // Instead of immediately returning home, travel to
+                    // the last place where the player was actually seen.
+                    if (hasLastKnownPlayerPosition)
                     {
                         currentState =
-                            EnemyState.Patrol;
+                            EnemyState.Investigate;
                     }
                     else
                     {
-                        currentState =
-                            EnemyState.Return;
+                        ChooseReturnOrPatrolState();
                     }
 
+                    break;
+
+
+                case EnemyState.Investigate:
+
+                    // Investigation movement and waiting are handled by
+                    // UpdateInvestigate().
                     break;
 
 
@@ -220,8 +271,7 @@ public class EnemyController : MonoBehaviour
 
                 case EnemyState.Patrol:
 
-                    // Continue patrolling while the player remains
-                    // outside detection range.
+                    // Remain on patrol when the player is not visible.
                     break;
             }
         }
@@ -233,6 +283,20 @@ public class EnemyController : MonoBehaviour
                 $"{name} changed AI state: " +
                 $"{previousState} -> {currentState}"
             );
+
+
+            if (currentState == EnemyState.Investigate &&
+                hasLastKnownPlayerPosition)
+            {
+                waitingAtLastKnownPosition =
+                    false;
+
+                UnityEngine.Debug.Log(
+                    $"{name} investigating last known player position: " +
+                    $"({lastKnownPlayerPosition.x}, " +
+                    $"{lastKnownPlayerPosition.y})"
+                );
+            }
 
 
             if (currentState == EnemyState.Patrol)
@@ -304,6 +368,101 @@ public class EnemyController : MonoBehaviour
 
 
     /// <summary>
+    /// Travels to the player's last visible grid position.
+    ///
+    /// If the player becomes visible again, UpdateState() immediately
+    /// switches back to Chase or Attack.
+    ///
+    /// If the enemy reaches the remembered position and still cannot see
+    /// the player, it waits briefly before returning to its patrol room.
+    /// </summary>
+    private void UpdateInvestigate()
+    {
+        if (!hasLastKnownPlayerPosition)
+        {
+            ChooseReturnOrPatrolState();
+            return;
+        }
+
+
+        // Still travelling toward the last place where the player was seen.
+        if (gridPosition != lastKnownPlayerPosition)
+        {
+            Vector2Int nextCell;
+
+
+            if (TryGetNextPathCell(
+                    gridPosition,
+                    lastKnownPlayerPosition,
+                    false,
+                    out nextCell))
+            {
+                MoveTo(nextCell);
+            }
+            else
+            {
+                // If the remembered position unexpectedly cannot be
+                // reached, abandon the investigation safely.
+                hasLastKnownPlayerPosition =
+                    false;
+
+                waitingAtLastKnownPosition =
+                    false;
+
+                ChooseReturnOrPatrolState();
+            }
+
+
+            return;
+        }
+
+
+        // The enemy has reached the last visible player location.
+        if (!waitingAtLastKnownPosition)
+        {
+            waitingAtLastKnownPosition =
+                true;
+
+            investigationEndTime =
+                Time.time + investigationWaitTime;
+
+
+            UnityEngine.Debug.Log(
+                $"{name} reached the player's last known position " +
+                $"({lastKnownPlayerPosition.x}, " +
+                $"{lastKnownPlayerPosition.y}) and is searching."
+            );
+
+            return;
+        }
+
+
+        // Wait briefly at the location before deciding the player escaped.
+        if (Time.time < investigationEndTime)
+            return;
+
+
+        hasLastKnownPlayerPosition =
+            false;
+
+        waitingAtLastKnownPosition =
+            false;
+
+
+        EnemyState previousState =
+            currentState;
+
+
+        ChooseReturnOrPatrolState();
+
+
+        UnityEngine.Debug.Log(
+            $"{name} could not find the player. " +
+            $"{previousState} -> {currentState}"
+        );
+    }
+
+    /// <summary>
     /// Damages the player while the enemy occupies an adjacent grid cell.
     ///
     /// The enemy does not enter the player's cell. Instead it remains
@@ -312,6 +471,11 @@ public class EnemyController : MonoBehaviour
     private void UpdateAttack()
     {
         if (!playerController.IsAlive)
+            return;
+
+        // Do not attack through a wall even if the two grid positions
+        // happen to be close together.
+        if (!HasLineOfSightToPlayer())
             return;
 
 
@@ -591,5 +755,110 @@ public class EnemyController : MonoBehaviour
         return
             Mathf.Abs(a.x - b.x) +
             Mathf.Abs(a.y - b.y);
+    }
+
+    /// <summary>
+    /// Checks whether the enemy has an unobstructed grid line to the
+    /// player.
+    ///
+    /// Walkable dungeon cells allow vision. Any non-walkable cell between
+    /// the enemy and player blocks vision.
+    /// </summary>
+    private bool HasLineOfSightToPlayer()
+    {
+        Vector2Int start =
+            gridPosition;
+
+        Vector2Int end =
+            playerController.GridPosition;
+
+
+        int x0 = start.x;
+        int y0 = start.y;
+
+        int x1 = end.x;
+        int y1 = end.y;
+
+
+        int deltaX =
+            Mathf.Abs(x1 - x0);
+
+        int deltaY =
+            Mathf.Abs(y1 - y0);
+
+        int stepX =
+            x0 < x1 ? 1 : -1;
+
+        int stepY =
+            y0 < y1 ? 1 : -1;
+
+        int error =
+            deltaX - deltaY;
+
+
+        while (true)
+        {
+            Vector2Int current =
+                new Vector2Int(x0, y0);
+
+
+            // Do not test the enemy's own cell or the player's cell.
+            if (current != start &&
+                current != end &&
+                !dungeonGenerator.Grid.IsWalkable(current))
+            {
+                return false;
+            }
+
+
+            if (x0 == x1 &&
+                y0 == y1)
+            {
+                break;
+            }
+
+
+            int doubleError =
+                error * 2;
+
+
+            if (doubleError > -deltaY)
+            {
+                error -= deltaY;
+                x0 += stepX;
+            }
+
+
+            if (doubleError < deltaX)
+            {
+                error += deltaX;
+                y0 += stepY;
+            }
+        }
+
+
+        return true;
+    }
+
+    /// <summary>
+    /// Chooses what an enemy should do after abandoning an investigation.
+    ///
+    /// An enemy already inside its original room can immediately resume
+    /// patrol. Otherwise it must navigate home first.
+    /// </summary>
+    private void ChooseReturnOrPatrolState()
+    {
+        if (patrolRoom.Contains(gridPosition))
+        {
+            currentState =
+                EnemyState.Patrol;
+
+            ChooseNewPatrolTarget();
+        }
+        else
+        {
+            currentState =
+                EnemyState.Return;
+        }
     }
 }
