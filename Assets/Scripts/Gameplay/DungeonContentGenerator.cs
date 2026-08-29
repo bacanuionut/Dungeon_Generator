@@ -346,6 +346,11 @@ public class DungeonContentGenerator : MonoBehaviour
             enemySeed
             );
 
+        EnemyVisionConeRenderer visionRenderer = enemy.AddComponent<EnemyVisionConeRenderer>();
+
+
+        visionRenderer.Initialise(enemyController);
+
 
         enemyObjects.Add(enemy);
                 occupiedCells.Add(cell);

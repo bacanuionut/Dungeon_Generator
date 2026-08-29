@@ -52,6 +52,10 @@ public class PlayerController : MonoBehaviour
     public Vector2Int FacingDirection =>
         facingDirection;
 
+    private GameObject facingIndicator;
+
+    private Material facingIndicatorMaterial;
+
     /// <summary>
     /// Current player position in dungeon-grid coordinates.
     /// Enemy AI uses this rather than converting world positions back
@@ -125,12 +129,7 @@ public class PlayerController : MonoBehaviour
         movementCount = 0;
         treasuresCollected = 0;
 
-        UpdateWorldPosition();
-
-        UnityEngine.Debug.Log(
-            $"Player spawned at grid position {gridPosition}."
-        );
-
+        
         if (dungeonGenerator == null)
         {
             UnityEngine.Debug.LogError(
@@ -163,6 +162,10 @@ public class PlayerController : MonoBehaviour
         }
 
         UpdateWorldPosition();
+
+        CreateFacingIndicator();
+
+        UpdateFacingIndicator();
 
         initialised = true;
 
@@ -221,8 +224,9 @@ public class PlayerController : MonoBehaviour
         // direction is blocked by a wall.
         if (direction != Vector2Int.zero)
         {
-            facingDirection =
-                direction;
+            facingDirection = direction;
+
+            UpdateFacingIndicator();
         }
 
         Vector2Int targetPosition =
@@ -380,5 +384,101 @@ public class PlayerController : MonoBehaviour
                 $"Total: {treasuresCollected}"
             );
         }
+    }
+
+    /// <summary>
+    /// Creates a small marker showing the direction the player is facing.
+    ///
+    /// Facing is gameplay data because it will later control torch
+    /// visibility, Pulse Charge placement and Shaper targeting.
+    /// </summary>
+    private void CreateFacingIndicator()
+    {
+        if (facingIndicator != null)
+            return;
+
+
+        facingIndicator =
+            GameObject.CreatePrimitive(
+                PrimitiveType.Quad
+            );
+
+
+        facingIndicator.name =
+            "Facing Indicator";
+
+
+        facingIndicator.transform.SetParent(
+            transform,
+            false
+        );
+
+
+        facingIndicator.transform.localScale =
+            new Vector3(
+                0.18f,
+                0.18f,
+                1f
+            );
+
+
+        Collider collider =
+            facingIndicator.GetComponent<Collider>();
+
+
+        if (collider != null)
+        {
+            Destroy(
+                collider
+            );
+        }
+
+
+        Shader shader =
+            Shader.Find(
+                "Sprites/Default"
+            );
+
+
+        if (shader != null)
+        {
+            facingIndicatorMaterial =
+                new Material(
+                    shader
+                );
+
+
+            facingIndicatorMaterial.color =
+                Color.white;
+
+
+            Renderer renderer =
+                facingIndicator.GetComponent<Renderer>();
+
+
+            if (renderer != null)
+            {
+                renderer.sharedMaterial =
+                    facingIndicatorMaterial;
+            }
+        }
+    }
+
+    private void UpdateFacingIndicator()
+    {
+        if (facingIndicator == null)
+            return;
+
+
+        Vector3 offset =
+            new Vector3(
+                facingDirection.x * 0.32f,
+                facingDirection.y * 0.32f,
+                -0.05f
+            );
+
+
+        facingIndicator.transform.localPosition =
+            offset;
     }
 }
