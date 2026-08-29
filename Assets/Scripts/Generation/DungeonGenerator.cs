@@ -114,6 +114,11 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private DungeonRunManager dungeonRunManager;
 
+    [Header("Floor Objective")]
+
+    [SerializeField]
+    private FloorObjectiveManager floorObjectiveManager;
+
     [Header("Procedural Content")]
 
     [SerializeField]
@@ -221,6 +226,9 @@ public class DungeonGenerator : MonoBehaviour
         GenerateDungeon();
     }
 
+    public FloorObjectiveManager ObjectiveManager =>
+    floorObjectiveManager;
+
     private void Start()
     {
         GenerateDungeon();
@@ -254,6 +262,12 @@ public class DungeonGenerator : MonoBehaviour
             dungeonContentGenerator != null)
         {
             dungeonContentGenerator.ClearContent();
+        }
+
+        if (!batchEvaluationMode &&
+            floorObjectiveManager != null)
+        {
+            floorObjectiveManager.ClearObjectives();
         }
 
         // Stop immediately if the Inspector settings cannot produce
@@ -465,11 +479,16 @@ public class DungeonGenerator : MonoBehaviour
             playerController.InitialisePlayer();
         }
 
+        if (!batchEvaluationMode && playablePathValid && floorObjectiveManager != null)
+        {
+            floorObjectiveManager.GenerateObjectives(
+                this
+            );
+        }
+
         // Gameplay content is only added after the complete dungeon has
         // passed validation and gameplay has been initialised.
-        if (!batchEvaluationMode &&
-            playablePathValid &&
-            dungeonContentGenerator != null)
+        if (!batchEvaluationMode && playablePathValid && dungeonContentGenerator != null)
         {
             dungeonContentGenerator.GenerateContent(this);
         }

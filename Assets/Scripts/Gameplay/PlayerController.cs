@@ -218,11 +218,30 @@ public class PlayerController : MonoBehaviour
 
         movementCount++;
 
+        CheckForObjective();
+
         CheckForItem();
 
         CheckForExit();
     }
 
+    /// <summary>
+    /// Checks whether the player has moved onto a generated
+    /// floor-objective item.
+    /// </summary>
+    private void CheckForObjective()
+    {
+        if (dungeonGenerator == null ||
+            dungeonGenerator.ObjectiveManager == null)
+        {
+            return;
+        }
+
+
+        dungeonGenerator.ObjectiveManager.TryCollectSigil(
+            gridPosition
+        );
+    }
 
     /// <summary>
     /// Converts the logical grid coordinate into the world-space
@@ -241,6 +260,9 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// Checks whether the player's current grid position is the
     /// generated exit position.
+    ///
+    /// The descent shaft remains locked until all required
+    /// Anchor Sigils have been collected.
     /// </summary>
     private void CheckForExit()
     {
@@ -249,15 +271,31 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        Vector2Int exitPosition =
-            dungeonGenerator.GetExitPosition();
-
-        if (gridPosition == exitPosition)
+        if (gridPosition !=
+            dungeonGenerator.GetExitPosition())
         {
-            dungeonGenerator.CompleteDungeon(
-                movementCount
-            );
+            return;
         }
+
+        FloorObjectiveManager objectiveManager =
+            dungeonGenerator.ObjectiveManager;
+
+        if (objectiveManager != null &&
+            !objectiveManager.ExitUnlocked)
+        {
+            UnityEngine.Debug.Log(
+                "DESCENT SHAFT LOCKED - " +
+                $"Anchor Sigils: " +
+                $"{objectiveManager.CollectedSigils}/" +
+                $"{objectiveManager.RequiredSigils}"
+            );
+
+            return;
+        }
+
+        dungeonGenerator.CompleteDungeon(
+            movementCount
+        );
     }
 
     /// <summary>

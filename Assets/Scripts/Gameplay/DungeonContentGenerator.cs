@@ -169,6 +169,19 @@ public class DungeonContentGenerator : MonoBehaviour
             generator.GetExitPosition()
         );
 
+        // Objective cells are reserved before normal procedural content
+        // is placed so enemies/items cannot initially spawn on a Sigil.
+        if (generator.ObjectiveManager != null)
+        {
+            foreach (Vector2Int objectiveCell in
+                     generator.ObjectiveManager.ObjectiveCells)
+            {
+                occupiedCells.Add(
+                    objectiveCell
+                );
+            }
+        }
+
 
         int maximumGraphDistance = 0;
 
