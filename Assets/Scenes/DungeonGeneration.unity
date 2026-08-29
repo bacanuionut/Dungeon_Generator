@@ -174,6 +174,53 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &872445780
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 872445782}
+  - component: {fileID: 872445781}
+  m_Layer: 0
+  m_Name: Dungeon Run Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &872445781
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 872445780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a94f33cf8ddc3948a63abae21af2c72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  totalFloors: 2
+  baseRunSeed: 12345
+  floorTransitionDelay: 0.75
+--- !u!4 &872445782
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 872445780}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 73.01793, y: 25.997309, z: -33.786728}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &973729811
 GameObject:
   m_ObjectHideFlags: 0
@@ -259,7 +306,7 @@ MonoBehaviour:
   minimumRoomSize: 5
   roomPadding: 1
   seed: 12345
-  useRandomSeed: 0
+  useRandomSeed: 1
   showPartitions: 0
   showRooms: 0
   showConnections: 0
@@ -272,6 +319,7 @@ MonoBehaviour:
   dungeonRenderer: {fileID: 1128854572}
   playerController: {fileID: 2142187895}
   exitObject: {fileID: 1628025814}
+  dungeonRunManager: {fileID: 872445781}
   dungeonContentGenerator: {fileID: 655920709}
 --- !u!4 &1044558307
 Transform:

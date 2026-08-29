@@ -109,6 +109,11 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField]
     private GameObject exitObject;
 
+    [Header("Run Progression")]
+
+    [SerializeField]
+    private DungeonRunManager dungeonRunManager;
+
     [Header("Procedural Content")]
 
     [SerializeField]
@@ -198,6 +203,23 @@ public class DungeonGenerator : MonoBehaviour
     private System.Random random;
 
     public DungeonContentGenerator ContentGenerator => dungeonContentGenerator;
+
+    /// <summary>
+    /// Generates a dungeon using a seed supplied by the run system.
+    ///
+    /// Run generation is deterministic, so replaying the same base
+    /// run seed will reproduce the same sequence of floors.
+    /// </summary>
+    public void GenerateRunFloor(int floorSeed)
+    {
+        seed = floorSeed;
+
+        // RunManager controls the seed sequence, so random Inspector
+        // seed generation should not replace it.
+        useRandomSeed = false;
+
+        GenerateDungeon();
+    }
 
     private void Start()
     {
@@ -876,6 +898,13 @@ public class DungeonGenerator : MonoBehaviour
             $"Player reached the exit in {completionMovementCount} movements. " +
             $"Start-to-exit logical distance: {startToExitDistance}."
         );
+
+        // In normal gameplay, reaching the exit represents descending
+        // to the next procedural floor rather than ending immediately.
+        if (dungeonRunManager != null)
+        {
+            dungeonRunManager.CompleteCurrentFloor();
+        }
     }
 
     /// <summary>
