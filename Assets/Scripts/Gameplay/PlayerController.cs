@@ -40,6 +40,18 @@ public class PlayerController : MonoBehaviour
     // Current logical position in the dungeon grid.
     private Vector2Int gridPosition;
 
+    // Direction the player is currently facing.
+    //
+    // This is deliberately separate from the player's position because
+    // facing will later control torch visibility, Pulse Charge placement
+    // and Shaper targeting.
+    private Vector2Int facingDirection =
+        Vector2Int.down;
+
+
+    public Vector2Int FacingDirection =>
+        facingDirection;
+
     /// <summary>
     /// Current player position in dungeon-grid coordinates.
     /// Enemy AI uses this rather than converting world positions back
@@ -204,6 +216,15 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void TryMove(Vector2Int direction)
     {
+
+        // Pressing a direction turns the player even when movement in that
+        // direction is blocked by a wall.
+        if (direction != Vector2Int.zero)
+        {
+            facingDirection =
+                direction;
+        }
+
         Vector2Int targetPosition =
             gridPosition + direction;
 

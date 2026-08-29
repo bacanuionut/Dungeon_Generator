@@ -307,7 +307,7 @@ MonoBehaviour:
   maximumDepth: 4
   minimumRoomSize: 5
   roomPadding: 1
-  seed: 1
+  seed: 12345
   useRandomSeed: 1
   showPartitions: 0
   showRooms: 0
@@ -527,6 +527,7 @@ GameObject:
   - component: {fileID: 1728126702}
   - component: {fileID: 1728126701}
   - component: {fileID: 1728126700}
+  - component: {fileID: 1728126703}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -599,6 +600,26 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1728126703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1728126699}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da0a01b01173f7c41a025f52efc9e193, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerController: {fileID: 2142187895}
+  targetCamera: {fileID: 1728126701}
+  gameplayCameraSize: 7
+  followSpeed: 8
+  overviewKey: 9
+  overviewPadding: 3
+  zoomSpeed: 6
 --- !u!1 &2142187894
 GameObject:
   m_ObjectHideFlags: 0

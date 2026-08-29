@@ -86,8 +86,9 @@ public class DungeonRenderer : MonoBehaviour
         RenderFloor(grid);
         RenderWalls(wallCells);
 
-        // Position the camera after the dungeon geometry has been created.
-        FrameCamera(grid);
+        // Will be disabled for now because the gameplay camera is controlled by DungeonCameraController.
+        //// Position the camera after the dungeon geometry has been created.
+        //FrameCamera(grid);
 
         UnityEngine.Debug.Log(
             $"Dungeon rendered with " +
