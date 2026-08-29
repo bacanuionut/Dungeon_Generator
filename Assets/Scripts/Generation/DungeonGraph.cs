@@ -84,4 +84,63 @@ public class DungeonGraph
             new RoomConnection(roomA, roomB)
         );
     }
+
+    /// <summary>
+    /// Returns all rooms directly connected to the supplied room.
+    /// </summary>
+    public List<Room> GetNeighbours(Room room)
+    {
+        List<Room> neighbours =
+            new List<Room>();
+
+
+        if (room == null)
+            return neighbours;
+
+
+        foreach (RoomConnection connection in connections)
+        {
+            if (connection.RoomA == room)
+            {
+                neighbours.Add(
+                    connection.RoomB
+                );
+            }
+            else if (connection.RoomB == room)
+            {
+                neighbours.Add(
+                    connection.RoomA
+                );
+            }
+        }
+
+
+        return neighbours;
+    }
+
+
+    /// <summary>
+    /// Returns the number of graph connections belonging to a room.
+    /// </summary>
+    public int GetDegree(Room room)
+    {
+        if (room == null)
+            return 0;
+
+
+        int degree = 0;
+
+
+        foreach (RoomConnection connection in connections)
+        {
+            if (connection.RoomA == room ||
+                connection.RoomB == room)
+            {
+                degree++;
+            }
+        }
+
+
+        return degree;
+    }
 }

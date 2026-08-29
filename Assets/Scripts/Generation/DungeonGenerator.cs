@@ -339,6 +339,16 @@ public class DungeonGenerator : MonoBehaviour
             SelectStartAndExitRooms();
         }
 
+        if (graphConnected && startRoom != null && exitRoom != null)
+        {
+            RoomRoleAssigner.AssignRoles(
+                rooms,
+                dungeonGraph,
+                startRoom,
+                exitRoom
+            );
+        }
+
         // Generate physical corridors only if the logical graph is valid.
         corridors.Clear();
 

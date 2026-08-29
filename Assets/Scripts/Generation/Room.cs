@@ -20,6 +20,28 @@ public class Room
     /// </summary>
     public BSPNode ParentPartition { get; private set; }
 
+    /// <summary>
+    /// Gameplay purpose assigned after the room graph has been built.
+    /// </summary>
+    public RoomRole Role { get; private set; }
+
+    /// <summary>
+    /// Number of logical graph edges separating this room from
+    /// the player's start room.
+    /// </summary>
+    public int GraphDistanceFromStart { get; private set; }
+
+    /// <summary>
+    /// Number of directly connected neighbouring rooms.
+    /// </summary>
+    public int GraphDegree { get; private set; }
+
+    /// <summary>
+    /// True when this room lies on the shortest logical route between
+    /// the generated start and exit rooms.
+    /// </summary>
+    public bool IsOnMainPath { get; private set; }
+
     public int Width => Bounds.width;
     public int Height => Bounds.height;
 
@@ -43,6 +65,10 @@ public class Room
     {
         Bounds = bounds;
         ParentPartition = parentPartition;
+        Role = RoomRole.Unassigned;
+        GraphDistanceFromStart = -1;
+        GraphDegree = 0;
+        IsOnMainPath = false;
     }
 
     /// <summary>
@@ -68,5 +94,33 @@ public class Room
     public bool Contains(Vector2Int position)
     {
         return Bounds.Contains(position);
+    }
+
+    /// <summary>
+    /// Records structural information calculated from the finished
+    /// logical dungeon graph.
+    /// </summary>
+    public void SetGraphMetadata(
+        int distanceFromStart,
+        int degree,
+        bool isOnMainPath)
+    {
+        GraphDistanceFromStart =
+            distanceFromStart;
+
+        GraphDegree =
+            degree;
+
+        IsOnMainPath =
+            isOnMainPath;
+    }
+
+
+    /// <summary>
+    /// Assigns the gameplay purpose of this generated room.
+    /// </summary>
+    public void SetRole(RoomRole role)
+    {
+        Role = role;
     }
 }
