@@ -22,22 +22,27 @@ public class DungeonContentGenerator : MonoBehaviour
     [SerializeField]
     private Material unlitMaterial;
 
-    [Header("Enemy Placement")]
+    [Header("Threat Budget")]
 
-    [Tooltip("Enemy probability for rooms close to the start.")]
-    [Range(0f, 1f)]
+    [Tooltip("Base threat assigned to a normal Combat room.")]
     [SerializeField]
-    private float baseEnemyChance = 0.15f;
+    private int baseCombatThreat = 2;
 
-    [Tooltip("Extra enemy probability added for each graph step from the start.")]
-    [Range(0f, 0.5f)]
+    [Tooltip("Extra threat added for every graph step from the start.")]
     [SerializeField]
-    private float enemyChancePerGraphStep = 0.20f;
+    private int threatPerGraphStep = 1;
 
-    [Tooltip("Distant rooms can occasionally contain a second enemy.")]
-    [Range(0f, 1f)]
+    [Tooltip("Additional threat assigned to Elite rooms.")]
     [SerializeField]
-    private float secondEnemyChance = 0.35f;
+    private int eliteThreatBonus = 4;
+
+    [Tooltip("Threat cost of the current basic enemy type.")]
+    [SerializeField]
+    private int basicEnemyThreatCost = 2;
+
+    [Tooltip("Maximum number of enemies placed in one normal room.")]
+    [SerializeField]
+    private int maximumEnemiesPerRoom = 3;
 
 
     [Header("Item Placement")]
@@ -62,6 +67,12 @@ public class DungeonContentGenerator : MonoBehaviour
     [SerializeField]
     private float itemScale = 0.35f;
 
+
+    private int totalThreatBudget;
+    private int combatEnemiesGenerated;
+    private int eliteEnemiesGenerated;
+    private int rewardItemsGenerated;
+    private int randomItemsGenerated;
 
     private int enemySequence;
 
@@ -115,6 +126,12 @@ public class DungeonContentGenerator : MonoBehaviour
         ClearContent();
 
         enemySequence = 0;
+
+        totalThreatBudget = 0;
+        combatEnemiesGenerated = 0;
+        eliteEnemiesGenerated = 0;
+        rewardItemsGenerated = 0;
+        randomItemsGenerated = 0;
 
         if (generator == null)
         {
@@ -182,93 +199,96 @@ public class DungeonContentGenerator : MonoBehaviour
             }
         }
 
-
-        int maximumGraphDistance = 0;
-
         foreach (Room room in generator.Rooms)
         {
             if (room == null)
                 continue;
 
-            if (!roomDistances.ContainsKey(room))
-                continue;
 
-            int graphDistance =
-                roomDistances[room];
-
-            maximumGraphDistance =
-                Mathf.Max(
-                    maximumGraphDistance,
-                    graphDistance
-                );
-
-
-            // The starting room is deliberately kept safe.
-            if (room == generator.StartRoom)
-                continue;
-
-
-            // Keep the exit room clear for now so that the objective
-            // cannot immediately be blocked by an enemy.
-            bool canContainEnemy =
-                room != generator.ExitRoom;
-
-
-            if (canContainEnemy)
+            switch (room.Role)
             {
-                float enemyChance =
-                    baseEnemyChance +
-                    graphDistance * enemyChancePerGraphStep;
+                case RoomRole.Start:
 
-                enemyChance =
-                    Mathf.Clamp01(enemyChance);
+                    // The player's arrival room is always safe.
+                    break;
 
 
-                if (random.NextDouble() < enemyChance)
-                {
-                    SpawnEnemy(
+                case RoomRole.Exit:
+
+                    // Keep the descent area clear so reaching an unlocked
+                    // shaft cannot be obstructed by normal content.
+                    break;
+
+
+                case RoomRole.Rest:
+
+                    // Rest rooms deliberately contain no normal enemies.
+                    // A healing/resource mechanic will be added later.
+                    break;
+
+
+                case RoomRole.Puzzle:
+
+                    // Reserved for the procedural environmental puzzle
+                    // system. Avoid normal content for now.
+                    break;
+
+
+                case RoomRole.Reward:
+
+                    GenerateRewardRoomContent(
                         generator,
                         room,
                         random,
                         occupiedCells
                     );
 
-
-                    // Rooms further from the start can sometimes
-                    // contain an additional enemy.
-                    if (graphDistance >= 3 &&
-                        random.NextDouble() < secondEnemyChance)
-                    {
-                        SpawnEnemy(
-                            generator,
-                            room,
-                            random,
-                            occupiedCells
-                        );
-                    }
-                }
-            }
+                    break;
 
 
-            if (random.NextDouble() < itemChance)
-            {
-                SpawnItem(
-                    room,
-                    random,
-                    occupiedCells
-                );
+                case RoomRole.Elite:
+
+                    GenerateThreatRoomContent(
+                        generator,
+                        room,
+                        random,
+                        occupiedCells,
+                        true
+                    );
+
+                    break;
+
+
+                case RoomRole.Combat:
+                default:
+
+                    GenerateThreatRoomContent(
+                        generator,
+                        room,
+                        random,
+                        occupiedCells,
+                        false
+                    );
+
+                    break;
             }
         }
 
 
         UnityEngine.Debug.Log(
-            "========== PROCEDURAL CONTENT ==========\n" +
+            "========== SEMANTIC CONTENT ==========\n" +
             $"Seed: {generator.CurrentSeed}\n" +
-            $"Enemies generated: {EnemyCount}\n" +
-            $"Items generated: {ItemCount}\n" +
-            $"Maximum room graph distance: {maximumGraphDistance}\n" +
+            $"Total threat budget: {totalThreatBudget}\n" +
+            $"Combat enemies: {combatEnemiesGenerated}\n" +
+            $"Elite enemies: {eliteEnemiesGenerated}\n" +
+            $"Total enemies: {EnemyCount}\n" +
+            $"Reward-room items: {rewardItemsGenerated}\n" +
+            $"Other items: {randomItemsGenerated}\n" +
+            $"Total items: {ItemCount}\n" +
             "Start room enemy-free: YES\n" +
-            "========================================"
+            "Rest rooms enemy-free: YES\n" +
+            "Puzzle rooms reserved: YES\n" +
+            "======================================"
         );
     }
 
@@ -523,5 +543,198 @@ public class DungeonContentGenerator : MonoBehaviour
         );
 
         return true;
+    }
+
+    /// <summary>
+    /// Calculates how much enemy threat a generated room should contain.
+    ///
+    /// Graph distance provides basic progression through the floor while
+    /// semantic room roles modify that structural difficulty.
+    /// </summary>
+    private int CalculateThreatBudget(
+        Room room,
+        bool isEliteRoom)
+    {
+        if (room == null)
+            return 0;
+
+
+        int graphDistance =
+            Mathf.Max(
+                0,
+                room.GraphDistanceFromStart
+            );
+
+
+        int budget =
+            baseCombatThreat +
+            graphDistance *
+            threatPerGraphStep;
+
+
+        if (isEliteRoom)
+        {
+            budget +=
+                eliteThreatBonus;
+        }
+
+
+        return Mathf.Max(
+            0,
+            budget
+        );
+    }
+
+    /// <summary>
+    /// Converts a room's threat budget into procedural enemy placement.
+    ///
+    /// The same budget system can later choose between enemy archetypes
+    /// with different threat costs.
+    /// </summary>
+    private void GenerateThreatRoomContent(
+        DungeonGenerator generator,
+        Room room,
+        System.Random random,
+        HashSet<Vector2Int> occupiedCells,
+        bool isEliteRoom)
+    {
+        int threatBudget =
+            CalculateThreatBudget(
+                room,
+                isEliteRoom
+            );
+
+
+        totalThreatBudget +=
+            threatBudget;
+
+
+        int enemiesToGenerate =
+            threatBudget /
+            Mathf.Max(
+                1,
+                basicEnemyThreatCost
+            );
+
+
+        enemiesToGenerate =
+            Mathf.Clamp(
+                enemiesToGenerate,
+                1,
+                maximumEnemiesPerRoom
+            );
+
+
+        int enemiesActuallyGenerated =
+            0;
+
+
+        for (int i = 0;
+             i < enemiesToGenerate;
+             i++)
+        {
+            int beforeCount =
+                EnemyCount;
+
+
+            SpawnEnemy(
+                generator,
+                room,
+                random,
+                occupiedCells
+            );
+
+
+            if (EnemyCount > beforeCount)
+            {
+                enemiesActuallyGenerated++;
+            }
+        }
+
+
+        if (isEliteRoom)
+        {
+            eliteEnemiesGenerated +=
+                enemiesActuallyGenerated;
+        }
+        else
+        {
+            combatEnemiesGenerated +=
+                enemiesActuallyGenerated;
+        }
+
+        // Combat encounters can occasionally contain ordinary treasure,
+        // but dedicated Reward rooms remain much more valuable.
+        if (!isEliteRoom &&
+            random.NextDouble() < itemChance)
+        {
+            int beforeItemCount =
+                ItemCount;
+
+
+            SpawnItem(
+                room,
+                random,
+                occupiedCells
+            );
+
+
+            if (ItemCount > beforeItemCount)
+            {
+                randomItemsGenerated++;
+            }
+        }
+
+        UnityEngine.Debug.Log(
+            $"ROOM THREAT - " +
+            $"{room.Role} at {room.Centre}. " +
+            $"Depth: {room.GraphDistanceFromStart}. " +
+            $"Budget: {threatBudget}. " +
+            $"Enemies: {enemiesActuallyGenerated}"
+        );
+    }
+
+    /// <summary>
+    /// Places guaranteed treasure in optional Reward rooms.
+    ///
+    /// Reward rooms are intentionally safe at this stage so choosing to
+    /// explore a side branch has a clear benefit.
+    /// </summary>
+    private void GenerateRewardRoomContent(
+        DungeonGenerator generator,
+        Room room,
+        System.Random random,
+        HashSet<Vector2Int> occupiedCells)
+    {
+        const int guaranteedItems = 2;
+
+
+        for (int i = 0;
+             i < guaranteedItems;
+             i++)
+        {
+            int beforeCount =
+                ItemCount;
+
+
+            SpawnItem(
+                room,
+                random,
+                occupiedCells
+            );
+
+
+            if (ItemCount > beforeCount)
+            {
+                rewardItemsGenerated++;
+            }
+        }
+
+
+        UnityEngine.Debug.Log(
+            $"REWARD ROOM CONTENT - " +
+            $"Room {room.Centre}. " +
+            $"Items generated: {guaranteedItems}"
+        );
     }
 }

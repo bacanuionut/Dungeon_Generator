@@ -152,9 +152,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerController: {fileID: 2142187895}
   unlitMaterial: {fileID: 2100000, guid: 3728c06bb33f1d54ead0c964af138c5c, type: 2}
-  baseEnemyChance: 0.15
-  enemyChancePerGraphStep: 0.2
-  secondEnemyChance: 0.35
+  baseCombatThreat: 2
+  threatPerGraphStep: 1
+  eliteThreatBonus: 4
+  basicEnemyThreatCost: 2
+  maximumEnemiesPerRoom: 3
   itemChance: 0.3
   enemyColour: {r: 1, g: 0, b: 0, a: 1}
   itemColour: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
@@ -305,7 +307,7 @@ MonoBehaviour:
   maximumDepth: 4
   minimumRoomSize: 5
   roomPadding: 1
-  seed: 12345
+  seed: 1
   useRandomSeed: 1
   showPartitions: 0
   showRooms: 0
