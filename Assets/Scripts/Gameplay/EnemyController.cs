@@ -774,100 +774,216 @@ public class EnemyController : MonoBehaviour
 
 
     /// <summary>
-    /// Grid-based line-of-sight test.
+    /// Tests visibility between the enemy and a target using a
+    /// grid-traversal line.
     ///
-    /// Non-walkable cells between the enemy and target block
-    /// perception.
+    /// Unlike the earlier Bresenham version, this checks every grid cell
+    /// crossed by the line and deliberately blocks diagonal sight across
+    /// solid corners. This prevents enemies seeing slightly around walls.
     /// </summary>
     private bool HasLineOfSightToCell(
         Vector2Int target)
     {
-        Vector2Int start =
-            gridPosition;
+        if (dungeonGenerator == null ||
+            dungeonGenerator.Grid == null)
+        {
+            return false;
+        }
 
 
-        int x0 = start.x;
-        int y0 = start.y;
-
-        int x1 = target.x;
-        int y1 = target.y;
+        if (target == gridPosition)
+            return true;
 
 
-        int deltaX =
-            Mathf.Abs(
-                x1 - x0
+        // Work from the centre of each grid cell.
+        Vector2 start =
+            new Vector2(
+                gridPosition.x + 0.5f,
+                gridPosition.y + 0.5f
             );
 
-        int deltaY =
-            Mathf.Abs(
-                y1 - y0
+
+        Vector2 end =
+            new Vector2(
+                target.x + 0.5f,
+                target.y + 0.5f
             );
+
+
+        Vector2 direction =
+            end - start;
+
+
+        float length =
+            direction.magnitude;
+
+
+        if (length <= 0.001f)
+            return true;
+
+
+        direction /=
+            length;
+
+
+        int currentX =
+            gridPosition.x;
+
+        int currentY =
+            gridPosition.y;
+
+
+        int targetX =
+            target.x;
+
+        int targetY =
+            target.y;
 
 
         int stepX =
-            x0 < x1
+            direction.x > 0f
                 ? 1
-                : -1;
+                : direction.x < 0f
+                    ? -1
+                    : 0;
+
 
         int stepY =
-            y0 < y1
+            direction.y > 0f
                 ? 1
-                : -1;
+                : direction.y < 0f
+                    ? -1
+                    : 0;
 
 
-        int error =
-            deltaX -
-            deltaY;
+        float tDeltaX =
+            stepX != 0
+                ? Mathf.Abs(
+                    1f / direction.x
+                )
+                : float.PositiveInfinity;
 
 
-        while (true)
+        float tDeltaY =
+            stepY != 0
+                ? Mathf.Abs(
+                    1f / direction.y
+                )
+                : float.PositiveInfinity;
+
+
+        float nextBoundaryX =
+            stepX > 0
+                ? currentX + 1f
+                : currentX;
+
+
+        float nextBoundaryY =
+            stepY > 0
+                ? currentY + 1f
+                : currentY;
+
+
+        float tMaxX =
+            stepX != 0
+                ? Mathf.Abs(
+                    (nextBoundaryX - start.x) /
+                    direction.x
+                )
+                : float.PositiveInfinity;
+
+
+        float tMaxY =
+            stepY != 0
+                ? Mathf.Abs(
+                    (nextBoundaryY - start.y) /
+                    direction.y
+                )
+                : float.PositiveInfinity;
+
+
+        const float cornerTolerance =
+            0.0001f;
+
+
+        while (currentX != targetX ||
+               currentY != targetY)
         {
-            Vector2Int current =
+            // If the ray crosses exactly through a grid corner,
+            // inspect both cells beside that corner.
+            // either solid neighbouring cell blocks diagonal corner sight.
+            if (Mathf.Abs(
+                    tMaxX - tMaxY) <
+                cornerTolerance)
+            {
+                Vector2Int horizontalNeighbour =
+                    new Vector2Int(
+                        currentX + stepX,
+                        currentY
+                    );
+
+
+                Vector2Int verticalNeighbour =
+                    new Vector2Int(
+                        currentX,
+                        currentY + stepY
+                    );
+
+
+                if (!dungeonGenerator.Grid.IsWalkable(
+                        horizontalNeighbour) ||
+                    !dungeonGenerator.Grid.IsWalkable(
+                        verticalNeighbour))
+                {
+                    return false;
+                }
+
+
+                currentX +=
+                    stepX;
+
+                currentY +=
+                    stepY;
+
+
+                tMaxX +=
+                    tDeltaX;
+
+                tMaxY +=
+                    tDeltaY;
+            }
+            else if (tMaxX < tMaxY)
+            {
+                currentX +=
+                    stepX;
+
+                tMaxX +=
+                    tDeltaX;
+            }
+            else
+            {
+                currentY +=
+                    stepY;
+
+                tMaxY +=
+                    tDeltaY;
+            }
+
+
+            Vector2Int currentCell =
                 new Vector2Int(
-                    x0,
-                    y0
+                    currentX,
+                    currentY
                 );
 
 
-            if (current != start &&
-                current != target &&
+            // The target itself is allowed because all current
+            // perception targets are walkable floor cells.
+            if (currentCell != target &&
                 !dungeonGenerator.Grid.IsWalkable(
-                    current))
+                    currentCell))
             {
                 return false;
-            }
-
-
-            if (x0 == x1 &&
-                y0 == y1)
-            {
-                break;
-            }
-
-
-            int doubleError =
-                2 * error;
-
-
-            if (doubleError >
-                -deltaY)
-            {
-                error -=
-                    deltaY;
-
-                x0 +=
-                    stepX;
-            }
-
-
-            if (doubleError <
-                deltaX)
-            {
-                error +=
-                    deltaX;
-
-                y0 +=
-                    stepY;
             }
         }
 
