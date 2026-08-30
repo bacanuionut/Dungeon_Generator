@@ -213,4 +213,16 @@ public class DungeonGrid
             }
         }
     }
+
+    /// <summary>
+    /// Returns true when the supplied cell was added by the organic
+    /// room-shaping post-processing stage.
+    /// </summary>
+    public bool IsOrganicRoomCell(
+        Vector2Int cell)
+    {
+        return organicRoomCells.Contains(
+            cell
+        );
+    }
 }

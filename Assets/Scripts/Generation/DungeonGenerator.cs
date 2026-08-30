@@ -187,6 +187,9 @@ public class DungeonGenerator : MonoBehaviour
     /// </summary>
     public IReadOnlyList<Room> Rooms => rooms;
 
+    public IReadOnlyList<CorridorGenerator.Corridor> Corridors =>
+    corridors;
+
     /// <summary>
     /// Gives other systems access to the logical room graph
     /// without moving graph generation outside this class.
@@ -198,6 +201,8 @@ public class DungeonGenerator : MonoBehaviour
     /// Content generation can use this to remain reproducible.
     /// </summary>
     public int CurrentSeed => seed;
+
+    public int GenerationVersion { get; private set; }
 
     // Logical number of graph connections between start and exit.
     private int startToExitDistance;
@@ -254,6 +259,9 @@ public class DungeonGenerator : MonoBehaviour
     /// </summary>
     public void GenerateDungeon()
     {
+
+        GenerationVersion++;
+
         dungeonCompleted = false;
         completionMovementCount = 0;
 
