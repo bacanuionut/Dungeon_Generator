@@ -302,6 +302,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   exploredAlpha: 0.68
+  currentRegionAlpha: 0.28
+  unexploredAlpha: 0.88
   fogZ: -3
 --- !u!4 &1034342224
 Transform:
@@ -677,6 +679,7 @@ GameObject:
   - component: {fileID: 2142187896}
   - component: {fileID: 2142187895}
   - component: {fileID: 2142187898}
+  - component: {fileID: 2142187899}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -781,3 +784,23 @@ MonoBehaviour:
   visionRange: 8
   visionAngle: 90
   immediateVisionRadius: 1.4
+--- !u!114 &2142187899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2142187894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97b034fb4b0d66f4e89d030fa3c5892a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerController: {fileID: 2142187895}
+  startingCharges: 2
+  deployKey: 113
+  placementDistance: 2
+  fuseDuration: 1
+  blastRadius: 3.5
+  normalEnemyStunDuration: 15

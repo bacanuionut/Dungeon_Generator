@@ -21,7 +21,8 @@ public class EnemyController : MonoBehaviour
         Chase,
         Investigate,
         Return,
-        Attack
+        Attack,
+        Stunned
     }
 
 
@@ -64,6 +65,21 @@ public class EnemyController : MonoBehaviour
     [SerializeField]
     private float attackCooldown = 1f;
 
+    private Renderer enemyRenderer;
+
+    private Color normalColour;
+
+    private Color stunnedColour =
+        new Color(
+            0.35f,
+            0.65f,
+            1f,
+            1f
+        );
+
+    private float stunEndTime;
+
+    private EnemyState stateBeforeStun;
 
     private DungeonGenerator dungeonGenerator;
 
@@ -134,46 +150,54 @@ public class EnemyController : MonoBehaviour
         Vector2Int startingPosition,
         int enemySeed)
     {
-        dungeonGenerator =
-            generator;
+        dungeonGenerator = generator;
 
-        playerController =
-            player;
+        playerController = player;
 
-        patrolRoom =
-            room;
+        patrolRoom = room;
 
-        gridPosition =
-            startingPosition;
+        gridPosition = startingPosition;
 
 
-        random =
-            new System.Random(
-                enemySeed
-            );
+        random = new System.Random(enemySeed);
 
 
-        currentState =
-            EnemyState.Patrol;
+        currentState = EnemyState.Patrol;
 
 
-        hasLastKnownPlayerPosition =
-            false;
+        hasLastKnownPlayerPosition = false;
 
-        waitingAtLastKnownPosition =
-            false;
+        waitingAtLastKnownPosition = false;
 
-        investigationEndTime =
-            0f;
+        investigationEndTime = 0f;
+
+        enemyRenderer = GetComponent<Renderer>();
+
+        if (enemyRenderer != null)
+        {
+            MaterialPropertyBlock properties =
+                new MaterialPropertyBlock();
+
+            enemyRenderer.GetPropertyBlock(properties);
+
+            normalColour =
+                properties.GetColor("_Color");
+
+            // Fallback in case this enemy was created without
+            // a colour property block.
+            if (normalColour.a <= 0f)
+            {
+                normalColour =
+                    enemyRenderer.material.color;
+            }
+        }
 
 
         ChooseNewPatrolTarget();
 
 
         // Initially face towards the first patrol destination.
-        UpdateFacingTowards(
-            patrolTarget
-        );
+        UpdateFacingTowards(patrolTarget);
 
 
         UpdateWorldPosition();
@@ -208,22 +232,25 @@ public class EnemyController : MonoBehaviour
         if (!playerController.IsAlive)
             return;
 
+        if (currentState == EnemyState.Stunned)
+        {
+            UpdateStunned();
+            return;
+        }
 
         UpdateState();
 
 
         // Attack has its own cooldown and therefore does not use
         // the normal movement timer.
-        if (currentState ==
-            EnemyState.Attack)
+        if (currentState == EnemyState.Attack)
         {
             UpdateAttack();
             return;
         }
 
 
-        if (Time.time <
-            nextMovementTime)
+        if (Time.time < nextMovementTime)
         {
             return;
         }
@@ -1005,5 +1032,159 @@ public class EnemyController : MonoBehaviour
             Mathf.Abs(
                 a.y - b.y
             );
+    }
+
+    /// <summary>
+    /// Temporarily disables this enemy.
+    ///
+    /// Stun removes its knowledge of the player's previous position.
+    /// When the effect ends, the enemy must perceive the player again
+    /// before it can resume a chase.
+    /// </summary>
+    public void ApplyStun(
+        float duration)
+    {
+
+        if (!initialised ||
+            duration <= 0f)
+        {
+            return;
+        }
+
+
+        SetEnemyColour(stunnedColour);
+
+
+        stateBeforeStun =
+            currentState;
+
+
+        currentState =
+            EnemyState.Stunned;
+
+
+        stunEndTime =
+            Time.time +
+            duration;
+
+
+        // A Pulse disrupts the enemy's pursuit memory.
+        // It will need to see the player again after recovering.
+        hasLastKnownPlayerPosition =
+            false;
+
+        waitingAtLastKnownPosition =
+            false;
+
+        UnityEngine.Debug.Log(
+            $"{name} STUNNED for {duration:0.0} seconds."
+        );
+    }
+
+    /// <summary>
+    /// Keeps the enemy inactive until its stun timer expires.
+    /// </summary>
+    private void UpdateStunned()
+    {
+        if (Time.time <
+            stunEndTime)
+        {
+            return;
+        }
+
+
+        RecoverFromStun();
+    }
+
+    /// <summary>
+    /// Returns the enemy to sensible behaviour after a Pulse stun.
+    ///
+    /// The enemy does not magically remember where the player went.
+    /// It can immediately chase only if the player is currently visible.
+    /// </summary>
+    private void RecoverFromStun()
+    {
+        Vector2Int playerPosition =
+            playerController.GridPosition;
+
+
+        bool playerVisible =
+            IsCellVisible(
+                playerPosition
+            );
+
+
+        if (playerVisible)
+        {
+            lastKnownPlayerPosition =
+                playerPosition;
+
+            hasLastKnownPlayerPosition =
+                true;
+
+
+            if (ManhattanDistance(
+                    gridPosition,
+                    playerPosition) <= 1)
+            {
+                currentState =
+                    EnemyState.Attack;
+            }
+            else
+            {
+                currentState =
+                    EnemyState.Chase;
+            }
+        }
+        else
+        {
+            hasLastKnownPlayerPosition =
+                false;
+
+
+            if (patrolRoom != null &&
+                patrolRoom.Contains(
+                    gridPosition))
+            {
+                currentState =
+                    EnemyState.Patrol;
+
+                ChooseNewPatrolTarget();
+            }
+            else
+            {
+                currentState =
+                    EnemyState.Return;
+            }
+        }
+
+
+        SetEnemyColour(normalColour);
+
+
+        UnityEngine.Debug.Log(
+            $"{name} recovered from stun. " +
+            $"New state: {currentState}"
+        );
+    }
+
+    private void SetEnemyColour(Color colour)
+    {
+        if (enemyRenderer == null)
+            return;
+
+        MaterialPropertyBlock properties =
+            new MaterialPropertyBlock();
+
+        enemyRenderer.GetPropertyBlock(properties);
+
+        properties.SetColor(
+            "_Color",
+            colour
+        );
+
+        enemyRenderer.SetPropertyBlock(
+            properties
+        );
     }
 }
