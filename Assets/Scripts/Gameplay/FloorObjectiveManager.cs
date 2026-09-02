@@ -130,7 +130,8 @@ public class FloorObjectiveManager : MonoBehaviour
                 continue;
 
             if (room == generator.StartRoom ||
-                room == generator.ExitRoom)
+                room == generator.ExitRoom ||
+                room.Role == RoomRole.Puzzle)
             {
                 continue;
             }

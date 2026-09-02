@@ -240,6 +240,66 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 11
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &438204752
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 438204754}
+  - component: {fileID: 438204753}
+  m_Layer: 0
+  m_Name: Resonance Puzzle Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &438204753
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438204752}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcc9c2a878a14d4439c7760758418620, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerController: {fileID: 2142187895}
+  pulseController: {fileID: 2142187899}
+  shaperController: {fileID: 2142187900}
+  nodeCount: 3
+  minimumNodeSeparation: 3
+  initialSequenceDelay: 0.4
+  nodeFlashDuration: 0.55
+  gapBetweenFlashes: 0.18
+  failureReplayDelay: 0.75
+  nodeScale: 0.48
+  idleColour: {r: 0.18, g: 0.45, b: 0.55, a: 1}
+  flashColour: {r: 1, g: 0.85, b: 0.2, a: 1}
+  correctColour: {r: 0.25, g: 1, b: 0.45, a: 1}
+  failureColour: {r: 1, g: 0.2, b: 0.2, a: 1}
+  pulseReward: 1
+  shaperReward: 1
+--- !u!4 &438204754
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438204752}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 22.46057, y: 23.206882, z: -214.07318}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 15
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &560874167
 GameObject:
   m_ObjectHideFlags: 0

@@ -395,7 +395,9 @@ public class DungeonResourceGenerator : MonoBehaviour
                 room ==
                     dungeonGenerator.StartRoom ||
                 room ==
-                    dungeonGenerator.ExitRoom)
+                    dungeonGenerator.ExitRoom ||
+                room.Role ==
+                    RoomRole.Puzzle)
             {
                 continue;
             }
