@@ -1500,6 +1500,7 @@ MonoBehaviour:
   runManager: {fileID: 872445781}
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
+  difficultyDirector: {fileID: 2135172139}
   secondsPerFloor: 80
   initialHeadStartSeconds: 20
   physicalArrivalDelay: 3
@@ -1517,6 +1518,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 13
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2135172138
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2135172140}
+  - component: {fileID: 2135172139}
+  m_Layer: 0
+  m_Name: Adaptive Difficulty Director
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2135172139
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2135172138}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9e5e320554063043978488af1c18380, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  runManager: {fileID: 872445781}
+  fastFloorThreshold: 70
+  slowFloorThreshold: 120
+  adjustmentStep: 0.08
+  minimumMultiplier: 0.85
+  maximumMultiplier: 1.2
+  startingMultiplier: 1
+--- !u!4 &2135172140
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2135172138}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 22.46057, y: 23.206882, z: -214.07318}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 16
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2142187894
 GameObject:

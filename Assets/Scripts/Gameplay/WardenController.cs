@@ -65,6 +65,7 @@ public class WardenController : MonoBehaviour
             1f
         );
 
+    private float difficultyMultiplier = 1f;
 
     private DungeonGenerator dungeonGenerator;
 
@@ -525,5 +526,63 @@ public class WardenController : MonoBehaviour
                 wardenMaterial
             );
         }
+    }
+
+    /// <summary>
+    /// Applies the current run difficulty to the physical Warden.
+    ///
+    /// The adjustment is intentionally modest. Pursuit speed changes more
+    /// strongly than attack frequency so adaptive difficulty does not
+    /// suddenly make combat disproportionately lethal.
+    /// </summary>
+    public void ApplyDifficultyMultiplier(
+        float multiplier)
+    {
+        difficultyMultiplier =
+            Mathf.Clamp(
+                multiplier,
+                0.75f,
+                1.35f
+            );
+
+
+        /*
+         * Higher difficulty means a shorter delay between Warden movement
+         * decisions.
+         */
+        movementDelay =
+            Mathf.Max(
+                0.18f,
+                movementDelay /
+                difficultyMultiplier
+            );
+
+
+        /*
+         * Attack cadence changes at only half the strength of movement
+         * adaptation.
+         */
+        float attackMultiplier =
+            Mathf.Lerp(
+                1f,
+                difficultyMultiplier,
+                0.5f
+            );
+
+
+        attackCooldown =
+            Mathf.Max(
+                0.5f,
+                attackCooldown /
+                attackMultiplier
+            );
+
+
+        UnityEngine.Debug.Log(
+            $"WARDEN DIFFICULTY APPLIED - " +
+            $"{difficultyMultiplier:0.00}x, " +
+            $"movement delay {movementDelay:0.00}s, " +
+            $"attack cooldown {attackCooldown:0.00}s"
+        );
     }
 }

@@ -30,6 +30,8 @@ public class WardenManager : MonoBehaviour
     [SerializeField]
     private DungeonTerrainModifier terrainModifier;
 
+    [SerializeField]
+    private AdaptiveDifficultyDirector difficultyDirector;
 
     [Header("Cross-Floor Pursuit")]
 
@@ -177,6 +179,21 @@ public class WardenManager : MonoBehaviour
                 return 0f;
 
 
+            float pursuitMultiplier =
+                difficultyDirector != null
+                    ? Mathf.Max(
+                        0.01f,
+                        difficultyDirector
+                            .WardenPursuitMultiplier
+                    )
+                    : 1f;
+
+
+            float effectiveSecondsPerFloor =
+                secondsPerFloor /
+                pursuitMultiplier;
+
+
             float headStartRemaining =
                 Mathf.Max(
                     0f,
@@ -189,7 +206,7 @@ public class WardenManager : MonoBehaviour
                 Mathf.Max(
                     0f,
                     (1f - pursuitProgress) *
-                    secondsPerFloor
+                    effectiveSecondsPerFloor
                 );
 
 
@@ -479,9 +496,16 @@ public class WardenManager : MonoBehaviour
         }
 
 
+        float pursuitMultiplier =
+            difficultyDirector != null
+                ? difficultyDirector.WardenPursuitMultiplier
+                : 1f;
+
+
         pursuitProgress +=
-            Time.deltaTime /
-            secondsPerFloor;
+            (Time.deltaTime /
+             secondsPerFloor) *
+            pursuitMultiplier;
 
 
         while (pursuitProgress >=
@@ -496,11 +520,19 @@ public class WardenManager : MonoBehaviour
             wardenFloor++;
 
 
+            float currentDifficulty =
+                difficultyDirector != null
+                    ? difficultyDirector
+                        .CurrentDifficultyMultiplier
+                    : 1f;
+
+
             UnityEngine.Debug.Log(
                 "========== WARDEN ADVANCED ==========\n" +
                 $"Warden reached floor: {wardenFloor}\n" +
                 $"Player floor: {runManager.CurrentFloor}\n" +
                 $"Floors behind: {FloorsBehind}\n" +
+                $"Adaptive multiplier: {currentDifficulty:0.00}x\n" +
                 "====================================="
             );
 
@@ -663,6 +695,14 @@ public class WardenManager : MonoBehaviour
             terrainModifier,
             spawnCell
         );
+
+        if (difficultyDirector != null)
+        {
+            activeWarden.ApplyDifficultyMultiplier(
+                difficultyDirector
+                    .CurrentDifficultyMultiplier
+            );
+        }
 
 
         UnityEngine.Debug.Log(
