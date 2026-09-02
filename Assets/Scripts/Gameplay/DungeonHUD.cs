@@ -35,6 +35,9 @@ public class DungeonHUD : MonoBehaviour
     private PlayerShaperController shaperController;
 
     [SerializeField]
+    private WardenManager wardenManager;
+
+    [SerializeField]
     private UnityEngine.UI.Text hudText;
 
 
@@ -273,6 +276,31 @@ public class DungeonHUD : MonoBehaviour
         {
             builder.Append(
                 shaperController.RemainingCharges
+            );
+        }
+        else
+        {
+            builder.Append(
+                "-"
+            );
+        }
+
+        // --------------------------------------------------------
+        // WARDEN PURSUIT
+        // --------------------------------------------------------
+
+        builder.AppendLine();
+
+
+        builder.Append(
+            "WARDEN "
+        );
+
+
+        if (wardenManager != null)
+        {
+            builder.Append(
+                wardenManager.GetHUDStatus()
             );
         }
         else
