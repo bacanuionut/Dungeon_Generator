@@ -667,6 +667,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1044558307}
   - component: {fileID: 1044558306}
+  - component: {fileID: 1044558308}
   m_Layer: 0
   m_Name: Dungeon Generator
   m_TagString: Untagged
@@ -693,7 +694,7 @@ MonoBehaviour:
   minimumRoomSize: 5
   roomPadding: 1
   seed: 12345
-  useRandomSeed: 1
+  useRandomSeed: 0
   showPartitions: 0
   showRooms: 0
   showConnections: 0
@@ -723,6 +724,28 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1044558308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1044558305}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41f3a8f2f3459a44c89f1a442b0db13a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 0}
+  playerController: {fileID: 2142187895}
+  terrainModifier: {fileID: 0}
+  startingCharges: 1
+  shaperKey: 102
+  minimumSolidCells: 2
+  maximumSolidCells: 16
+  maximumSideDeviation: 5
+  validWallColour: {r: 0.45, g: 0.75, b: 1, a: 0.45}
+  highlightScale: 0.94
 --- !u!1 &1128854571
 GameObject:
   m_ObjectHideFlags: 0
@@ -1005,6 +1028,54 @@ MonoBehaviour:
   overviewKey: 9
   overviewPadding: 3
   zoomSpeed: 6
+--- !u!1 &1983990454
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1983990456}
+  - component: {fileID: 1983990455}
+  m_Layer: 0
+  m_Name: Dungeon Terrain Modifier
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1983990455
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983990454}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 619622f680652f247bf939df92f7c8c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerVisionController: {fileID: 2142187898}
+  growthStepDelay: 0.08
+  sideGrowthChance: 0.42
+  renderEverySteps: 1
+--- !u!4 &1983990456
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983990454}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -78.106125, y: 231.12306, z: -113.56266}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 12
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2142187894
 GameObject:
   m_ObjectHideFlags: 0
@@ -1018,6 +1089,7 @@ GameObject:
   - component: {fileID: 2142187895}
   - component: {fileID: 2142187898}
   - component: {fileID: 2142187899}
+  - component: {fileID: 2142187900}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1142,3 +1214,25 @@ MonoBehaviour:
   fuseDuration: 1
   blastRadius: 3.5
   normalEnemyStunDuration: 15
+--- !u!114 &2142187900
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2142187894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41f3a8f2f3459a44c89f1a442b0db13a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerController: {fileID: 2142187895}
+  terrainModifier: {fileID: 1983990455}
+  startingCharges: 1
+  shaperKey: 102
+  minimumSolidCells: 2
+  maximumSolidCells: 16
+  maximumSideDeviation: 5
+  validWallColour: {r: 0.45, g: 0.75, b: 1, a: 0.45}
+  highlightScale: 0.94

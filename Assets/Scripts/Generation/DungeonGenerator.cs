@@ -214,6 +214,7 @@ public class DungeonGenerator : MonoBehaviour
 
     public DungeonContentGenerator ContentGenerator => dungeonContentGenerator;
 
+
     /// <summary>
     /// Generates a dungeon using a seed supplied by the run system.
     ///
@@ -497,11 +498,10 @@ public class DungeonGenerator : MonoBehaviour
             playerController.InitialisePlayer();
         }
 
+
         if (!batchEvaluationMode && playablePathValid && floorObjectiveManager != null)
         {
-            floorObjectiveManager.GenerateObjectives(
-                this
-            );
+            floorObjectiveManager.GenerateObjectives(this);
         }
 
         // Gameplay content is only added after the complete dungeon has
@@ -968,5 +968,23 @@ public class DungeonGenerator : MonoBehaviour
         batchEvaluationMode = previousBatchMode;
 
         return result;
+    }
+
+    /// <summary>
+    /// Rebuilds only the dungeon visuals after runtime terrain has changed.
+    ///
+    /// Generation data, player state, enemies and objectives are left
+    /// untouched.
+    /// </summary>
+    public void RefreshDungeonVisuals()
+    {
+        if (batchEvaluationMode ||
+            dungeonRenderer == null ||
+            dungeonGrid == null)
+        {
+            return;
+        }
+
+        dungeonRenderer.Render(dungeonGrid);
     }
 }

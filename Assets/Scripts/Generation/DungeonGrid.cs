@@ -37,6 +37,18 @@ public class DungeonGrid
     private HashSet<Vector2Int> corridorCells =
         new HashSet<Vector2Int>();
 
+    // Floor created during gameplay rather than during initial generation.
+    // This will be used by both the player's Shaper and later the main enemy.
+    private readonly HashSet<Vector2Int> dynamicFloorCells =
+        new HashSet<Vector2Int>();
+
+
+    public IReadOnlyCollection<Vector2Int> DynamicFloorCells =>
+        dynamicFloorCells;
+
+    public int DynamicFloorCellCount =>
+        dynamicFloorCells.Count;
+
 
     public IReadOnlyCollection<Vector2Int> OrganicRoomCells =>
     organicRoomCells;
@@ -113,6 +125,7 @@ public class DungeonGrid
         roomCells.Clear();
         corridorCells.Clear();
         organicRoomCells.Clear();
+        dynamicFloorCells.Clear();
     }
 
 
@@ -215,6 +228,42 @@ public class DungeonGrid
     }
 
     /// <summary>
+    /// Returns true when the cell belongs to an original BSP room.
+    /// </summary>
+    public bool IsRoomCell(
+        Vector2Int cell)
+    {
+        return roomCells.Contains(
+            cell
+        );
+    }
+
+
+    /// <summary>
+    /// Returns true when the cell belongs to an originally generated
+    /// corridor.
+    /// </summary>
+    public bool IsCorridorCell(
+        Vector2Int cell)
+    {
+        return corridorCells.Contains(
+            cell
+        );
+    }
+
+
+    /// <summary>
+    /// Returns true when the cell was created dynamically during play.
+    /// </summary>
+    public bool IsDynamicFloorCell(
+        Vector2Int cell)
+    {
+        return dynamicFloorCells.Contains(
+            cell
+        );
+    }
+
+    /// <summary>
     /// Returns true when the supplied cell was added by the organic
     /// room-shaping post-processing stage.
     /// </summary>
@@ -224,5 +273,50 @@ public class DungeonGrid
         return organicRoomCells.Contains(
             cell
         );
+    }
+
+    /// <summary>
+    /// Adds new walkable terrain while the dungeon is being played.
+    ///
+    /// Dynamic floor is kept separate from the original BSP rooms,
+    /// corridors and CA room shaping so runtime terrain changes can be
+    /// measured independently.
+    /// </summary>
+    public bool AddDynamicFloorCell(
+        Vector2Int cell)
+    {
+        if (floorCells.Contains(cell))
+            return false;
+
+
+        dynamicFloorCells.Add(cell);
+
+        floorCells.Add(cell);
+
+
+        return true;
+    }
+
+
+    /// <summary>
+    /// Adds several dynamically created floor cells.
+    /// Returns how many genuinely new cells were added.
+    /// </summary>
+    public int AddDynamicFloorCells(
+        IEnumerable<Vector2Int> cells)
+    {
+        int added = 0;
+
+
+        foreach (Vector2Int cell in cells)
+        {
+            if (AddDynamicFloorCell(cell))
+            {
+                added++;
+            }
+        }
+
+
+        return added;
     }
 }

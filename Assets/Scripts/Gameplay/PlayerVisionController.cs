@@ -931,4 +931,16 @@ public class PlayerVisionController : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// Forces player visibility to be recalculated on the next frame.
+    ///
+    /// Runtime terrain modification uses this because newly created floor
+    /// may immediately become visible through the player's torch.
+    /// </summary>
+    public void ForceRefreshVisibility()
+    {
+        previousStateRecorded =
+            false;
+    }
 }
