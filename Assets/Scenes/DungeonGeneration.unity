@@ -303,6 +303,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   pulseController: {fileID: 2142187899}
+  shaperController: {fileID: 2142187900}
   hudText: {fileID: 780071959}
   useHeartSymbols: 1
   refreshInterval: 0.1
@@ -396,8 +397,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 20, y: -20}
-  m_SizeDelta: {x: 300, y: 150}
+  m_AnchoredPosition: {x: 24, y: -24}
+  m_SizeDelta: {x: 360, y: 215}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &661270948
 MonoBehaviour:
@@ -412,7 +413,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.047169805, g: 0.040049832, b: 0.040049832, a: 0.43137255}
+  m_Color: {r: 0.039215688, g: 0.040049832, b: 0.047058824, a: 0.84313726}
   m_RaycastTarget: 1
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -447,6 +448,7 @@ GameObject:
   - component: {fileID: 780071961}
   - component: {fileID: 780071960}
   - component: {fileID: 780071959}
+  - component: {fileID: 780071962}
   m_Layer: 5
   m_Name: HUD Text
   m_TagString: Untagged
@@ -475,8 +477,8 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 24
-    m_FontStyle: 0
+    m_FontSize: 28
+    m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 2
     m_MaxSize: 40
@@ -511,9 +513,24 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -30, y: -20}
+  m_AnchoredPosition: {x: 3, y: -1}
+  m_SizeDelta: {x: -30, y: -26}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &780071962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 780071958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 1, y: -1}
+  m_UseGraphicAlpha: 1
 --- !u!1 &872445780
 GameObject:
   m_ObjectHideFlags: 0
@@ -639,9 +656,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79afefb6ccbe1964b9c891fe246cee02, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  exploredAlpha: 0.68
-  currentRegionAlpha: 0.28
-  unexploredAlpha: 0.88
+  exploredAlpha: 0.3
+  currentRegionAlpha: 0.12
+  unexploredAlpha: 0.65
   fogZ: -3
 --- !u!4 &1034342224
 Transform:
@@ -694,7 +711,7 @@ MonoBehaviour:
   minimumRoomSize: 5
   roomPadding: 1
   seed: 12345
-  useRandomSeed: 0
+  useRandomSeed: 1
   showPartitions: 0
   showRooms: 0
   showConnections: 0
@@ -960,8 +977,8 @@ Camera:
   m_GameObject: {fileID: 1728126699}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.03137255, g: 0.03529412, b: 0.13333334, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -1067,6 +1084,8 @@ MonoBehaviour:
   bulgeChance: 0.18
   bulgeExtraWidth: 1
   edgeRoughness: 0.3
+  wardenDigDelay: 0.65
+  wardenSideChipChance: 0.12
 --- !u!4 &1983990456
 Transform:
   m_ObjectHideFlags: 0
@@ -1080,6 +1099,53 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 12
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2071083703
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2071083705}
+  - component: {fileID: 2071083704}
+  m_Layer: 0
+  m_Name: Warden Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2071083704
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2071083703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5f044f6636f48244bc294b527721531, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerController: {fileID: 2142187895}
+  terrainModifier: {fileID: 1983990455}
+  spawnGracePeriod: 8
+--- !u!4 &2071083705
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2071083703}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -82.26434, y: 248.34618, z: -115.53306}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 13
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2142187894
 GameObject:
@@ -1219,6 +1285,7 @@ MonoBehaviour:
   fuseDuration: 1
   blastRadius: 3.5
   normalEnemyStunDuration: 15
+  wardenStunDuration: 5
 --- !u!114 &2142187900
 MonoBehaviour:
   m_ObjectHideFlags: 0

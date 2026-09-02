@@ -47,6 +47,12 @@ public class PlayerPulseController : MonoBehaviour
     [SerializeField]
     private float normalEnemyStunDuration = 15f;
 
+    [Tooltip(
+    "The Warden is much more resistant to Pulse Charges than " +
+    "ordinary enemies."
+)]
+    [SerializeField]
+    private float wardenStunDuration = 5f;
 
     private int remainingCharges;
 
@@ -215,7 +221,8 @@ public class PlayerPulseController : MonoBehaviour
             dungeonGenerator,
             fuseDuration,
             blastRadius,
-            normalEnemyStunDuration
+            normalEnemyStunDuration,
+            wardenStunDuration
         );
 
 

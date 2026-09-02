@@ -32,6 +32,9 @@ public class DungeonHUD : MonoBehaviour
     private PlayerPulseController pulseController;
 
     [SerializeField]
+    private PlayerShaperController shaperController;
+
+    [SerializeField]
     private UnityEngine.UI.Text hudText;
 
 
@@ -253,6 +256,31 @@ public class DungeonHUD : MonoBehaviour
             );
         }
 
+
+        // --------------------------------------------------------
+        // SHAPER CHARGES
+        // --------------------------------------------------------
+
+        builder.AppendLine();
+
+
+        builder.Append(
+            "SHAPER "
+        );
+
+
+        if (shaperController != null)
+        {
+            builder.Append(
+                shaperController.RemainingCharges
+            );
+        }
+        else
+        {
+            builder.Append(
+                "-"
+            );
+        }
 
         // --------------------------------------------------------
         // GAME STATE

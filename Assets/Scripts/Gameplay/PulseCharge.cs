@@ -17,6 +17,7 @@ public class PulseCharge : MonoBehaviour
 
     private float normalEnemyStunDuration;
 
+    private float wardenStunDuration;
 
     private Material chargeMaterial;
 
@@ -25,7 +26,8 @@ public class PulseCharge : MonoBehaviour
         DungeonGenerator generator,
         float fuse,
         float radius,
-        float stunDuration)
+        float normalStunDuration,
+        float wardenDuration)
     {
         dungeonGenerator =
             generator;
@@ -45,7 +47,14 @@ public class PulseCharge : MonoBehaviour
         normalEnemyStunDuration =
             Mathf.Max(
                 0.1f,
-                stunDuration
+                normalStunDuration
+            );
+
+
+        wardenStunDuration =
+            Mathf.Max(
+                0.1f,
+                wardenDuration
             );
 
 
@@ -125,14 +134,85 @@ public class PulseCharge : MonoBehaviour
         );
     }
 
+    /// <summary>
+    /// Checks whether a dungeon cell is inside the Pulse radius and has a
+    /// clear line of effect from the charge.
+    ///
+    /// Using the dungeon LOS rules means solid terrain blocks the Pulse
+    /// for both normal enemies and the Warden.
+    /// </summary>
+    private bool CanPulseReachCell(
+        Vector2Int targetCell)
+    {
+        if (dungeonGenerator == null ||
+            dungeonGenerator.Grid == null)
+        {
+            return false;
+        }
+
+
+        Vector2Int pulseCell =
+            new Vector2Int(
+                Mathf.FloorToInt(
+                    transform.position.x
+                ),
+                Mathf.FloorToInt(
+                    transform.position.y
+                )
+            );
+
+
+        Vector2 pulseCentre =
+            new Vector2(
+                pulseCell.x + 0.5f,
+                pulseCell.y + 0.5f
+            );
+
+
+        Vector2 targetCentre =
+            new Vector2(
+                targetCell.x + 0.5f,
+                targetCell.y + 0.5f
+            );
+
+
+        float distance =
+            Vector2.Distance(
+                pulseCentre,
+                targetCentre
+            );
+
+
+        if (distance >
+            blastRadius)
+        {
+            return false;
+        }
+
+
+        return DungeonVisibilityUtility.HasLineOfSight(
+            dungeonGenerator.Grid,
+            pulseCell,
+            targetCell
+        );
+    }
 
     private void Detonate()
     {
+        int normalEnemiesStunned =
+            0;
+
+
+        int wardensStunned =
+            0;
+
+
+        // ============================================================
+        // NORMAL ENEMIES
+        // ============================================================
+
         EnemyController[] enemies =
             FindObjectsOfType<EnemyController>();
-
-
-        int enemiesStunned = 0;
 
 
         foreach (EnemyController enemy in
@@ -142,55 +222,7 @@ public class PulseCharge : MonoBehaviour
                 continue;
 
 
-            Vector2 enemyPosition =
-                new Vector2(
-                    enemy.transform.position.x,
-                    enemy.transform.position.y
-                );
-
-
-            Vector2 pulsePosition =
-                new Vector2(
-                    transform.position.x,
-                    transform.position.y
-                );
-
-
-            float distance =
-                Vector2.Distance(
-                    pulsePosition,
-                    enemyPosition
-                );
-
-
-            if (distance >
-                blastRadius)
-            {
-                continue;
-            }
-
-
-            /*
-             * Walls block the Pulse.
-             *
-             * Convert world-space positions back to their dungeon
-             * grid cells and reuse the same LOS rules already used
-             * for perception.
-             */
-            Vector2Int pulseCell =
-                new Vector2Int(
-                    Mathf.FloorToInt(
-                        transform.position.x
-                    ),
-                    Mathf.FloorToInt(
-                        transform.position.y
-                    )
-                );
-
-
-            if (!DungeonVisibilityUtility.HasLineOfSight(
-                    dungeonGenerator.Grid,
-                    pulseCell,
+            if (!CanPulseReachCell(
                     enemy.GridPosition))
             {
                 continue;
@@ -202,7 +234,38 @@ public class PulseCharge : MonoBehaviour
             );
 
 
-            enemiesStunned++;
+            normalEnemiesStunned++;
+        }
+
+
+        // ============================================================
+        // WARDEN
+        // ============================================================
+
+        WardenController[] wardens =
+            FindObjectsOfType<WardenController>();
+
+
+        foreach (WardenController warden in
+                 wardens)
+        {
+            if (warden == null)
+                continue;
+
+
+            if (!CanPulseReachCell(
+                    warden.GridPosition))
+            {
+                continue;
+            }
+
+
+            warden.ApplyStun(
+                wardenStunDuration
+            );
+
+
+            wardensStunned++;
         }
 
 
@@ -210,7 +273,8 @@ public class PulseCharge : MonoBehaviour
             "========== PULSE DETONATED ==========\n" +
             $"Position: {transform.position}\n" +
             $"Radius: {blastRadius:0.0}\n" +
-            $"Enemies stunned: {enemiesStunned}\n" +
+            $"Normal enemies stunned: {normalEnemiesStunned}\n" +
+            $"Wardens stunned: {wardensStunned}\n" +
             "====================================="
         );
 

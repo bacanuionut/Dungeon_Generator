@@ -90,6 +90,22 @@ public class DungeonTerrainModifier : MonoBehaviour
     public bool IsModifyingTerrain =>
         modifyingTerrain;
 
+    [Header("Warden Excavation")]
+
+    [Tooltip(
+    "Time required for the Warden to break one solid growth step."
+)]
+    [SerializeField]
+    private float wardenDigDelay = 0.65f;
+
+    [Tooltip(
+        "Chance of creating a small irregular side chip while the Warden " +
+        "breaks through solid terrain."
+    )]
+    [Range(0f, 1f)]
+    [SerializeField]
+    private float wardenSideChipChance = 0.12f;
+
 
     /// <summary>
     /// Generates the complete organic tunnel footprint before visible
@@ -706,5 +722,204 @@ public class DungeonTerrainModifier : MonoBehaviour
             playerVisionController
                 .ForceRefreshVisibility();
         }
+    }
+
+    /// <summary>
+    /// Slowly converts one solid cell into floor for the Warden.
+    ///
+    /// This uses the same shared runtime terrain system as the player's
+    /// Shaper, but the Warden excavates one step at a time rather than
+    /// opening an entire passage in one activation.
+    /// </summary>
+    public bool TryCarveWardenCell(
+        Vector2Int targetCell,
+        int operationSeed,
+        Action onComplete)
+    {
+        if (modifyingTerrain ||
+            dungeonGenerator == null ||
+            dungeonGenerator.Grid == null)
+        {
+            return false;
+        }
+
+
+        if (dungeonGenerator.Grid.IsWalkable(
+                targetCell))
+        {
+            if (onComplete != null)
+            {
+                onComplete();
+            }
+
+
+            return true;
+        }
+
+
+        StartCoroutine(
+            CarveWardenCellSequence(
+                targetCell,
+                operationSeed,
+                onComplete
+            )
+        );
+
+
+        return true;
+    }
+
+    private IEnumerator CarveWardenCellSequence(
+    Vector2Int targetCell,
+    int operationSeed,
+    Action onComplete)
+    {
+        modifyingTerrain =
+            true;
+
+
+        DungeonGrid grid =
+            dungeonGenerator.Grid;
+
+
+        UnityEngine.Debug.Log(
+            $"WARDEN EXCAVATING - Cell {targetCell}"
+        );
+
+
+        /*
+         * Unlike the player's fast growing Shaper, the Warden visibly
+         * chips at one section of terrain before it becomes walkable.
+         */
+        yield return new WaitForSeconds(
+            wardenDigDelay
+        );
+
+
+        List<Vector2Int> cellsToOpen =
+            new List<Vector2Int>();
+
+
+        cellsToOpen.Add(
+            targetCell
+        );
+
+
+        System.Random random =
+            new System.Random(
+                operationSeed
+            );
+
+
+        /*
+         * A small amount of deterministic local side damage prevents the
+         * Warden's excavated route from always becoming a perfectly
+         * one-cell-wide artificial line.
+         */
+        foreach (Vector2Int neighbour in
+                 GetWardenMooreNeighbours(
+                     targetCell))
+        {
+            if (grid.IsWalkable(
+                    neighbour))
+            {
+                continue;
+            }
+
+
+            if (CountWardenWalkableNeighbours(
+                    grid,
+                    neighbour) < 2)
+            {
+                continue;
+            }
+
+
+            if (random.NextDouble() >
+                wardenSideChipChance)
+            {
+                continue;
+            }
+
+
+            cellsToOpen.Add(
+                neighbour
+            );
+        }
+
+
+        int added =
+            grid.AddDynamicFloorCells(
+                cellsToOpen
+            );
+
+
+        RefreshRuntimePresentation();
+
+
+        modifyingTerrain =
+            false;
+
+
+        UnityEngine.Debug.Log(
+            $"WARDEN BROKE THROUGH - Cell {targetCell}. " +
+            $"Dynamic cells added: {added}"
+        );
+
+
+        if (onComplete != null)
+        {
+            onComplete();
+        }
+    }
+
+    private IEnumerable<Vector2Int> GetWardenMooreNeighbours(
+    Vector2Int cell)
+    {
+        for (int x = -1;
+             x <= 1;
+             x++)
+        {
+            for (int y = -1;
+                 y <= 1;
+                 y++)
+            {
+                if (x == 0 &&
+                    y == 0)
+                {
+                    continue;
+                }
+
+
+                yield return new Vector2Int(
+                    cell.x + x,
+                    cell.y + y
+                );
+            }
+        }
+    }
+
+
+    private int CountWardenWalkableNeighbours(
+        DungeonGrid grid,
+        Vector2Int cell)
+    {
+        int count =
+            0;
+
+
+        foreach (Vector2Int neighbour in
+                 GetWardenMooreNeighbours(
+                     cell))
+        {
+            if (grid.IsWalkable(
+                    neighbour))
+            {
+                count++;
+            }
+        }
+
+
+        return count;
     }
 }
