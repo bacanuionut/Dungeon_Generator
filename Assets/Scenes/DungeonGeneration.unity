@@ -1134,8 +1134,9 @@ MonoBehaviour:
   runManager: {fileID: 872445781}
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
-  secondsPerFloor: 45
-  physicalArrivalDelay: 2
+  secondsPerFloor: 80
+  initialHeadStartSeconds: 20
+  physicalArrivalDelay: 3
   startingFloorsBehind: 1
 --- !u!4 &2071083705
 Transform:

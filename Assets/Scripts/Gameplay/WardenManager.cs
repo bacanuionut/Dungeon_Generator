@@ -40,6 +40,13 @@ public class WardenManager : MonoBehaviour
     [SerializeField]
     private float secondsPerFloor = 45f;
 
+    [Tooltip(
+        "Extra breathing room at the beginning of a run before the " +
+        "Warden begins making abstract progress."
+    )]
+    [SerializeField]
+    private float initialHeadStartSeconds = 20f;
+
 
     [Tooltip(
         "Small delay between the Warden reaching the player's floor " +
@@ -85,6 +92,7 @@ public class WardenManager : MonoBehaviour
      */
     private float pursuitProgress;
 
+    private float pursuitStartTime;
 
     private int previousPlayerFloor;
 
@@ -169,11 +177,25 @@ public class WardenManager : MonoBehaviour
                 return 0f;
 
 
-            return Mathf.Max(
-                0f,
-                (1f - pursuitProgress) *
-                secondsPerFloor
-            );
+            float headStartRemaining =
+                Mathf.Max(
+                    0f,
+                    pursuitStartTime -
+                    Time.time
+                );
+
+
+            float pursuitRemaining =
+                Mathf.Max(
+                    0f,
+                    (1f - pursuitProgress) *
+                    secondsPerFloor
+                );
+
+
+            return
+                headStartRemaining +
+                pursuitRemaining;
         }
     }
 
@@ -283,6 +305,13 @@ public class WardenManager : MonoBehaviour
 
         pursuitProgress =
             0f;
+
+        pursuitStartTime =
+            Time.time +
+            Mathf.Max(
+                0f,
+                initialHeadStartSeconds
+            );
 
 
         previousPlayerFloor =
@@ -436,6 +465,13 @@ public class WardenManager : MonoBehaviour
 
     private void UpdateAbstractPursuit()
     {
+
+        if (Time.time <
+            pursuitStartTime)
+        {
+            return;
+        }
+
         if (secondsPerFloor <=
             0f)
         {
@@ -783,6 +819,11 @@ public class WardenManager : MonoBehaviour
             return "ARRIVING";
         }
 
+        if (Time.time <
+            pursuitStartTime)
+        {
+            return "DISTANT";
+        }
 
         int behind =
             FloorsBehind;

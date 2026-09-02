@@ -23,6 +23,10 @@ public class PlayerPulseController : MonoBehaviour
     [SerializeField]
     private int startingCharges = 2;
 
+    [Tooltip("Maximum number of Pulse Charges the player may carry.")]
+    [SerializeField]
+    private int maximumCharges = 5;
+
 
     [Header("Placement")]
 
@@ -62,13 +66,20 @@ public class PlayerPulseController : MonoBehaviour
     public int RemainingCharges =>
         remainingCharges;
 
+    public int MaximumCharges =>
+    maximumCharges;
+
 
     private void Start()
     {
         remainingCharges =
-            Mathf.Max(
+            Mathf.Clamp(
+                startingCharges,
                 0,
-                startingCharges
+                Mathf.Max(
+                    0,
+                    maximumCharges
+                )
             );
 
 
@@ -234,5 +245,51 @@ public class PlayerPulseController : MonoBehaviour
             $"Cell {gridCell}. " +
             $"Remaining charges: {remainingCharges}"
         );
+    }
+
+    /// <summary>
+    /// Adds Pulse ammunition collected during exploration.
+    ///
+    /// Returns the number of charges actually added. A return value of
+    /// zero means the player's inventory was already full.
+    /// </summary>
+    public int AddCharges(
+        int amount)
+    {
+        if (amount <= 0)
+            return 0;
+
+
+        int previous =
+            remainingCharges;
+
+
+        remainingCharges =
+            Mathf.Clamp(
+                remainingCharges +
+                    amount,
+                0,
+                Mathf.Max(
+                    0,
+                    maximumCharges
+                )
+            );
+
+
+        int added =
+            remainingCharges -
+            previous;
+
+
+        if (added > 0)
+        {
+            UnityEngine.Debug.Log(
+                $"PULSE AMMO COLLECTED +{added}. " +
+                $"Current charges: {remainingCharges}/{maximumCharges}"
+            );
+        }
+
+
+        return added;
     }
 }

@@ -26,6 +26,9 @@ public class PlayerShaperController : MonoBehaviour
     [SerializeField]
     private int startingCharges = 1;
 
+    [Tooltip("Maximum number of Shaper charges the player may carry.")]
+    [SerializeField]
+    private int maximumCharges = 3;
 
     [Header("Controls")]
 
@@ -106,9 +109,13 @@ public class PlayerShaperController : MonoBehaviour
     private void Start()
     {
         remainingCharges =
-            Mathf.Max(
+            Mathf.Clamp(
+                startingCharges,
                 0,
-                startingCharges
+                Mathf.Max(
+                    0,
+                    maximumCharges
+                )
             );
 
 
@@ -494,4 +501,53 @@ public class PlayerShaperController : MonoBehaviour
             );
         }
     }
+
+    /// <summary>
+    /// Adds Shaper ammunition found during exploration.
+    ///
+    /// Returns the number of charges actually added.
+    /// </summary>
+    public int AddCharges(
+        int amount)
+    {
+        if (amount <= 0)
+            return 0;
+
+
+        int previous =
+            remainingCharges;
+
+
+        remainingCharges =
+            Mathf.Clamp(
+                remainingCharges +
+                    amount,
+                0,
+                Mathf.Max(
+                    0,
+                    maximumCharges
+                )
+            );
+
+
+        int added =
+            remainingCharges -
+            previous;
+
+
+        if (added > 0)
+        {
+            UnityEngine.Debug.Log(
+                $"SHAPER AMMO COLLECTED +{added}. " +
+                $"Current charges: {remainingCharges}/{maximumCharges}"
+            );
+        }
+
+
+        return added;
+    }
+
+
+    public int MaximumCharges =>
+        maximumCharges;
 }
