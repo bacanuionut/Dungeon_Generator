@@ -422,15 +422,19 @@ public static class DynamicShaperPathfinder
         return true;
     }
 
-
     /// <summary>
-    /// Builds the region that should NOT count as a destination.
+    /// Builds only the physical dungeon region the player is currently
+    /// standing in.
     ///
-    /// If the player is in a room, that room and its connected
-    /// CA-grown room cells are excluded.
+    /// For a room this includes:
+    /// - the original BSP room
+    /// - all organic CA-grown cells connected to that room
     ///
-    /// If the player is in a corridor, the current generated corridor
-    /// is excluded.
+    /// Other rooms remain valid Shaper targets even when they already have
+    /// a normal corridor connection to the current room.
+    ///
+    /// For a corridor, only that particular corridor is excluded so the
+    /// Shaper does not immediately rediscover the corridor it started from.
     /// </summary>
     private static HashSet<Vector2Int> BuildSourceRegion(
         DungeonGenerator generator,
@@ -440,117 +444,57 @@ public static class DynamicShaperPathfinder
             new HashSet<Vector2Int>();
 
 
-        DungeonGrid grid =
-            generator.Grid;
-
-
-        Room currentRoom =
-            null;
-
-
-        foreach (Room room in
-                 generator.Rooms)
+        if (generator == null ||
+            generator.Grid == null)
         {
-            if (room != null &&
-                room.Contains(
-                    originCell))
-            {
-                currentRoom =
-                    room;
-
-                break;
-            }
+            return source;
         }
 
 
-        if (currentRoom != null)
+        /*
+         * IMPORTANT:
+         *
+         * We cannot rely only on Room.Contains(originCell).
+         *
+         * Room.Contains() represents the original rectangular BSP room,
+         * while cellular-automata shaping can extend the playable room
+         * outside those original bounds.
+         *
+         * Therefore we construct each room's complete physical region and
+         * check whether the player is standing anywhere inside it.
+         */
+        foreach (Room room in
+                 generator.Rooms)
         {
-            for (int x =
-                     currentRoom.Bounds.xMin;
-                 x <
-                     currentRoom.Bounds.xMax;
-                 x++)
+            if (room == null)
+                continue;
+
+
+            HashSet<Vector2Int> roomRegion =
+                BuildCompleteRoomRegion(
+                    generator,
+                    room
+                );
+
+
+            if (!roomRegion.Contains(
+                    originCell))
             {
-                for (int y =
-                         currentRoom.Bounds.yMin;
-                     y <
-                         currentRoom.Bounds.yMax;
-                     y++)
-                {
-                    Vector2Int cell =
-                        new Vector2Int(
-                            x,
-                            y
-                        );
-
-
-                    if (grid.IsWalkable(
-                            cell))
-                    {
-                        source.Add(
-                            cell
-                        );
-                    }
-                }
+                continue;
             }
 
 
             /*
-             * Include CA-grown cells which are directly connected to
-             * this room so the Shaper cannot target its own irregular
-             * outer edge as though it were another room.
+             * This is the player's actual room.
+             *
+             * Exclude ONLY this room from the target search.
+             *
+             * Other rooms remain valid destinations even if the dungeon
+             * graph already contains a normal corridor between them.
              */
-            Queue<Vector2Int> frontier =
-                new Queue<Vector2Int>();
-
-
-            foreach (Vector2Int cell in
-                     source)
-            {
-                frontier.Enqueue(
-                    cell
-                );
-            }
-
-
-            while (frontier.Count > 0)
-            {
-                Vector2Int current =
-                    frontier.Dequeue();
-
-
-                foreach (Vector2Int direction in
-                         directions)
-                {
-                    Vector2Int neighbour =
-                        current +
-                        direction;
-
-
-                    if (source.Contains(
-                            neighbour))
-                    {
-                        continue;
-                    }
-
-
-                    if (!grid.IsOrganicRoomCell(
-                            neighbour))
-                    {
-                        continue;
-                    }
-
-
-                    source.Add(
-                        neighbour
-                    );
-
-
-                    frontier.Enqueue(
-                        neighbour
-                    );
-                }
-            }
+            source.UnionWith(
+                roomRegion
+            );
 
 
             return source;
@@ -558,8 +502,8 @@ public static class DynamicShaperPathfinder
 
 
         /*
-         * If not inside a room, check whether this is one of the
-         * originally generated corridors.
+         * If the player is not inside a room, check whether they are
+         * standing inside one of the generated corridors.
          */
         if (generator.Corridors != null)
         {
@@ -574,13 +518,32 @@ public static class DynamicShaperPathfinder
                 }
 
 
-                if (!corridor.Cells.Contains(
-                        originCell))
+                bool containsPlayer =
+                    false;
+
+
+                foreach (Vector2Int cell in
+                         corridor.Cells)
                 {
-                    continue;
+                    if (cell ==
+                        originCell)
+                    {
+                        containsPlayer =
+                            true;
+
+                        break;
+                    }
                 }
 
 
+                if (!containsPlayer)
+                    continue;
+
+
+                /*
+                 * Exclude only the corridor the player is currently
+                 * standing in.
+                 */
                 foreach (Vector2Int cell in
                          corridor.Cells)
                 {
@@ -595,7 +558,9 @@ public static class DynamicShaperPathfinder
         }
 
 
-        // Fallback for standing inside dynamically created terrain.
+        /*
+         * Fallback for dynamically-created Shaper terrain.
+         */
         source.Add(
             originCell
         );
@@ -604,6 +569,129 @@ public static class DynamicShaperPathfinder
         return source;
     }
 
+    /// <summary>
+    /// Builds the complete physical footprint of one room.
+    ///
+    /// It starts with the original BSP rectangle and then flood-fills
+    /// through organic room cells produced by the CA post-processing stage.
+    ///
+    /// This allows gameplay systems to recognise that irregular room
+    /// extensions still belong to the same logical Room object.
+    /// </summary>
+    private static HashSet<Vector2Int> BuildCompleteRoomRegion(
+        DungeonGenerator generator,
+        Room room)
+    {
+        HashSet<Vector2Int> region =
+            new HashSet<Vector2Int>();
+
+
+        if (generator == null ||
+            generator.Grid == null ||
+            room == null)
+        {
+            return region;
+        }
+
+
+        DungeonGrid grid =
+            generator.Grid;
+
+
+        Queue<Vector2Int> frontier =
+            new Queue<Vector2Int>();
+
+
+        // ------------------------------------------------------------
+        // ORIGINAL BSP ROOM
+        // ------------------------------------------------------------
+
+        for (int x = room.Bounds.xMin;
+             x < room.Bounds.xMax;
+             x++)
+        {
+            for (int y = room.Bounds.yMin;
+                 y < room.Bounds.yMax;
+                 y++)
+            {
+                Vector2Int cell =
+                    new Vector2Int(
+                        x,
+                        y
+                    );
+
+
+                if (!grid.IsWalkable(
+                        cell))
+                {
+                    continue;
+                }
+
+
+                if (region.Add(
+                        cell))
+                {
+                    frontier.Enqueue(
+                        cell
+                    );
+                }
+            }
+        }
+
+
+        // ------------------------------------------------------------
+        // CA-GROWN EXTENSIONS
+        // ------------------------------------------------------------
+
+        while (frontier.Count > 0)
+        {
+            Vector2Int current =
+                frontier.Dequeue();
+
+
+            foreach (Vector2Int direction in
+                     directions)
+            {
+                Vector2Int neighbour =
+                    current +
+                    direction;
+
+
+                if (region.Contains(
+                        neighbour))
+                {
+                    continue;
+                }
+
+
+                /*
+                 * Only propagate through cells specifically created by
+                 * organic room shaping.
+                 *
+                 * This prevents the flood-fill escaping into ordinary
+                 * corridors and eventually covering the whole dungeon.
+                 */
+                if (!grid.IsOrganicRoomCell(
+                        neighbour))
+                {
+                    continue;
+                }
+
+
+                region.Add(
+                    neighbour
+                );
+
+
+                frontier.Enqueue(
+                    neighbour
+                );
+            }
+        }
+
+
+        return region;
+    }
 
     private static bool IsValidDestination(
         DungeonGrid grid,

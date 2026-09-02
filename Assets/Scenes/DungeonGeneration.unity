@@ -1060,8 +1060,13 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerVisionController: {fileID: 2142187898}
   growthStepDelay: 0.08
-  sideGrowthChance: 0.42
   renderEverySteps: 1
+  minimumHalfWidth: 0
+  maximumHalfWidth: 2
+  widthChangeChance: 0.45
+  bulgeChance: 0.18
+  bulgeExtraWidth: 1
+  edgeRoughness: 0.3
 --- !u!4 &1983990456
 Transform:
   m_ObjectHideFlags: 0
@@ -1229,7 +1234,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
-  startingCharges: 1
+  startingCharges: 3
   shaperKey: 102
   minimumSolidCells: 2
   maximumSolidCells: 16
