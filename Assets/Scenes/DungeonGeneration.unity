@@ -1082,8 +1082,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellSize: 1
-  floorColour: {r: 0.105882354, g: 0.10980392, b: 0.11764706, a: 1}
-  wallColour: {r: 0, g: 0, b: 0, a: 1}
+  floorTint: {r: 1, g: 1, b: 1, a: 1}
+  wallTint: {r: 1, g: 1, b: 1, a: 1}
+  tilesetTexture: {fileID: 2800000, guid: 971d3d84887ab2248b5c56dedc4ad5b8, type: 3}
   dungeonCamera: {fileID: 1728126701}
   cameraPadding: 3
 --- !u!4 &1128854573

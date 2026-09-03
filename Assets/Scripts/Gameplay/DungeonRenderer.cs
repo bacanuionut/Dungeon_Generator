@@ -3,69 +3,416 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// Converts DungeonGrid data into two combined meshes:
+/// Renders DungeonGrid using the CraftPix 16x16 dungeon atlas.
 ///
-/// - one mesh for all walkable floor cells
-/// - one mesh for all wall cells
+/// The underlying procedural dungeon remains unchanged:
 ///
-/// DungeonGrid remains the authoritative dungeon representation.
-/// This class is responsible only for visual presentation.
+///     one DungeonGrid cell = one rendered tile
 ///
-/// Earlier versions represented every grid cell using a separate
-/// Primitive Quad GameObject. That was simple during development but
-/// became expensive once runtime terrain modification repeatedly
-/// refreshed the dungeon.
+/// The renderer uses two persistent combined meshes:
 ///
-/// Combining cells into meshes greatly reduces GameObject creation,
-/// material instances and draw calls while preserving exactly the same
-/// grid-based appearance.
+///     Generated Floor
+///     Generated Walls
+///
+/// Wall artwork is selected from the exact sides which touch walkable
+/// floor. Therefore:
+///
+///     WALL touching WALL  -> artwork merges
+///     WALL touching FLOOR -> visible boundary on that side
+///
+/// This remains compatible with BSP rooms, cellular-automata growth,
+/// corridors, Shaper excavation and Warden excavation.
 /// </summary>
 public class DungeonRenderer : MonoBehaviour
 {
+    // ============================================================
+    // RENDERING
+    // ============================================================
+
     [Header("Rendering")]
 
-    [Tooltip("Size of each rendered dungeon cell.")]
     [SerializeField]
     private float cellSize = 1f;
 
 
-    [Tooltip("Colour used for walkable floor.")]
     [SerializeField]
-    private Color floorColour =
-        new Color(
-            0.35f,
-            0.35f,
-            0.35f,
-            1f
+    private Color floorTint =
+        Color.white;
+
+
+    [SerializeField]
+    private Color wallTint =
+        Color.white;
+
+
+    // ============================================================
+    // TILESET
+    // ============================================================
+
+    [Header("Dungeon Pixel Art")]
+
+    [Tooltip(
+        "Assign Assets/Art/DungeonTiles/Tileset.png"
+    )]
+    [SerializeField]
+    private Texture2D tilesetTexture;
+
+
+    /*
+     * Confirmed by Dungeon Tileset.tmx:
+     *
+     * 304 x 176 px
+     * 16 x 16 px tiles
+     * 19 columns
+     * 11 rows
+     */
+    private const int AtlasColumns =
+        19;
+
+
+    private const int AtlasRows =
+        11;
+
+
+    // ============================================================
+    // VISUAL VARIATION
+    // ============================================================
+
+    [Header("Visual Variation")]
+
+    [Tooltip(
+        "Chance that an ordinary floor cell receives a small " +
+        "single-tile variation."
+    )]
+    [Range(0f, 0.5f)]
+    [SerializeField]
+    private float smallFloorVariationChance =
+        0.10f;
+
+
+    [Tooltip(
+        "Chance of attempting to place one complete 3x4 cracked-floor " +
+        "pattern when a suitable clear floor area is found."
+    )]
+    [Range(0f, 0.25f)]
+    [SerializeField]
+    private float largeFloorPatternChance =
+        0.035f;
+
+
+    [Tooltip(
+        "Chance that a compatible wall uses an alternative detail tile."
+    )]
+    [Range(0f, 0.5f)]
+    [SerializeField]
+    private float wallVariationChance =
+        0.25f;
+
+
+    // ============================================================
+    // EXPOSURE MASK
+    // ============================================================
+
+    /*
+     * Describes which SIDES OF A WALL touch walkable floor.
+     *
+     * NORTH = 1
+     * EAST  = 2
+     * SOUTH = 4
+     * WEST  = 8
+     */
+
+    private const int FloorNorth =
+        1;
+
+
+    private const int FloorEast =
+        2;
+
+
+    private const int FloorSouth =
+        4;
+
+
+    private const int FloorWest =
+        8;
+
+
+    // ============================================================
+    // FLOOR TILES
+    // ============================================================
+
+    /*
+     * Main plain floor.
+     */
+    private static readonly Vector2Int baseFloorTile =
+        new Vector2Int(
+            2,
+            2
         );
 
 
-    [Tooltip("Colour used for walls.")]
-    [SerializeField]
-    private Color wallColour =
-        new Color(
-            0.08f,
-            0.08f,
-            0.08f,
-            1f
+    /*
+     * Smaller floor variations from the main family.
+     *
+     * These are deliberately sparse because using all of them on
+     * every cell makes the floor visually noisy.
+     */
+    private static readonly Vector2Int[] smallFloorTiles =
+    {
+        new Vector2Int(3, 2),
+        new Vector2Int(4, 2),
+
+        new Vector2Int(2, 3),
+        new Vector2Int(3, 3),
+        new Vector2Int(4, 3),
+
+        new Vector2Int(2, 4),
+        new Vector2Int(3, 4),
+        new Vector2Int(4, 4)
+    };
+
+
+    /*
+     * This is a COHERENT 3 x 4 floor pattern.
+     *
+     * It must not be randomly scattered one tile at a time.
+     *
+     * Atlas:
+     *
+     * (15,6) (16,6) (17,6)
+     * (15,7) (16,7) (17,7)
+     * (15,8) (16,8) (17,8)
+     * (15,9) (16,9) (17,9)
+     */
+    private static readonly Vector2Int[,] largeFloorPattern =
+    {
+        {
+            new Vector2Int(15, 6),
+            new Vector2Int(16, 6),
+            new Vector2Int(17, 6)
+        },
+
+        {
+            new Vector2Int(15, 7),
+            new Vector2Int(16, 7),
+            new Vector2Int(17, 7)
+        },
+
+        {
+            new Vector2Int(15, 8),
+            new Vector2Int(16, 8),
+            new Vector2Int(17, 8)
+        },
+
+        {
+            new Vector2Int(15, 9),
+            new Vector2Int(16, 9),
+            new Vector2Int(17, 9)
+        }
+    };
+
+
+    // ============================================================
+    // STRAIGHT WALL TILES
+    // ============================================================
+
+    /*
+     * Wall ABOVE floor.
+     *
+     * Its SOUTH side is the wall/floor boundary.
+     */
+    private static readonly Vector2Int[] southExposedWalls =
+    {
+        new Vector2Int(2, 1),
+        new Vector2Int(3, 1),
+        new Vector2Int(4, 1),
+
+        // Additional compatible detail.
+        new Vector2Int(3, 7)
+    };
+
+
+    /*
+     * Wall BELOW floor.
+     *
+     * Its NORTH side borders floor.
+     */
+    private static readonly Vector2Int[] northExposedWalls =
+    {
+        new Vector2Int(2, 5),
+        new Vector2Int(3, 5),
+        new Vector2Int(4, 5)
+    };
+
+
+    /*
+     * Wall LEFT of floor.
+     *
+     * Its EAST side borders floor.
+     */
+    private static readonly Vector2Int[] eastExposedWalls =
+    {
+        new Vector2Int(1, 2),
+        new Vector2Int(1, 3),
+        new Vector2Int(1, 4)
+    };
+
+
+    /*
+     * Wall RIGHT of floor.
+     *
+     * Its WEST side borders floor.
+     */
+    private static readonly Vector2Int[] westExposedWalls =
+    {
+        new Vector2Int(5, 2),
+        new Vector2Int(5, 3),
+        new Vector2Int(5, 4)
+    };
+
+
+    // ============================================================
+    // CORNERS
+    // ============================================================
+
+    /*
+     * IMPORTANT:
+     *
+     * These mappings were corrected after examining the actual
+     * supplied TMX rather than guessing from the spritesheet.
+     */
+
+
+    /*
+     * Floor NORTH + EAST.
+     *
+     * Border is therefore on TOP + RIGHT.
+     */
+    private static readonly Vector2Int northEastCorner =
+        new Vector2Int(
+            5,
+            1
         );
 
 
-    [Header("Camera")]
+    /*
+     * Floor EAST + SOUTH.
+     *
+     * This is the exact case from the screenshot where the tile
+     * needed the slight boundary on RIGHT + BOTTOM.
+     */
+    private static readonly Vector2Int southEastCorner =
+        new Vector2Int(
+            5,
+            5
+        );
 
-    [Tooltip("Camera used to display the generated dungeon.")]
-    [SerializeField]
-    private Camera dungeonCamera;
+
+    /*
+     * Floor SOUTH + WEST.
+     */
+    private static readonly Vector2Int southWestCorner =
+        new Vector2Int(
+            1,
+            5
+        );
 
 
-    [Tooltip("Extra space shown around the outside of the dungeon.")]
-    [SerializeField]
-    private float cameraPadding = 3f;
+    /*
+     * Floor WEST + NORTH.
+     */
+    private static readonly Vector2Int northWestCorner =
+        new Vector2Int(
+            1,
+            1
+        );
 
 
-    // ------------------------------------------------------------
-    // COMBINED RENDER OBJECTS
-    // ------------------------------------------------------------
+    // ============================================================
+    // OPPOSING-SIDE WALLS
+    // ============================================================
+
+    /*
+     * Floor both NORTH and SOUTH.
+     *
+     * These occur in narrow procedural spaces and one-cell dividers.
+     *
+     * The TMX uses several horizontal wall variants for this case.
+     */
+    private static readonly Vector2Int[] northSouthWalls =
+    {
+        new Vector2Int(2, 1),
+        new Vector2Int(3, 1),
+        new Vector2Int(4, 1),
+
+        new Vector2Int(2, 5),
+        new Vector2Int(3, 5),
+        new Vector2Int(4, 5),
+
+        new Vector2Int(3, 7),
+
+        new Vector2Int(11, 8),
+        new Vector2Int(2, 9)
+    };
+
+
+    /*
+     * Floor EAST and WEST.
+     *
+     * Vertical divider / narrow-wall cases.
+     */
+    private static readonly Vector2Int[] eastWestWalls =
+    {
+        new Vector2Int(1, 2),
+        new Vector2Int(1, 3),
+        new Vector2Int(1, 4),
+
+        new Vector2Int(5, 2),
+        new Vector2Int(5, 3),
+        new Vector2Int(5, 4),
+
+        new Vector2Int(7, 4),
+        new Vector2Int(7, 5)
+    };
+
+
+    // ============================================================
+    // THREE-SIDED SPECIAL WALLS
+    // ============================================================
+
+    /*
+     * The supplied TMX actually uses these specialised tiles in
+     * T-junction style cases.
+     */
+
+
+    /*
+     * Floor NORTH + EAST + WEST.
+     */
+    private static readonly Vector2Int[] northEastWestWalls =
+    {
+        new Vector2Int(8, 7),
+        new Vector2Int(12, 7)
+    };
+
+
+    /*
+     * Floor EAST + SOUTH + WEST.
+     *
+     * This also uses the extra tiles specifically pointed out during
+     * visual review.
+     */
+    private static readonly Vector2Int[] eastSouthWestWalls =
+    {
+        new Vector2Int(8, 9),
+        new Vector2Int(12, 9)
+    };
+
+
+    // ============================================================
+    // RENDER OBJECTS
+    // ============================================================
 
     private GameObject floorObject;
 
@@ -82,14 +429,10 @@ public class DungeonRenderer : MonoBehaviour
     private Material wallMaterial;
 
 
-    /*
-     * Reusable buffers avoid allocating new Lists every time runtime
-     * terrain changes.
-     *
-     * Mesh.SetVertices / SetTriangles copies their contents into the
-     * mesh, so the same buffers can safely be reused for floor and wall
-     * construction.
-     */
+    // ============================================================
+    // REUSABLE COLLECTIONS
+    // ============================================================
+
     private readonly List<Vector3> vertexBuffer =
         new List<Vector3>();
 
@@ -98,27 +441,79 @@ public class DungeonRenderer : MonoBehaviour
         new List<int>();
 
 
-    private static readonly Vector2Int[] directions =
+    private readonly List<Vector2> uvBuffer =
+        new List<Vector2>();
+
+
+    private readonly HashSet<Vector2Int> wallCellBuffer =
+        new HashSet<Vector2Int>();
+
+
+    /*
+     * Floor overrides are used for coherent decorative floor stamps.
+     */
+    private readonly Dictionary<Vector2Int, Vector2Int>
+        floorTileOverrides =
+            new Dictionary<Vector2Int, Vector2Int>();
+
+
+    private readonly List<Vector2Int> sortedFloorCells =
+        new List<Vector2Int>();
+
+
+    private static readonly Vector2Int[] wallNeighbourDirections =
     {
         Vector2Int.up,
         Vector2Int.down,
         Vector2Int.left,
-        Vector2Int.right
+        Vector2Int.right,
+
+        new Vector2Int(-1, 1),
+        new Vector2Int(1, 1),
+
+        new Vector2Int(-1, -1),
+        new Vector2Int(1, -1)
     };
 
 
     // ============================================================
-    // PUBLIC RENDERING
+    // CAMERA
     // ============================================================
 
-    /// <summary>
-    /// Rebuilds the visual meshes from the authoritative DungeonGrid.
-    ///
-    /// Unlike the original implementation, this does not destroy and
-    /// recreate thousands of individual GameObjects.
-    ///
-    /// The same two mesh objects are reused throughout the floor.
-    /// </summary>
+    [Header("Camera")]
+
+    [SerializeField]
+    private Camera dungeonCamera;
+
+
+    [SerializeField]
+    private float cameraPadding =
+        3f;
+
+
+    // ============================================================
+    // INITIALISATION
+    // ============================================================
+
+    private void Awake()
+    {
+        transform.position =
+            Vector3.zero;
+
+
+        transform.rotation =
+            Quaternion.identity;
+
+
+        transform.localScale =
+            Vector3.one;
+    }
+
+
+    // ============================================================
+    // PUBLIC RENDER
+    // ============================================================
+
     public void Render(
         DungeonGrid grid)
     {
@@ -140,47 +535,862 @@ public class DungeonRenderer : MonoBehaviour
         EnsureRenderObjects();
 
 
-        if (floorMaterial != null)
+        if (tilesetTexture == null)
         {
-            floorMaterial.color =
-                floorColour;
-        }
-
-
-        if (wallMaterial != null)
-        {
-            wallMaterial.color =
-                wallColour;
-        }
-
-
-        HashSet<Vector2Int> wallCells =
-            CalculateWallCells(
-                grid
+            UnityEngine.Debug.LogWarning(
+                "DungeonRenderer has no Tileset.png assigned."
             );
+        }
 
 
-        BuildMesh(
-            floorMesh,
-            grid.FloorCells,
-            grid.FloorCellCount,
-            0f
+        SynchroniseMaterials();
+
+
+        CalculateVisualWallCells(
+            grid
         );
 
 
-        BuildMesh(
-            wallMesh,
-            wallCells,
-            wallCells.Count,
-            0.1f
+        BuildFloorVisualMap(
+            grid
+        );
+
+
+        BuildFloorMesh(
+            grid
+        );
+
+
+        BuildWallMesh(
+            grid
         );
 
 
         UnityEngine.Debug.Log(
-            $"Dungeon rendered with " +
+            "Dungeon rendered with " +
             $"{grid.FloorCellCount} floor cells and " +
-            $"{wallCells.Count} wall cells."
+            $"{wallCellBuffer.Count} visual wall cells."
         );
+    }
+
+
+    // ============================================================
+    // FLOOR VISUAL MAP
+    // ============================================================
+
+    private void BuildFloorVisualMap(
+        DungeonGrid grid)
+    {
+        floorTileOverrides.Clear();
+
+        sortedFloorCells.Clear();
+
+
+        foreach (Vector2Int cell in
+                 grid.FloorCells)
+        {
+            sortedFloorCells.Add(
+                cell
+            );
+        }
+
+
+        /*
+         * Sorting makes decorative placement deterministic even if
+         * HashSet iteration order changes.
+         */
+        sortedFloorCells.Sort(
+            CompareCells
+        );
+
+
+        /*
+         * First add sparse single-cell detail.
+         */
+        foreach (Vector2Int cell in
+                 sortedFloorCells)
+        {
+            uint hash =
+                CalculateCoordinateHash(
+                    cell
+                );
+
+
+            float roll =
+                (hash %
+                 10000u) /
+                10000f;
+
+
+            if (roll >=
+                smallFloorVariationChance)
+            {
+                continue;
+            }
+
+
+            uint variantHash =
+                MixHash(
+                    hash,
+                    0x71A54BCDu
+                );
+
+
+            int index =
+                (int)(
+                    variantHash %
+                    (uint)smallFloorTiles.Length
+                );
+
+
+            floorTileOverrides[cell] =
+                smallFloorTiles[index];
+        }
+
+
+        /*
+         * Then attempt coherent 3x4 cracked-floor patterns.
+         *
+         * These overwrite small detail where necessary.
+         */
+        foreach (Vector2Int candidate in
+                 sortedFloorCells)
+        {
+            uint hash =
+                MixHash(
+                    CalculateCoordinateHash(
+                        candidate
+                    ),
+                    0x4F1BBCDCu
+                );
+
+
+            float roll =
+                (hash %
+                 10000u) /
+                10000f;
+
+
+            if (roll >=
+                largeFloorPatternChance)
+            {
+                continue;
+            }
+
+
+            if (!CanPlaceLargeFloorPattern(
+                    grid,
+                    candidate))
+            {
+                continue;
+            }
+
+
+            ApplyLargeFloorPattern(
+                candidate
+            );
+        }
+    }
+
+
+    private bool CanPlaceLargeFloorPattern(
+        DungeonGrid grid,
+        Vector2Int bottomLeft)
+    {
+        /*
+         * Pattern is:
+         *
+         * 3 cells wide
+         * 4 cells high
+         */
+
+        for (int localY = 0;
+             localY < 4;
+             localY++)
+        {
+            for (int localX = 0;
+                 localX < 3;
+                 localX++)
+            {
+                Vector2Int cell =
+                    bottomLeft +
+                    new Vector2Int(
+                        localX,
+                        localY
+                    );
+
+
+                if (!grid.IsWalkable(
+                        cell))
+                {
+                    return false;
+                }
+            }
+        }
+
+
+        return true;
+    }
+
+
+    private void ApplyLargeFloorPattern(
+        Vector2Int bottomLeft)
+    {
+        /*
+         * Atlas row 6 is visually the TOP of the pattern.
+         *
+         * Unity/world Y increases upward.
+         *
+         * Therefore:
+         *
+         * local world row 3 -> atlas row 6
+         * local world row 2 -> atlas row 7
+         * local world row 1 -> atlas row 8
+         * local world row 0 -> atlas row 9
+         */
+
+        for (int localY = 0;
+             localY < 4;
+             localY++)
+        {
+            int atlasPatternRow =
+                3 -
+                localY;
+
+
+            for (int localX = 0;
+                 localX < 3;
+                 localX++)
+            {
+                Vector2Int dungeonCell =
+                    bottomLeft +
+                    new Vector2Int(
+                        localX,
+                        localY
+                    );
+
+
+                floorTileOverrides[dungeonCell] =
+                    largeFloorPattern[
+                        atlasPatternRow,
+                        localX
+                    ];
+            }
+        }
+    }
+
+
+    private int CompareCells(
+        Vector2Int first,
+        Vector2Int second)
+    {
+        int yComparison =
+            first.y.CompareTo(
+                second.y
+            );
+
+
+        if (yComparison != 0)
+        {
+            return yComparison;
+        }
+
+
+        return
+            first.x.CompareTo(
+                second.x
+            );
+    }
+
+
+    // ============================================================
+    // FLOOR MESH
+    // ============================================================
+
+    private void BuildFloorMesh(
+        DungeonGrid grid)
+    {
+        if (floorMesh == null)
+            return;
+
+
+        PrepareBuffers(
+            grid.FloorCellCount
+        );
+
+
+        foreach (Vector2Int cell in
+                 grid.FloorCells)
+        {
+            Vector2Int tile;
+
+
+            if (!floorTileOverrides.TryGetValue(
+                    cell,
+                    out tile))
+            {
+                tile =
+                    baseFloorTile;
+            }
+
+
+            AddCellGeometry(
+                cell,
+                0f,
+                tile.x,
+                tile.y
+            );
+        }
+
+
+        ApplyBuffersToMesh(
+            floorMesh
+        );
+    }
+
+
+    // ============================================================
+    // WALL MESH
+    // ============================================================
+
+    private void BuildWallMesh(
+        DungeonGrid grid)
+    {
+        if (wallMesh == null)
+            return;
+
+
+        PrepareBuffers(
+            wallCellBuffer.Count
+        );
+
+
+        foreach (Vector2Int wallCell in
+                 wallCellBuffer)
+        {
+            Vector2Int tile =
+                SelectWallTile(
+                    grid,
+                    wallCell
+                );
+
+
+            AddCellGeometry(
+                wallCell,
+                -0.02f,
+                tile.x,
+                tile.y
+            );
+        }
+
+
+        ApplyBuffersToMesh(
+            wallMesh
+        );
+    }
+
+
+    // ============================================================
+    // WALL TILE SELECTION
+    // ============================================================
+
+    private Vector2Int SelectWallTile(
+        DungeonGrid grid,
+        Vector2Int wallCell)
+    {
+        int mask =
+            GetFloorExposureMask(
+                grid,
+                wallCell
+            );
+
+
+        switch (mask)
+        {
+            // ----------------------------------------------------
+            // DIAGONAL-ONLY OUTER CORNER
+            // ----------------------------------------------------
+
+            case 0:
+
+                return SelectDiagonalOuterCorner(
+                    grid,
+                    wallCell
+                );
+
+
+            // ----------------------------------------------------
+            // ONE FLOOR-FACING SIDE
+            // ----------------------------------------------------
+
+            case FloorNorth:
+
+                return SelectVariant(
+                    northExposedWalls,
+                    wallCell,
+                    101u
+                );
+
+
+            case FloorEast:
+
+                return SelectVariant(
+                    eastExposedWalls,
+                    wallCell,
+                    102u
+                );
+
+
+            case FloorSouth:
+
+                return SelectVariant(
+                    southExposedWalls,
+                    wallCell,
+                    103u
+                );
+
+
+            case FloorWest:
+
+                return SelectVariant(
+                    westExposedWalls,
+                    wallCell,
+                    104u
+                );
+
+
+            // ----------------------------------------------------
+            // ADJACENT TWO-SIDE CORNERS
+            //
+            // Verified against the supplied TMX.
+            // ----------------------------------------------------
+
+            case FloorNorth |
+                 FloorEast:
+
+                return
+                    northEastCorner;
+
+
+            case FloorEast |
+                 FloorSouth:
+
+                return
+                    southEastCorner;
+
+
+            case FloorSouth |
+                 FloorWest:
+
+                return
+                    southWestCorner;
+
+
+            case FloorWest |
+                 FloorNorth:
+
+                return
+                    northWestCorner;
+
+
+            // ----------------------------------------------------
+            // OPPOSING FLOOR SIDES
+            // ----------------------------------------------------
+
+            case FloorNorth |
+                 FloorSouth:
+
+                return SelectVariant(
+                    northSouthWalls,
+                    wallCell,
+                    201u
+                );
+
+
+            case FloorEast |
+                 FloorWest:
+
+                return SelectVariant(
+                    eastWestWalls,
+                    wallCell,
+                    202u
+                );
+
+
+            // ----------------------------------------------------
+            // THREE-SIDED CASES SEEN IN TMX
+            // ----------------------------------------------------
+
+            case FloorNorth |
+                 FloorEast |
+                 FloorWest:
+
+                return SelectVariant(
+                    northEastWestWalls,
+                    wallCell,
+                    301u
+                );
+
+
+            case FloorEast |
+                 FloorSouth |
+                 FloorWest:
+
+                return SelectVariant(
+                    eastSouthWestWalls,
+                    wallCell,
+                    302u
+                );
+        }
+
+
+        /*
+         * The remaining masks are uncommon in normal room borders.
+         *
+         * They are mostly generated by extremely thin CA geometry.
+         *
+         * Use a deterministic best-fitting tile instead of putting a
+         * random wall orientation there.
+         */
+        return SelectRareWallCase(
+            mask,
+            wallCell
+        );
+    }
+
+
+    private Vector2Int SelectRareWallCase(
+        int mask,
+        Vector2Int wallCell)
+    {
+        /*
+         * FLOOR NORTH + EAST + SOUTH.
+         *
+         * The wall continues to the WEST.
+         */
+        if (mask ==
+            (FloorNorth |
+             FloorEast |
+             FloorSouth))
+        {
+            return new Vector2Int(
+                13,
+                8
+            );
+        }
+
+
+        /*
+         * FLOOR NORTH + SOUTH + WEST.
+         *
+         * The wall continues to the EAST.
+         */
+        if (mask ==
+            (FloorNorth |
+             FloorSouth |
+             FloorWest))
+        {
+            return new Vector2Int(
+                11,
+                8
+            );
+        }
+
+
+        /*
+         * Floor on all four sides.
+         *
+         * This is basically a tiny one-cell wall pillar.
+         */
+        if (mask ==
+            (FloorNorth |
+             FloorEast |
+             FloorSouth |
+             FloorWest))
+        {
+            return new Vector2Int(
+                13,
+                4
+            );
+        }
+
+
+        /*
+         * Safe fallback.
+         */
+        if ((mask &
+             FloorSouth) != 0)
+        {
+            return SelectVariant(
+                southExposedWalls,
+                wallCell,
+                403u
+            );
+        }
+
+
+        if ((mask &
+             FloorNorth) != 0)
+        {
+            return SelectVariant(
+                northExposedWalls,
+                wallCell,
+                404u
+            );
+        }
+
+
+        if ((mask &
+             FloorEast) != 0)
+        {
+            return SelectVariant(
+                eastExposedWalls,
+                wallCell,
+                405u
+            );
+        }
+
+
+        return SelectVariant(
+            westExposedWalls,
+            wallCell,
+            406u
+        );
+    }
+
+
+    // ============================================================
+    // OUTER DIAGONAL CORNERS
+    // ============================================================
+
+    private Vector2Int SelectDiagonalOuterCorner(
+        DungeonGrid grid,
+        Vector2Int wallCell)
+    {
+        /*
+         * Floor diagonally SOUTH-EAST means this is the
+         * NORTH-WEST outside corner.
+         */
+        if (grid.IsWalkable(
+                wallCell +
+                new Vector2Int(
+                    1,
+                    -1
+                )))
+        {
+            return
+                northWestCorner;
+        }
+
+
+        /*
+         * SOUTH-WEST floor.
+         */
+        if (grid.IsWalkable(
+                wallCell +
+                new Vector2Int(
+                    -1,
+                    -1
+                )))
+        {
+            return
+                northEastCorner;
+        }
+
+
+        /*
+         * NORTH-EAST floor.
+         */
+        if (grid.IsWalkable(
+                wallCell +
+                new Vector2Int(
+                    1,
+                    1
+                )))
+        {
+            return
+                southWestCorner;
+        }
+
+
+        /*
+         * NORTH-WEST floor.
+         */
+        if (grid.IsWalkable(
+                wallCell +
+                new Vector2Int(
+                    -1,
+                    1
+                )))
+        {
+            return
+                southEastCorner;
+        }
+
+
+        return
+            northWestCorner;
+    }
+
+
+    // ============================================================
+    // EXPOSURE MASK
+    // ============================================================
+
+    private int GetFloorExposureMask(
+        DungeonGrid grid,
+        Vector2Int wallCell)
+    {
+        int mask =
+            0;
+
+
+        if (grid.IsWalkable(
+                wallCell +
+                Vector2Int.up))
+        {
+            mask |=
+                FloorNorth;
+        }
+
+
+        if (grid.IsWalkable(
+                wallCell +
+                Vector2Int.right))
+        {
+            mask |=
+                FloorEast;
+        }
+
+
+        if (grid.IsWalkable(
+                wallCell +
+                Vector2Int.down))
+        {
+            mask |=
+                FloorSouth;
+        }
+
+
+        if (grid.IsWalkable(
+                wallCell +
+                Vector2Int.left))
+        {
+            mask |=
+                FloorWest;
+        }
+
+
+        return mask;
+    }
+
+
+    // ============================================================
+    // VARIANT SELECTION
+    // ============================================================
+
+    private Vector2Int SelectVariant(
+        Vector2Int[] variants,
+        Vector2Int cell,
+        uint salt)
+    {
+        if (variants == null ||
+            variants.Length == 0)
+        {
+            return
+                new Vector2Int(
+                    2,
+                    1
+                );
+        }
+
+
+        uint hash =
+            MixHash(
+                CalculateCoordinateHash(
+                    cell
+                ),
+                salt
+            );
+
+
+        /*
+         * Keep the primary tile slightly more common so decorative
+         * variants add diversity without making every wall noisy.
+         */
+        float roll =
+            (hash %
+             10000u) /
+            10000f;
+
+
+        if (variants.Length >
+                3 &&
+            roll >
+                wallVariationChance)
+        {
+            int basicCount =
+                Mathf.Min(
+                    3,
+                    variants.Length
+                );
+
+
+            int basicIndex =
+                (int)(
+                    (hash /
+                     101u) %
+                    (uint)basicCount
+                );
+
+
+            return
+                variants[basicIndex];
+        }
+
+
+        int index =
+            (int)(
+                hash %
+                (uint)variants.Length
+            );
+
+
+        return
+            variants[index];
+    }
+
+
+    // ============================================================
+    // VISUAL WALL POSITIONS
+    // ============================================================
+
+    private void CalculateVisualWallCells(
+        DungeonGrid grid)
+    {
+        wallCellBuffer.Clear();
+
+
+        foreach (Vector2Int floorCell in
+                 grid.FloorCells)
+        {
+            foreach (Vector2Int direction in
+                     wallNeighbourDirections)
+            {
+                Vector2Int neighbour =
+                    floorCell +
+                    direction;
+
+
+                if (!grid.IsWalkable(
+                        neighbour))
+                {
+                    wallCellBuffer.Add(
+                        neighbour
+                    );
+                }
+            }
+        }
     }
 
 
@@ -188,12 +1398,6 @@ public class DungeonRenderer : MonoBehaviour
     // OBJECT SETUP
     // ============================================================
 
-    /// <summary>
-    /// Creates the two persistent render objects if they do not already
-    /// exist.
-    ///
-    /// They are then reused for every dungeon refresh.
-    /// </summary>
     private void EnsureRenderObjects()
     {
         EnsureMaterials();
@@ -233,28 +1437,22 @@ public class DungeonRenderer : MonoBehaviour
             );
 
 
-        /*
-         * Mesh vertices are generated directly in dungeon/world coordinates.
-         *
-         * Keep the render object at world-space identity even though it is
-         * parented beneath Dungeon Renderer for Hierarchy organisation.
-         *
-         * This matches the behaviour of the original per-cell renderer, where
-         * each Quad was positioned using Transform.position rather than
-         * Transform.localPosition.
-         */
         meshObject.transform.SetParent(
             transform,
-            true
+            false
         );
 
 
-        meshObject.transform.position =
+        meshObject.transform.localPosition =
             Vector3.zero;
 
 
-        meshObject.transform.rotation =
+        meshObject.transform.localRotation =
             Quaternion.identity;
+
+
+        meshObject.transform.localScale =
+            Vector3.one;
 
 
         MeshFilter meshFilter =
@@ -274,11 +1472,6 @@ public class DungeonRenderer : MonoBehaviour
             " Mesh";
 
 
-        /*
-         * Dungeon sizes are currently comfortably below the 16-bit
-         * vertex limit, but UInt32 keeps this renderer safe if dungeon
-         * dimensions are increased later.
-         */
         mesh.indexFormat =
             IndexFormat.UInt32;
 
@@ -294,10 +1487,6 @@ public class DungeonRenderer : MonoBehaviour
             material;
 
 
-        /*
-         * These are flat unlit 2D meshes. Lighting, shadows and probes
-         * provide no benefit and would only add rendering work.
-         */
         meshRenderer.shadowCastingMode =
             ShadowCastingMode.Off;
 
@@ -322,38 +1511,11 @@ public class DungeonRenderer : MonoBehaviour
     // MATERIALS
     // ============================================================
 
-    /// <summary>
-    /// Creates exactly two shared materials for the dungeon.
-    ///
-    /// The previous per-cell renderer.material access generated
-    /// separate material instances for thousands of cells.
-    /// </summary>
     private void EnsureMaterials()
     {
-        if (floorMaterial != null &&
-            wallMaterial != null)
-        {
-            return;
-        }
-
-
-        //Shader shader =
-        //    Shader.Find(
-        //        "Sprites/Default"
-        //    );
-
-
-        //if (shader == null)
-        //{
-        //    shader =
-        //        Shader.Find(
-        //            "Unlit/Color"
-        //        );
-        //}
-
         Shader shader =
             Shader.Find(
-                "Unlit/Color"
+                "Sprites/Default"
             );
 
 
@@ -361,7 +1523,7 @@ public class DungeonRenderer : MonoBehaviour
         {
             shader =
                 Shader.Find(
-                    "Sprites/Default"
+                    "Unlit/Texture"
                 );
         }
 
@@ -369,7 +1531,7 @@ public class DungeonRenderer : MonoBehaviour
         if (shader == null)
         {
             UnityEngine.Debug.LogError(
-                "DungeonRenderer could not find a suitable unlit shader."
+                "DungeonRenderer could not find a texture-capable shader."
             );
 
 
@@ -387,10 +1549,6 @@ public class DungeonRenderer : MonoBehaviour
 
             floorMaterial.name =
                 "Runtime Dungeon Floor Material";
-
-
-            floorMaterial.color =
-                floorColour;
         }
 
 
@@ -404,58 +1562,68 @@ public class DungeonRenderer : MonoBehaviour
 
             wallMaterial.name =
                 "Runtime Dungeon Wall Material";
+        }
 
 
+        SynchroniseMaterials();
+    }
+
+
+    private void SynchroniseMaterials()
+    {
+        if (floorMaterial != null)
+        {
+            floorMaterial.color =
+                floorTint;
+
+
+            floorMaterial.mainTexture =
+                tilesetTexture;
+        }
+
+
+        if (wallMaterial != null)
+        {
             wallMaterial.color =
-                wallColour;
+                wallTint;
+
+
+            wallMaterial.mainTexture =
+                tilesetTexture;
         }
     }
 
 
     // ============================================================
-    // MESH CONSTRUCTION
+    // MESH BUFFERS
     // ============================================================
 
-    /// <summary>
-    /// Creates one combined mesh containing one quad for every supplied
-    /// grid coordinate.
-    ///
-    /// Four vertices and six triangle indices are generated per cell.
-    /// </summary>
-    private void BuildMesh(
-        Mesh targetMesh,
-        IEnumerable<Vector2Int> cells,
-        int cellCount,
-        float zPosition)
+    private void PrepareBuffers(
+        int cellCount)
     {
-        if (targetMesh == null)
-            return;
-
-
         vertexBuffer.Clear();
 
         triangleBuffer.Clear();
+
+        uvBuffer.Clear();
 
 
         int requiredVertices =
             Mathf.Max(
                 0,
-                cellCount * 4
+                cellCount *
+                4
             );
 
 
-        int requiredTriangleIndices =
+        int requiredTriangles =
             Mathf.Max(
                 0,
-                cellCount * 6
+                cellCount *
+                6
             );
 
 
-        /*
-         * Increase capacity only when necessary. Once a sufficiently
-         * large dungeon has been rendered, these allocations can be
-         * reused by subsequent runtime terrain updates.
-         */
         if (vertexBuffer.Capacity <
             requiredVertices)
         {
@@ -464,29 +1632,37 @@ public class DungeonRenderer : MonoBehaviour
         }
 
 
+        if (uvBuffer.Capacity <
+            requiredVertices)
+        {
+            uvBuffer.Capacity =
+                requiredVertices;
+        }
+
+
         if (triangleBuffer.Capacity <
-            requiredTriangleIndices)
+            requiredTriangles)
         {
             triangleBuffer.Capacity =
-                requiredTriangleIndices;
+                requiredTriangles;
         }
+    }
 
 
-        foreach (Vector2Int cell in
-                 cells)
-        {
-            AddCellGeometry(
-                cell,
-                zPosition
-            );
-        }
-
-
+    private void ApplyBuffersToMesh(
+        Mesh targetMesh)
+    {
         targetMesh.Clear();
 
 
         targetMesh.SetVertices(
             vertexBuffer
+        );
+
+
+        targetMesh.SetUVs(
+            0,
+            uvBuffer
         );
 
 
@@ -501,14 +1677,15 @@ public class DungeonRenderer : MonoBehaviour
     }
 
 
-    /// <summary>
-    /// Appends one grid square to the currently active mesh buffers.
-    ///
-    /// Triangle winding faces toward the normal 2D gameplay camera.
-    /// </summary>
+    // ============================================================
+    // CELL GEOMETRY
+    // ============================================================
+
     private void AddCellGeometry(
         Vector2Int cell,
-        float zPosition)
+        float zPosition,
+        int tileColumn,
+        int tileRow)
     {
         int firstVertex =
             vertexBuffer.Count;
@@ -534,7 +1711,6 @@ public class DungeonRenderer : MonoBehaviour
             cellSize;
 
 
-        // Bottom-left.
         vertexBuffer.Add(
             new Vector3(
                 minimumX,
@@ -544,7 +1720,6 @@ public class DungeonRenderer : MonoBehaviour
         );
 
 
-        // Bottom-right.
         vertexBuffer.Add(
             new Vector3(
                 maximumX,
@@ -554,7 +1729,6 @@ public class DungeonRenderer : MonoBehaviour
         );
 
 
-        // Top-right.
         vertexBuffer.Add(
             new Vector3(
                 maximumX,
@@ -564,7 +1738,6 @@ public class DungeonRenderer : MonoBehaviour
         );
 
 
-        // Top-left.
         vertexBuffer.Add(
             new Vector3(
                 minimumX,
@@ -574,10 +1747,6 @@ public class DungeonRenderer : MonoBehaviour
         );
 
 
-        /*
-         * The winding order produces a normal facing the camera along
-         * negative Z, matching the old PrimitiveType.Quad rendering.
-         */
         triangleBuffer.Add(
             firstVertex
         );
@@ -602,59 +1771,184 @@ public class DungeonRenderer : MonoBehaviour
         triangleBuffer.Add(
             firstVertex + 2
         );
+
+
+        AddTileUVs(
+            tileColumn,
+            tileRow
+        );
     }
 
 
     // ============================================================
-    // WALL CALCULATION
+    // UV MAPPING
     // ============================================================
 
-    /// <summary>
-    /// Finds every non-walkable cell directly adjacent to floor.
-    /// </summary>
-    private HashSet<Vector2Int> CalculateWallCells(
-        DungeonGrid grid)
+    private void AddTileUVs(
+        int tileColumn,
+        int tileRow)
     {
-        HashSet<Vector2Int> walls =
-            new HashSet<Vector2Int>();
+        tileColumn =
+            Mathf.Clamp(
+                tileColumn,
+                0,
+                AtlasColumns - 1
+            );
 
 
-        foreach (Vector2Int floorCell in
-                 grid.FloorCells)
-        {
-            foreach (Vector2Int direction in
-                     directions)
-            {
-                Vector2Int neighbour =
-                    floorCell +
-                    direction;
+        tileRow =
+            Mathf.Clamp(
+                tileRow,
+                0,
+                AtlasRows - 1
+            );
 
 
-                if (!grid.IsWalkable(
-                        neighbour))
-                {
-                    walls.Add(
-                        neighbour
-                    );
-                }
-            }
-        }
+        float tileWidth =
+            1f /
+            AtlasColumns;
 
 
-        return walls;
+        float tileHeight =
+            1f /
+            AtlasRows;
+
+
+        float minimumU =
+            tileColumn *
+            tileWidth;
+
+
+        float maximumU =
+            minimumU +
+            tileWidth;
+
+
+        int invertedRow =
+            AtlasRows -
+            1 -
+            tileRow;
+
+
+        float minimumV =
+            invertedRow *
+            tileHeight;
+
+
+        float maximumV =
+            minimumV +
+            tileHeight;
+
+
+        uvBuffer.Add(
+            new Vector2(
+                minimumU,
+                minimumV
+            )
+        );
+
+
+        uvBuffer.Add(
+            new Vector2(
+                maximumU,
+                minimumV
+            )
+        );
+
+
+        uvBuffer.Add(
+            new Vector2(
+                maximumU,
+                maximumV
+            )
+        );
+
+
+        uvBuffer.Add(
+            new Vector2(
+                minimumU,
+                maximumV
+            )
+        );
     }
 
 
     // ============================================================
-    // CLEARING
+    // HASHING
     // ============================================================
 
-    /// <summary>
-    /// Clears the current dungeon geometry without destroying the
-    /// reusable render objects.
-    /// </summary>
+    private uint CalculateCoordinateHash(
+        Vector2Int cell)
+    {
+        unchecked
+        {
+            uint hash =
+                (uint)cell.x *
+                73856093u;
+
+
+            hash ^=
+                (uint)cell.y *
+                19349663u;
+
+
+            hash ^=
+                hash >>
+                13;
+
+
+            hash *=
+                1274126177u;
+
+
+            return hash;
+        }
+    }
+
+
+    private uint MixHash(
+        uint value,
+        uint salt)
+    {
+        unchecked
+        {
+            value ^=
+                salt +
+                0x9E3779B9u +
+                (value << 6) +
+                (value >> 2);
+
+
+            value ^=
+                value >>
+                16;
+
+
+            value *=
+                0x7FEB352Du;
+
+
+            value ^=
+                value >>
+                15;
+
+
+            return value;
+        }
+    }
+
+
+    // ============================================================
+    // CLEAR
+    // ============================================================
+
     public void Clear()
     {
+        wallCellBuffer.Clear();
+
+        floorTileOverrides.Clear();
+
+
         if (floorMesh != null)
         {
             floorMesh.Clear();
@@ -669,16 +1963,9 @@ public class DungeonRenderer : MonoBehaviour
 
 
     // ============================================================
-    // CAMERA SUPPORT
+    // OPTIONAL CAMERA
     // ============================================================
 
-    /// <summary>
-    /// Positions and sizes the orthographic camera around the complete
-    /// dungeon.
-    ///
-    /// This remains available for debugging although gameplay normally
-    /// uses DungeonCameraController.
-    /// </summary>
     private void FrameCamera(
         DungeonGrid grid)
     {
@@ -690,12 +1977,13 @@ public class DungeonRenderer : MonoBehaviour
         }
 
 
-        bool firstCell =
+        bool first =
             true;
 
 
         int minX = 0;
         int maxX = 0;
+
         int minY = 0;
         int maxY = 0;
 
@@ -703,7 +1991,7 @@ public class DungeonRenderer : MonoBehaviour
         foreach (Vector2Int cell in
                  grid.FloorCells)
         {
-            if (firstCell)
+            if (first)
             {
                 minX =
                     maxX =
@@ -715,7 +2003,7 @@ public class DungeonRenderer : MonoBehaviour
                         cell.y;
 
 
-                firstCell =
+                first =
                     false;
 
 
@@ -752,14 +2040,14 @@ public class DungeonRenderer : MonoBehaviour
         }
 
 
-        float dungeonWidth =
+        float width =
             (maxX -
              minX +
              1) *
             cellSize;
 
 
-        float dungeonHeight =
+        float height =
             (maxY -
              minY +
              1) *
@@ -786,28 +2074,25 @@ public class DungeonRenderer : MonoBehaviour
             new Vector3(
                 centreX,
                 centreY,
-                dungeonCamera
-                    .transform
-                    .position
-                    .z
+                dungeonCamera.transform.position.z
             );
 
 
-        float verticalSize =
-            dungeonHeight *
+        float vertical =
+            height *
             0.5f;
 
 
-        float horizontalSize =
-            (dungeonWidth /
+        float horizontal =
+            (width /
              dungeonCamera.aspect) *
             0.5f;
 
 
         dungeonCamera.orthographicSize =
             Mathf.Max(
-                verticalSize,
-                horizontalSize
+                vertical,
+                horizontal
             ) +
             cameraPadding;
     }

@@ -43,7 +43,7 @@ public class EnemyVisionConeRenderer : MonoBehaviour
         "Maximum frequency at which the visual representation is updated."
     )]
     [SerializeField]
-    private float refreshInterval = 0.05f;
+    private float refreshInterval = 0.075f;
 
 
     private EnemyController enemyController;
