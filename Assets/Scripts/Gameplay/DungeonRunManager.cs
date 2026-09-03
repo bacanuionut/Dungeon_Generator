@@ -115,7 +115,8 @@ public class DungeonRunManager : MonoBehaviour
 
 
         dungeonGenerator.GenerateRunFloor(
-            nextFloorSeed
+            nextFloorSeed,
+            currentFloor
         );
 
 

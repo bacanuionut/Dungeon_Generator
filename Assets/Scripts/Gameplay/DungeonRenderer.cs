@@ -35,14 +35,14 @@ public class DungeonRenderer : MonoBehaviour
     private float cellSize = 1f;
 
 
-    [SerializeField]
-    private Color floorTint =
-        Color.white;
+    //[SerializeField]
+    //private Color floorTint =
+    //    Color.white;
 
 
-    [SerializeField]
-    private Color wallTint =
-        Color.white;
+    //[SerializeField]
+    //private Color wallTint =
+    //    Color.white;
 
 
     // ============================================================
@@ -72,41 +72,6 @@ public class DungeonRenderer : MonoBehaviour
 
     private const int AtlasRows =
         11;
-
-
-    // ============================================================
-    // VISUAL VARIATION
-    // ============================================================
-
-    [Header("Visual Variation")]
-
-    [Tooltip(
-        "Chance that an ordinary floor cell receives a small " +
-        "single-tile variation."
-    )]
-    [Range(0f, 0.5f)]
-    [SerializeField]
-    private float smallFloorVariationChance =
-        0.10f;
-
-
-    [Tooltip(
-        "Chance of attempting to place one complete 3x4 cracked-floor " +
-        "pattern when a suitable clear floor area is found."
-    )]
-    [Range(0f, 0.25f)]
-    [SerializeField]
-    private float largeFloorPatternChance =
-        0.035f;
-
-
-    [Tooltip(
-        "Chance that a compatible wall uses an alternative detail tile."
-    )]
-    [Range(0f, 0.5f)]
-    [SerializeField]
-    private float wallVariationChance =
-        0.25f;
 
 
     // ============================================================
@@ -461,6 +426,12 @@ public class DungeonRenderer : MonoBehaviour
         new List<Vector2Int>();
 
 
+
+    private DungeonVisualTheme activeVisualTheme;
+
+    private int activeVisualThemeSeed = int.MinValue;
+
+
     private static readonly Vector2Int[] wallNeighbourDirections =
     {
         Vector2Int.up,
@@ -507,6 +478,53 @@ public class DungeonRenderer : MonoBehaviour
 
         transform.localScale =
             Vector3.one;
+    }
+
+
+    /// <summary>
+    /// Generates and stores the visual identity for a NEW dungeon floor.
+    ///
+    /// Call this once when a new procedural floor is created.
+    ///
+    /// Do not call it during ordinary terrain refreshes because the Shaper
+    /// and Warden must preserve the floor's existing appearance.
+    /// </summary>
+    public void GenerateVisualTheme(
+        int floorSeed,
+        int depth)
+    {
+        activeVisualTheme =
+            DungeonVisualThemeGenerator.Generate(
+                floorSeed,
+                depth
+            );
+
+
+        activeVisualThemeSeed =
+            floorSeed;
+
+
+        /*
+         * Force materials to pick up the new palette immediately if they
+         * already exist.
+         */
+        SynchroniseMaterials();
+
+
+        UnityEngine.Debug.Log(
+            "========== PROCEDURAL VISUAL THEME ==========\n" +
+            $"Floor depth: {depth}\n" +
+            $"Floor seed: {floorSeed}\n" +
+            $"Theme: {activeVisualTheme.ThemeName}\n" +
+            $"Theme seed: {activeVisualTheme.ThemeSeed}\n" +
+            $"Small floor detail: " +
+            $"{activeVisualTheme.SmallFloorVariationChance:F3}\n" +
+            $"Large floor pattern: " +
+            $"{activeVisualTheme.LargeFloorPatternChance:F3}\n" +
+            $"Wall variation: " +
+            $"{activeVisualTheme.WallVariationChance:F3}\n" +
+            "============================================="
+        );
     }
 
 
@@ -623,7 +641,7 @@ public class DungeonRenderer : MonoBehaviour
 
 
             if (roll >=
-                smallFloorVariationChance)
+                GetSmallFloorVariationChance())
             {
                 continue;
             }
@@ -672,7 +690,7 @@ public class DungeonRenderer : MonoBehaviour
 
 
             if (roll >=
-                largeFloorPatternChance)
+                GetLargeFloorPatternChance())
             {
                 continue;
             }
@@ -1327,7 +1345,7 @@ public class DungeonRenderer : MonoBehaviour
         if (variants.Length >
                 3 &&
             roll >
-                wallVariationChance)
+                GetWallVariationChance())
         {
             int basicCount =
                 Mathf.Min(
@@ -1360,6 +1378,41 @@ public class DungeonRenderer : MonoBehaviour
             variants[index];
     }
 
+
+    private float GetSmallFloorVariationChance()
+    {
+        if (activeVisualTheme == null)
+            return 0.10f;
+
+
+        return
+            activeVisualTheme
+                .SmallFloorVariationChance;
+    }
+
+
+    private float GetLargeFloorPatternChance()
+    {
+        if (activeVisualTheme == null)
+            return 0.035f;
+
+
+        return
+            activeVisualTheme
+                .LargeFloorPatternChance;
+    }
+
+
+    private float GetWallVariationChance()
+    {
+        if (activeVisualTheme == null)
+            return 0.25f;
+
+
+        return
+            activeVisualTheme
+                .WallVariationChance;
+    }
 
     // ============================================================
     // VISUAL WALL POSITIONS
@@ -1571,10 +1624,22 @@ public class DungeonRenderer : MonoBehaviour
 
     private void SynchroniseMaterials()
     {
+        Color selectedFloorTint =
+            activeVisualTheme != null
+                ? activeVisualTheme.FloorTint
+                : Color.white;
+
+
+        Color selectedWallTint =
+            activeVisualTheme != null
+                ? activeVisualTheme.WallTint
+                : Color.white;
+
+
         if (floorMaterial != null)
         {
             floorMaterial.color =
-                floorTint;
+                selectedFloorTint;
 
 
             floorMaterial.mainTexture =
@@ -1585,7 +1650,7 @@ public class DungeonRenderer : MonoBehaviour
         if (wallMaterial != null)
         {
             wallMaterial.color =
-                wallTint;
+                selectedWallTint;
 
 
             wallMaterial.mainTexture =

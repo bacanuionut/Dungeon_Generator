@@ -202,6 +202,19 @@ public class DungeonGenerator : MonoBehaviour
     /// </summary>
     public int CurrentSeed => seed;
 
+
+    /*
+     * Logical depth of the current run floor.
+     *
+     * This is kept separately from GenerationVersion because regenerating
+     * a floor for testing should not necessarily mean descending deeper.
+     */
+    private int currentFloorDepth = 1;
+
+    public int CurrentFloorDepth =>
+        currentFloorDepth;
+
+
     public int GenerationVersion { get; private set; }
 
     // Logical number of graph connections between start and exit.
@@ -216,20 +229,53 @@ public class DungeonGenerator : MonoBehaviour
 
 
     /// <summary>
-    /// Generates a dungeon using a seed supplied by the run system.
+    /// Generates a run floor using both its deterministic seed and its
+    /// logical depth.
     ///
-    /// Run generation is deterministic, so replaying the same base
-    /// run seed will reproduce the same sequence of floors.
+    /// Keeping seed and depth separate is important because:
+    ///
+    /// - seed controls reproducible procedural generation;
+    /// - depth can influence visual deterioration and future difficulty;
+    /// - Survival mode can continue beyond a fixed number of floors.
     /// </summary>
-    public void GenerateRunFloor(int floorSeed)
+    public void GenerateRunFloor(
+        int floorSeed,
+        int floorDepth)
     {
-        seed = floorSeed;
+        seed =
+            floorSeed;
+
+
+        currentFloorDepth =
+            Mathf.Max(
+                1,
+                floorDepth
+            );
+
 
         // RunManager controls the seed sequence, so random Inspector
         // seed generation should not replace it.
-        useRandomSeed = false;
+        useRandomSeed =
+            false;
+
 
         GenerateDungeon();
+    }
+
+
+    /// <summary>
+    /// Temporary backwards-compatible overload.
+    ///
+    /// Existing systems which currently provide only a seed can continue
+    /// working until DungeonRunManager is updated to also provide depth.
+    /// </summary>
+    public void GenerateRunFloor(
+        int floorSeed)
+    {
+        GenerateRunFloor(
+            floorSeed,
+            currentFloorDepth
+        );
     }
 
     public FloorObjectiveManager ObjectiveManager =>
@@ -481,10 +527,30 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         // Render only a completely validated dungeon.
-        if (!batchEvaluationMode && gridValid && dungeonRenderer != null)
-            {
-                dungeonRenderer.Render(dungeonGrid);
-            }
+        if (!batchEvaluationMode &&
+            gridValid &&
+            dungeonRenderer != null)
+        {
+            /*
+             * Generate ONE deterministic visual theme for this newly generated
+             * floor before constructing the visual meshes.
+             *
+             * This happens here rather than inside DungeonRenderer.Render()
+             * because Render() is also called when the Shaper or Warden modifies
+             * terrain during gameplay.
+             *
+             * Runtime terrain refreshes must preserve the existing theme.
+             */
+            dungeonRenderer.GenerateVisualTheme(
+                seed,
+                currentFloorDepth
+            );
+
+
+            dungeonRenderer.Render(
+                dungeonGrid
+            );
+        }
 
         if (!batchEvaluationMode && gridValid)
         {
