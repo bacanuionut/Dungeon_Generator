@@ -1,13 +1,20 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// Visualises the exact grid cells currently visible to an enemy.
 ///
-/// The renderer deliberately uses the same cell-based visibility
-/// calculated by EnemyController rather than a separate raycast
-/// representation. This keeps the displayed torch area identical
-/// to the enemy's actual perception.
+/// The visibility calculation remains entirely owned by EnemyController.
+/// This component only renders the returned cells.
+///
+/// Earlier versions represented every visible cell using a pooled Quad
+/// GameObject. Pooling avoided repeated Instantiate/Destroy calls, but
+/// a dungeon containing several enemies could still require many
+/// individual render objects and draw calls.
+///
+/// The current version combines the complete visible area of one enemy
+/// into a single dynamic mesh.
 /// </summary>
 public class EnemyVisionConeRenderer : MonoBehaviour
 {
@@ -23,6 +30,7 @@ public class EnemyVisionConeRenderer : MonoBehaviour
             0.22f
         );
 
+
     [Tooltip(
         "Size of each visible cell. " +
         "1 fills the complete grid square."
@@ -30,19 +38,41 @@ public class EnemyVisionConeRenderer : MonoBehaviour
     [SerializeField]
     private float visionCellScale = 1f;
 
-    [Tooltip("How often the visible area is refreshed.")]
+
+    [Tooltip(
+        "Maximum frequency at which the visual representation is updated."
+    )]
     [SerializeField]
     private float refreshInterval = 0.05f;
 
 
     private EnemyController enemyController;
 
-    private readonly List<GameObject> visionCellPool =
-        new List<GameObject>();
+
+    private GameObject visionMeshObject;
+
+    private MeshFilter visionMeshFilter;
+
+    private MeshRenderer visionMeshRenderer;
+
+    private Mesh visionMesh;
 
     private Material visionMaterial;
 
+
     private float nextRefreshTime;
+
+
+    /*
+     * These buffers are reused rather than allocating new arrays/lists
+     * every time an enemy's visible area changes.
+     */
+    private readonly List<Vector3> vertices =
+        new List<Vector3>();
+
+
+    private readonly List<int> triangles =
+        new List<int>();
 
 
     /// <summary>
@@ -54,7 +84,9 @@ public class EnemyVisionConeRenderer : MonoBehaviour
         enemyController =
             controller;
 
-        CreateVisionMaterial();
+
+        CreateVisionMesh();
+
 
         RefreshVision();
     }
@@ -66,151 +98,118 @@ public class EnemyVisionConeRenderer : MonoBehaviour
             return;
 
 
-        if (Time.time < nextRefreshTime)
+        if (Time.time <
+            nextRefreshTime)
+        {
             return;
+        }
 
 
         nextRefreshTime =
             Time.time +
-            refreshInterval;
+            Mathf.Max(
+                0.01f,
+                refreshInterval
+            );
 
 
         RefreshVision();
     }
 
 
-    /// <summary>
-    /// Updates the visible torch cells using the exact same
-    /// visibility result used by the enemy AI.
-    /// </summary>
-    private void RefreshVision()
+    // ============================================================
+    // MESH SETUP
+    // ============================================================
+
+    private void CreateVisionMesh()
     {
-        if (enemyController == null)
+        if (visionMeshObject != null)
             return;
 
 
-        List<Vector2Int> visibleCells =
-            enemyController.GetVisibleCells();
-
-
-        int markerIndex = 0;
-
-
-        foreach (Vector2Int cell in visibleCells)
-        {
-            // The enemy already occupies its own grid square,
-            // so it does not need a light tile there.
-            if (cell == enemyController.GridPosition)
-                continue;
-
-
-            GameObject marker =
-                GetVisionCell(
-                    markerIndex
-                );
-
-
-            marker.SetActive(
-                true
+        visionMeshObject =
+            new GameObject(
+                "Enemy Vision Mesh"
             );
 
 
-            marker.transform.position =
-                new Vector3(
-                    cell.x + 0.5f,
-                    cell.y + 0.5f,
-                    -1.75f
-                );
+        /*
+         * Vision vertices are generated directly in absolute dungeon/world
+         * coordinates.
+         *
+         * Therefore this mesh must NOT be parented to the moving enemy.
+         * Otherwise the enemy's Transform movement would be applied on top
+         * of the already world-positioned mesh vertices and visually offset
+         * the displayed vision area.
+         */
+        visionMeshObject.transform.SetParent(
+            null
+        );
 
 
-            markerIndex++;
+        visionMeshObject.transform.position =
+            Vector3.zero;
+
+
+        visionMeshObject.transform.rotation =
+            Quaternion.identity;
+
+
+        visionMeshObject.transform.localScale =
+            Vector3.one;
+
+
+        visionMeshFilter =
+            visionMeshObject.AddComponent<MeshFilter>();
+
+
+        visionMeshRenderer =
+            visionMeshObject.AddComponent<MeshRenderer>();
+
+
+        visionMesh =
+            new Mesh();
+
+
+        visionMesh.name =
+            "Enemy Vision Dynamic Mesh";
+
+
+        visionMesh.indexFormat =
+            IndexFormat.UInt32;
+
+
+        visionMesh.MarkDynamic();
+
+
+        visionMeshFilter.sharedMesh =
+            visionMesh;
+
+
+        CreateVisionMaterial();
+
+
+        if (visionMaterial != null)
+        {
+            visionMeshRenderer.sharedMaterial =
+                visionMaterial;
         }
 
 
-        // Hide pooled cells which are not needed this frame.
-        for (int i = markerIndex;
-             i < visionCellPool.Count;
-             i++)
-        {
-            visionCellPool[i].SetActive(
-                false
-            );
-        }
-    }
+        visionMeshRenderer.shadowCastingMode =
+            ShadowCastingMode.Off;
 
 
-    /// <summary>
-    /// Gets an existing visual cell from the pool or creates one.
-    ///
-    /// Pooling prevents GameObjects constantly being created and
-    /// destroyed while enemies move and change direction.
-    /// </summary>
-    private GameObject GetVisionCell(
-        int index)
-    {
-        while (visionCellPool.Count <= index)
-        {
-            GameObject marker =
-                GameObject.CreatePrimitive(
-                    PrimitiveType.Quad
-                );
+        visionMeshRenderer.receiveShadows =
+            false;
 
 
-            marker.name =
-                "Enemy Vision Cell";
+        visionMeshRenderer.lightProbeUsage =
+            LightProbeUsage.Off;
 
 
-            /*
-             * Do not parent the cells to the enemy.
-             *
-             * They are placed directly using dungeon grid/world
-             * coordinates. This is the same approach used by the
-             * original working debug renderer.
-             */
-            marker.transform.SetParent(
-                null
-            );
-
-
-            marker.transform.localScale =
-                new Vector3(
-                    visionCellScale,
-                    visionCellScale,
-                    1f
-                );
-
-
-            Collider markerCollider =
-                marker.GetComponent<Collider>();
-
-
-            if (markerCollider != null)
-            {
-                Destroy(
-                    markerCollider
-                );
-            }
-
-
-            Renderer markerRenderer =
-                marker.GetComponent<Renderer>();
-
-
-            if (markerRenderer != null &&
-                visionMaterial != null)
-            {
-                markerRenderer.sharedMaterial =
-                    visionMaterial;
-            }
-
-
-            visionCellPool.Add(
-                marker
-            );
-        }
-
-
-        return visionCellPool[index];
+        visionMeshRenderer.reflectionProbeUsage =
+            ReflectionProbeUsage.Off;
     }
 
 
@@ -237,6 +236,7 @@ public class EnemyVisionConeRenderer : MonoBehaviour
                 "Could not find a shader for enemy vision."
             );
 
+
             return;
         }
 
@@ -247,31 +247,258 @@ public class EnemyVisionConeRenderer : MonoBehaviour
             );
 
 
+        visionMaterial.name =
+            "Runtime Enemy Vision Material";
+
+
         visionMaterial.color =
             visionColour;
     }
 
 
-    private void OnDestroy()
+    // ============================================================
+    // VISUAL REFRESH
+    // ============================================================
+
+    /// <summary>
+    /// Rebuilds one combined mesh from the exact cells returned by the
+    /// enemy's authoritative visibility calculation.
+    /// </summary>
+    private void RefreshVision()
     {
-        foreach (GameObject marker in visionCellPool)
+        if (enemyController == null ||
+            visionMesh == null)
         {
-            if (marker != null)
-            {
-                Destroy(
-                    marker
-                );
-            }
+            return;
         }
 
 
-        visionCellPool.Clear();
+        List<Vector2Int> visibleCells =
+            enemyController.GetVisibleCells();
+
+
+        vertices.Clear();
+
+        triangles.Clear();
+
+
+        /*
+         * Reserve enough capacity after the first larger visibility
+         * result so later refreshes can reuse the same backing arrays.
+         */
+        int usefulCellCount =
+            Mathf.Max(
+                0,
+                visibleCells.Count - 1
+            );
+
+
+        int requiredVertices =
+            usefulCellCount *
+            4;
+
+
+        int requiredTriangleIndices =
+            usefulCellCount *
+            6;
+
+
+        if (vertices.Capacity <
+            requiredVertices)
+        {
+            vertices.Capacity =
+                requiredVertices;
+        }
+
+
+        if (triangles.Capacity <
+            requiredTriangleIndices)
+        {
+            triangles.Capacity =
+                requiredTriangleIndices;
+        }
+
+
+        foreach (Vector2Int cell in
+                 visibleCells)
+        {
+            /*
+             * The enemy model already occupies its own grid square.
+             */
+            if (cell ==
+                enemyController.GridPosition)
+            {
+                continue;
+            }
+
+
+            AddVisibleCell(
+                cell
+            );
+        }
+
+
+        visionMesh.Clear();
+
+
+        visionMesh.SetVertices(
+            vertices
+        );
+
+
+        visionMesh.SetTriangles(
+            triangles,
+            0,
+            false
+        );
+
+
+        visionMesh.RecalculateBounds();
+
+
+        if (visionMaterial != null)
+        {
+            visionMaterial.color =
+                visionColour;
+        }
+    }
+
+
+    /// <summary>
+    /// Adds one visible grid square to the combined enemy vision mesh.
+    /// </summary>
+    private void AddVisibleCell(
+        Vector2Int cell)
+    {
+        int firstVertex =
+            vertices.Count;
+
+
+        float safeScale =
+            Mathf.Clamp(
+                visionCellScale,
+                0.05f,
+                1f
+            );
+
+
+        float inset =
+            (1f -
+             safeScale) *
+            0.5f;
+
+
+        float minimumX =
+            cell.x +
+            inset;
+
+
+        float minimumY =
+            cell.y +
+            inset;
+
+
+        float maximumX =
+            cell.x +
+            1f -
+            inset;
+
+
+        float maximumY =
+            cell.y +
+            1f -
+            inset;
+
+
+        const float zPosition =
+            -1.75f;
+
+
+        vertices.Add(
+            new Vector3(
+                minimumX,
+                minimumY,
+                zPosition
+            )
+        );
+
+
+        vertices.Add(
+            new Vector3(
+                maximumX,
+                minimumY,
+                zPosition
+            )
+        );
+
+
+        vertices.Add(
+            new Vector3(
+                maximumX,
+                maximumY,
+                zPosition
+            )
+        );
+
+
+        vertices.Add(
+            new Vector3(
+                minimumX,
+                maximumY,
+                zPosition
+            )
+        );
+
+
+        triangles.Add(
+            firstVertex
+        );
+
+        triangles.Add(
+            firstVertex + 2
+        );
+
+        triangles.Add(
+            firstVertex + 1
+        );
+
+
+        triangles.Add(
+            firstVertex
+        );
+
+        triangles.Add(
+            firstVertex + 3
+        );
+
+        triangles.Add(
+            firstVertex + 2
+        );
+    }
+
+
+    private void OnDestroy()
+    {
+        if (visionMesh != null)
+        {
+            Destroy(
+                visionMesh
+            );
+        }
 
 
         if (visionMaterial != null)
         {
             Destroy(
                 visionMaterial
+            );
+        }
+
+
+        if (visionMeshObject != null)
+        {
+            Destroy(
+                visionMeshObject
             );
         }
     }
