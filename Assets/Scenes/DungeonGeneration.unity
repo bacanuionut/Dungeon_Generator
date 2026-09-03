@@ -1082,8 +1082,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellSize: 1
-  floorColour: {r: 0.49056602, g: 0.49056602, b: 0.49056602, a: 1}
-  wallColour: {r: 0.08, g: 0.08, b: 0.08, a: 1}
+  floorColour: {r: 0.105882354, g: 0.10980392, b: 0.11764706, a: 1}
+  wallColour: {r: 0, g: 0, b: 0, a: 1}
   dungeonCamera: {fileID: 1728126701}
   cameraPadding: 3
 --- !u!4 &1128854573
@@ -1444,7 +1444,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerVisionController: {fileID: 2142187898}
   growthStepDelay: 0.08
-  renderEverySteps: 1
+  renderEverySteps: 3
   minimumHalfWidth: 0
   maximumHalfWidth: 2
   widthChangeChance: 0.45

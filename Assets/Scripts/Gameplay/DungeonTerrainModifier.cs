@@ -35,7 +35,7 @@ public class DungeonTerrainModifier : MonoBehaviour
 
     [Tooltip("Refresh the dungeon after this many forward steps.")]
     [SerializeField]
-    private int renderEverySteps = 1;
+    private int renderEverySteps = 3;
 
 
     [Header("Organic Tunnel Shape")]
@@ -655,37 +655,69 @@ public class DungeonTerrainModifier : MonoBehaviour
         );
 
 
+        int safeRenderInterval =
+            Mathf.Max(
+                1,
+                renderEverySteps
+            );
+
+
+        WaitForSeconds growthWait =
+            growthStepDelay > 0f
+                ? new WaitForSeconds(
+                    growthStepDelay
+                )
+                : null;
+
+
         for (int i = 0;
              i < growthPlan.Count;
              i++)
         {
-            /*
-             * The shape for this step was decided before the coroutine
-             * started. Player movement cannot alter it.
-             */
-            totalDynamicCellsAdded +=
+            int addedThisStep =
                 grid.AddDynamicFloorCells(
                     growthPlan[i]
                 );
 
 
-            if (i %
-                    Mathf.Max(
-                        1,
-                        renderEverySteps) ==
-                0)
+            totalDynamicCellsAdded +=
+                addedThisStep;
+
+
+            /*
+             * The logical terrain can continue growing every step without
+             * rebuilding the complete visual representation every step.
+             *
+             * A visual refresh is performed periodically and always on the
+             * final growth step.
+             */
+            bool finalStep =
+                i ==
+                growthPlan.Count - 1;
+
+
+            bool scheduledRefresh =
+                (i + 1) %
+                safeRenderInterval ==
+                0;
+
+
+            if (scheduledRefresh ||
+                finalStep)
             {
                 RefreshRuntimePresentation();
             }
 
 
-            yield return new WaitForSeconds(
-                growthStepDelay
-            );
+            if (growthWait != null)
+            {
+                yield return growthWait;
+            }
+            else
+            {
+                yield return null;
+            }
         }
-
-
-        RefreshRuntimePresentation();
 
 
         modifyingTerrain =
