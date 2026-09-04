@@ -176,6 +176,18 @@ public static class DungeonVisualThemeGenerator
         );
 
 
+        /*
+         * Colour archetype and tile character are deliberately separate.
+         *
+         * This lets the same procedural theme control both palette and the
+         * kind of floor/wall artwork used by DungeonRenderer.
+         */
+        ApplyTileStyle(
+            theme,
+            archetype
+        );
+
+
         ApplyProceduralVariation(
             theme,
             random
@@ -829,6 +841,130 @@ public static class DungeonVisualThemeGenerator
         }
     }
 
+    // ============================================================
+    // TILE CHARACTER
+    // ============================================================
+
+    private static void ApplyTileStyle(
+        DungeonVisualTheme theme,
+        ThemeArchetype archetype)
+    {
+        switch (archetype)
+        {
+            case ThemeArchetype.ColdStone:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Clean;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Plain;
+
+                theme.WallStyleStrength =
+                    0.82f;
+
+                break;
+
+
+            case ThemeArchetype.AshenRuins:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Fractured;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Weathered;
+
+                theme.WallStyleStrength =
+                    0.76f;
+
+                break;
+
+
+            case ThemeArchetype.AncientBlueVault:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.LightCracked;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Jointed;
+
+                theme.WallStyleStrength =
+                    0.78f;
+
+                break;
+
+
+            case ThemeArchetype.FadedVioletHalls:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Fractured;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Jointed;
+
+                theme.WallStyleStrength =
+                    0.72f;
+
+                break;
+
+
+            case ThemeArchetype.DeepSlateVault:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Ruined;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Weathered;
+
+                theme.WallStyleStrength =
+                    0.80f;
+
+                break;
+
+
+            case ThemeArchetype.DustTemple:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.LightCracked;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Plain;
+
+                theme.WallStyleStrength =
+                    0.78f;
+
+                break;
+
+
+            case ThemeArchetype.VerdigrisCrypt:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Fractured;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Jointed;
+
+                theme.WallStyleStrength =
+                    0.74f;
+
+                break;
+
+
+            default:
+
+                // Ember Ruins
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Ruined;
+
+                theme.WallMasonryStyle =
+                    DungeonWallMasonryStyle.Weathered;
+
+                theme.WallStyleStrength =
+                    0.84f;
+
+                break;
+        }
+    }
+
 
     // ============================================================
     // PROCEDURAL VARIATION
@@ -972,6 +1108,13 @@ public static class DungeonVisualThemeGenerator
                 -0.07f,
                 0.07f
             );
+
+        theme.WallStyleStrength +=
+            RandomRange(
+                random,
+                -0.08f,
+                0.08f
+            );
     }
 
 
@@ -1063,6 +1206,76 @@ public static class DungeonVisualThemeGenerator
 
         theme.WallVariationChance +=
             deteriorationNoise;
+
+        /*
+         * Deep Survival floors can gradually progress toward a more damaged
+         * version of the archetype.
+         *
+         * This means a Cold Stone floor at depth 70 does not have to look as
+         * clean as Cold Stone encountered near the beginning of a run.
+         *
+         * Only the visual style is changed. Dungeon topology is unaffected.
+         */
+        if (random.NextDouble() <
+            0.55 *
+            depthIntensity)
+        {
+            PromoteFloorDetailStyle(
+                theme
+            );
+        }
+
+
+        /*
+         * Extremely deep floors have a small possibility of receiving a
+         * second deterioration step.
+         */
+        if (depthIntensity >
+                0.75f &&
+            random.NextDouble() <
+                (depthIntensity - 0.75f) *
+                0.80f)
+        {
+            PromoteFloorDetailStyle(
+                theme
+            );
+        }
+    }
+
+    private static void PromoteFloorDetailStyle(
+    DungeonVisualTheme theme)
+    {
+        switch (theme.FloorDetailStyle)
+        {
+            case DungeonFloorDetailStyle.Clean:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.LightCracked;
+
+                break;
+
+
+            case DungeonFloorDetailStyle.LightCracked:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Fractured;
+
+                break;
+
+
+            case DungeonFloorDetailStyle.Fractured:
+
+                theme.FloorDetailStyle =
+                    DungeonFloorDetailStyle.Ruined;
+
+                break;
+
+
+            case DungeonFloorDetailStyle.Ruined:
+
+                // Already at the most deteriorated visual state.
+                break;
+        }
     }
 
 
@@ -1185,6 +1398,13 @@ public static class DungeonVisualThemeGenerator
         theme.DepthIntensity =
             Mathf.Clamp01(
                 theme.DepthIntensity
+            );
+
+        theme.WallStyleStrength =
+            Mathf.Clamp(
+                theme.WallStyleStrength,
+                0.55f,
+                0.92f
             );
     }
 

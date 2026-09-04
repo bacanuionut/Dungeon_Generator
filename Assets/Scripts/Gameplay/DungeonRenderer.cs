@@ -118,17 +118,46 @@ public class DungeonRenderer : MonoBehaviour
 
 
     /*
-     * Smaller floor variations from the main family.
+     * Theme-specific floor-detail pools.
      *
-     * These are deliberately sparse because using all of them on
-     * every cell makes the floor visually noisy.
+     * Across the visual-theme system these pools use ALL eight verified
+     * compatible small floor-detail tiles from the existing renderer.
+     *
+     * We no longer choose all eight indiscriminately on every floor.
      */
-    private static readonly Vector2Int[] smallFloorTiles =
+
+
+    // Very restrained damage.
+    private static readonly Vector2Int[] cleanFloorDetailTiles =
+    {
+        new Vector2Int(4, 2)
+    };
+
+
+    // Fine cracks / relatively intact stone.
+    private static readonly Vector2Int[] lightCrackedFloorDetailTiles =
     {
         new Vector2Int(3, 2),
         new Vector2Int(4, 2),
 
+        new Vector2Int(2, 3)
+    };
+
+
+    // Clearly fractured floor.
+    private static readonly Vector2Int[] fracturedFloorDetailTiles =
+    {
         new Vector2Int(2, 3),
+        new Vector2Int(3, 3),
+        new Vector2Int(4, 3),
+
+        new Vector2Int(2, 4)
+    };
+
+
+    // Heaviest damage.
+    private static readonly Vector2Int[] ruinedFloorDetailTiles =
+    {
         new Vector2Int(3, 3),
         new Vector2Int(4, 3),
 
@@ -523,6 +552,8 @@ public class DungeonRenderer : MonoBehaviour
             $"{activeVisualTheme.LargeFloorPatternChance:F3}\n" +
             $"Wall variation: " +
             $"{activeVisualTheme.WallVariationChance:F3}\n" +
+            $"Floor detail style: {activeVisualTheme.FloorDetailStyle}\n" +
+            $"Wall masonry style: {activeVisualTheme.WallMasonryStyle}\n" +
             "============================================="
         );
     }
@@ -654,15 +685,10 @@ public class DungeonRenderer : MonoBehaviour
                 );
 
 
-            int index =
-                (int)(
-                    variantHash %
-                    (uint)smallFloorTiles.Length
-                );
-
-
             floorTileOverrides[cell] =
-                smallFloorTiles[index];
+                SelectFloorDetailTile(
+                    variantHash
+                );
         }
 
 
@@ -708,6 +734,72 @@ public class DungeonRenderer : MonoBehaviour
                 candidate
             );
         }
+    }
+
+
+    private Vector2Int SelectFloorDetailTile(
+    uint hash)
+    {
+        Vector2Int[] pool =
+            GetFloorDetailPool();
+
+
+        if (pool == null ||
+            pool.Length == 0)
+        {
+            return baseFloorTile;
+        }
+
+
+        int index =
+            (int)(
+                hash %
+                (uint)pool.Length
+            );
+
+
+        return pool[index];
+    }
+
+
+    private Vector2Int[] GetFloorDetailPool()
+    {
+        if (activeVisualTheme == null)
+        {
+            return
+                lightCrackedFloorDetailTiles;
+        }
+
+
+        switch (activeVisualTheme.FloorDetailStyle)
+        {
+            case DungeonFloorDetailStyle.Clean:
+
+                return
+                    cleanFloorDetailTiles;
+
+
+            case DungeonFloorDetailStyle.LightCracked:
+
+                return
+                    lightCrackedFloorDetailTiles;
+
+
+            case DungeonFloorDetailStyle.Fractured:
+
+                return
+                    fracturedFloorDetailTiles;
+
+
+            case DungeonFloorDetailStyle.Ruined:
+
+                return
+                    ruinedFloorDetailTiles;
+        }
+
+
+        return
+            lightCrackedFloorDetailTiles;
     }
 
 
@@ -943,7 +1035,7 @@ public class DungeonRenderer : MonoBehaviour
 
             case FloorNorth:
 
-                return SelectVariant(
+                return SelectStraightWallVariant(
                     northExposedWalls,
                     wallCell,
                     101u
@@ -952,7 +1044,7 @@ public class DungeonRenderer : MonoBehaviour
 
             case FloorEast:
 
-                return SelectVariant(
+                return SelectStraightWallVariant(
                     eastExposedWalls,
                     wallCell,
                     102u
@@ -961,7 +1053,7 @@ public class DungeonRenderer : MonoBehaviour
 
             case FloorSouth:
 
-                return SelectVariant(
+                return SelectStraightWallVariant(
                     southExposedWalls,
                     wallCell,
                     103u
@@ -970,7 +1062,7 @@ public class DungeonRenderer : MonoBehaviour
 
             case FloorWest:
 
-                return SelectVariant(
+                return SelectStraightWallVariant(
                     westExposedWalls,
                     wallCell,
                     104u
@@ -1076,6 +1168,237 @@ public class DungeonRenderer : MonoBehaviour
         );
     }
 
+    private Vector2Int SelectStraightWallVariant(
+    Vector2Int[] variants,
+    Vector2Int cell,
+    uint salt)
+    {
+        if (variants == null ||
+            variants.Length == 0)
+        {
+            return new Vector2Int(
+                2,
+                1
+            );
+        }
+
+
+        uint hash =
+            CalculateVisualHash(
+                cell,
+                salt
+            );
+
+
+        /*
+         * The first three entries in each verified straight-wall pool are
+         * the standard compatible alternatives.
+         */
+        int basicCount =
+            Mathf.Min(
+                3,
+                variants.Length
+            );
+
+
+        /*
+         * Some orientations contain additional decorative pieces after
+         * their three standard variants.
+         */
+        if (variants.Length >
+            basicCount)
+        {
+            float detailRoll =
+                (hash %
+                 10000u) /
+                10000f;
+
+
+            if (detailRoll <
+                GetWallVariationChance())
+            {
+                int detailCount =
+                    variants.Length -
+                    basicCount;
+
+
+                int detailIndex =
+                    basicCount +
+                    (int)(
+                        (hash /
+                         113u) %
+                        (uint)detailCount
+                    );
+
+
+                return
+                    variants[
+                        detailIndex
+                    ];
+            }
+        }
+
+
+        int preferredIndex =
+            GetPreferredWallVariantIndex(
+                basicCount
+            );
+
+
+        float preferredRoll =
+            ((hash /
+              173u) %
+             10000u) /
+            10000f;
+
+
+        if (preferredRoll <
+            GetWallStyleStrength())
+        {
+            return
+                variants[
+                    preferredIndex
+                ];
+        }
+
+
+        /*
+         * Occasionally use one of the other compatible masonry variants
+         * so the wall does not become completely uniform.
+         */
+        if (basicCount <= 1)
+        {
+            return
+                variants[0];
+        }
+
+
+        int offset =
+            1 +
+            (int)(
+                (hash /
+                 271u) %
+                (uint)(
+                    basicCount -
+                    1
+                )
+            );
+
+
+        int alternateIndex =
+            (preferredIndex +
+             offset) %
+            basicCount;
+
+
+        return
+            variants[
+                alternateIndex
+            ];
+    }
+
+
+    private int GetPreferredWallVariantIndex(
+        int availableVariantCount)
+    {
+        if (availableVariantCount <= 1 ||
+            activeVisualTheme == null)
+        {
+            return 0;
+        }
+
+
+        int requestedIndex;
+
+
+        switch (activeVisualTheme.WallMasonryStyle)
+        {
+            case DungeonWallMasonryStyle.Plain:
+
+                requestedIndex =
+                    0;
+
+                break;
+
+
+            case DungeonWallMasonryStyle.Jointed:
+
+                requestedIndex =
+                    1;
+
+                break;
+
+
+            case DungeonWallMasonryStyle.Weathered:
+
+                requestedIndex =
+                    2;
+
+                break;
+
+
+            default:
+
+                requestedIndex =
+                    0;
+
+                break;
+        }
+
+
+        return Mathf.Clamp(
+            requestedIndex,
+            0,
+            availableVariantCount - 1
+        );
+    }
+
+
+    private float GetWallStyleStrength()
+    {
+        if (activeVisualTheme == null)
+            return 0.65f;
+
+
+        return
+            activeVisualTheme
+                .WallStyleStrength;
+    }
+
+    private uint CalculateVisualHash(
+    Vector2Int cell,
+    uint salt)
+    {
+        uint hash =
+            CalculateCoordinateHash(
+                cell
+            );
+
+
+        uint themeSalt =
+            activeVisualTheme != null
+                ? unchecked(
+                    (uint)activeVisualTheme.ThemeSeed
+                )
+                : 0u;
+
+
+        hash =
+            MixHash(
+                hash,
+                themeSalt
+            );
+
+
+        hash =
+            MixHash(
+                hash,
+                salt
+            );
+
+
+        return hash;
+    }
 
     private Vector2Int SelectRareWallCase(
         int mask,
@@ -1324,10 +1647,8 @@ public class DungeonRenderer : MonoBehaviour
 
 
         uint hash =
-            MixHash(
-                CalculateCoordinateHash(
-                    cell
-                ),
+            CalculateVisualHash(
+                cell,
                 salt
             );
 
