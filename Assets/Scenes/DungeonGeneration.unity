@@ -973,6 +973,7 @@ GameObject:
   - component: {fileID: 1044558307}
   - component: {fileID: 1044558306}
   - component: {fileID: 1044558308}
+  - component: {fileID: 1044558309}
   m_Layer: 0
   m_Name: Dungeon Generator
   m_TagString: Untagged
@@ -1015,6 +1016,7 @@ MonoBehaviour:
   dungeonRunManager: {fileID: 872445781}
   floorObjectiveManager: {fileID: 1429068666}
   dungeonContentGenerator: {fileID: 655920709}
+  dungeonEnvironmentGenerator: {fileID: 1044558309}
 --- !u!4 &1044558307
 Transform:
   m_ObjectHideFlags: 0
@@ -1041,9 +1043,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 41f3a8f2f3459a44c89f1a442b0db13a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dungeonGenerator: {fileID: 0}
+  dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
-  terrainModifier: {fileID: 0}
+  terrainModifier: {fileID: 1983990455}
   startingCharges: 1
   maximumCharges: 3
   shaperKey: 102
@@ -1052,6 +1054,62 @@ MonoBehaviour:
   maximumSideDeviation: 5
   validWallColour: {r: 0.45, g: 0.75, b: 1, a: 0.45}
   highlightScale: 0.94
+--- !u!114 &1044558309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1044558305}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac695119f76bf15438fd38dfb1bd29e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  potterySprites:
+  - {fileID: -1152867362712492582, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -2510457020025759423, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -986847245182487316, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -5570093648130843252, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  rockSprites:
+  - {fileID: -6959302698360384198, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: 2108569658577525120, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: 2799956409285785871, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -1600159848678428429, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  sackSprites:
+  - {fileID: -4451155849703529009, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -5117830387810021683, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: 8723911037236794670, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  sackPileSprite: {fileID: 7058956340635083681, guid: f4c2bc2a4afda164c985c3c8232cf489,
+    type: 3}
+  crateSprites:
+  - {fileID: 6343933433227393572, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -1312994402987499043, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: 8927932830195573688, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  timberSprites:
+  - {fileID: -5776338355511889975, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -8465703857542045183, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -2969016694365801900, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  tableSprites:
+  - {fileID: -3095856904359581104, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  - {fileID: -6346160351669900861, guid: f4c2bc2a4afda164c985c3c8232cf489, type: 3}
+  chairSprite: {fileID: -6482732669567940595, guid: f4c2bc2a4afda164c985c3c8232cf489,
+    type: 3}
+  webSprites:
+  - {fileID: -4140751099741325648, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: -3915039470393639136, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  densityMultiplier: 1.25
+  maximumSolidPropsPerRoom: 5
+  maximumWebsPerRoom: 3
+  protectedCellClearance: 1
+  corridorClearance: 1
+  clusterChance: 0.65
+  maximumExtraPropsPerCluster: 2
+  solidPropZ: -1.85
+  detailZ: -1.7
+  wallHugOffset: 0.18
+  smallWebWallOffsetY: 0.28
+  largeWebCornerOffset: 0.18
 --- !u!1 &1128854571
 GameObject:
   m_ObjectHideFlags: 0
@@ -1082,8 +1140,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellSize: 1
-  floorTint: {r: 1, g: 1, b: 1, a: 1}
-  wallTint: {r: 1, g: 1, b: 1, a: 1}
   tilesetTexture: {fileID: 2800000, guid: 971d3d84887ab2248b5c56dedc4ad5b8, type: 3}
   dungeonCamera: {fileID: 1728126701}
   cameraPadding: 3

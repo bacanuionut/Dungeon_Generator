@@ -43,11 +43,28 @@ public class DungeonGrid
         new HashSet<Vector2Int>();
 
 
+    // Walkable floor cells occupied by solid environmental props.
+    //
+    // These are kept separate from floorCells so rendering, wall topology,
+    // fog-of-war and structural evaluation still see the original dungeon
+    // geometry. Movement/pathfinding can use IsNavigable() when props should
+    // act as obstacles.
+    private readonly HashSet<Vector2Int> navigationBlockedCells =
+        new HashSet<Vector2Int>();
+
+
     public IReadOnlyCollection<Vector2Int> DynamicFloorCells =>
         dynamicFloorCells;
 
     public int DynamicFloorCellCount =>
         dynamicFloorCells.Count;
+
+
+    public IReadOnlyCollection<Vector2Int> NavigationBlockedCells =>
+        navigationBlockedCells;
+
+    public int NavigationBlockedCellCount =>
+        navigationBlockedCells.Count;
 
 
     public IReadOnlyCollection<Vector2Int> OrganicRoomCells =>
@@ -126,6 +143,7 @@ public class DungeonGrid
         corridorCells.Clear();
         organicRoomCells.Clear();
         dynamicFloorCells.Clear();
+        navigationBlockedCells.Clear();
     }
 
 
@@ -193,14 +211,87 @@ public class DungeonGrid
 
 
     /// <summary>
-    /// Returns true when a coordinate is part of the walkable dungeon.
+    /// Returns true when a coordinate is part of the generated floor geometry.
     ///
-    /// This gives gameplay systems a simple way to ask whether a player,
-    /// enemy or other object can occupy a particular grid position.
+    /// Environmental props do not change this result. Systems that need to
+    /// account for solid prop blockers should use IsNavigable().
     /// </summary>
     public bool IsWalkable(Vector2Int position)
     {
         return floorCells.Contains(position);
+    }
+
+
+    /// <summary>
+    /// Returns true when a coordinate is floor and is not currently occupied
+    /// by a solid environmental prop.
+    ///
+    /// IsWalkable() deliberately remains the geometric floor test used by
+    /// rendering, visibility and structural validation.
+    /// </summary>
+    public bool IsNavigable(Vector2Int position)
+    {
+        return floorCells.Contains(position) &&
+               !navigationBlockedCells.Contains(position);
+    }
+
+
+    /// <summary>
+    /// Returns true when a solid environmental prop currently reserves
+    /// this floor cell for navigation.
+    /// </summary>
+    public bool IsNavigationBlocked(Vector2Int position)
+    {
+        return navigationBlockedCells.Contains(position);
+    }
+
+
+    /// <summary>
+    /// Reserves one existing floor cell for a solid environmental prop.
+    /// </summary>
+    public bool AddNavigationBlocker(Vector2Int cell)
+    {
+        if (!floorCells.Contains(cell))
+        {
+            return false;
+        }
+
+        return navigationBlockedCells.Add(cell);
+    }
+
+
+    /// <summary>
+    /// Reserves several existing floor cells for solid environmental props.
+    /// Returns how many new cells were added.
+    /// </summary>
+    public int AddNavigationBlockers(IEnumerable<Vector2Int> cells)
+    {
+        if (cells == null)
+        {
+            return 0;
+        }
+
+        int added = 0;
+
+        foreach (Vector2Int cell in cells)
+        {
+            if (AddNavigationBlocker(cell))
+            {
+                added++;
+            }
+        }
+
+        return added;
+    }
+
+
+    /// <summary>
+    /// Clears only environmental navigation blockers without changing
+    /// the generated dungeon floor itself.
+    /// </summary>
+    public void ClearNavigationBlockers()
+    {
+        navigationBlockedCells.Clear();
     }
 
     /// <summary>

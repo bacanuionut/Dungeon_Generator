@@ -49,7 +49,7 @@ public class DungeonGenerator : MonoBehaviour
 
     [Tooltip("Generate a new random seed each time generation starts.")]
     [SerializeField]
-    private bool useRandomSeed = false;    
+    private bool useRandomSeed = false;
 
     [Header("Debug Display")]
     [Tooltip("Draw BSP partition boundaries in the Scene view.")]
@@ -123,6 +123,11 @@ public class DungeonGenerator : MonoBehaviour
 
     [SerializeField]
     private DungeonContentGenerator dungeonContentGenerator;
+
+    [Header("Procedural Environment")]
+
+    [SerializeField]
+    private DungeonEnvironmentGenerator dungeonEnvironmentGenerator;
 
     // When true, generation runs without rendering or gameplay setup.
     // This is used when evaluating many dungeon seeds automatically.
@@ -227,6 +232,9 @@ public class DungeonGenerator : MonoBehaviour
 
     public DungeonContentGenerator ContentGenerator => dungeonContentGenerator;
 
+    public DungeonEnvironmentGenerator EnvironmentGenerator =>
+        dungeonEnvironmentGenerator;
+
 
     /// <summary>
     /// Generates a run floor using both its deterministic seed and its
@@ -311,6 +319,13 @@ public class DungeonGenerator : MonoBehaviour
 
         dungeonCompleted = false;
         completionMovementCount = 0;
+
+        // Remove procedural decoration from the previous generation.
+        if (!batchEvaluationMode &&
+            dungeonEnvironmentGenerator != null)
+        {
+            dungeonEnvironmentGenerator.ClearEnvironment();
+        }
 
         // Remove gameplay content from the previous generation.
         if (!batchEvaluationMode &&
@@ -575,6 +590,15 @@ public class DungeonGenerator : MonoBehaviour
         if (!batchEvaluationMode && playablePathValid && dungeonContentGenerator != null)
         {
             dungeonContentGenerator.GenerateContent(this);
+        }
+
+        // Environmental decoration is generated after objectives and normal
+        // gameplay content so props can avoid all of those occupied cells.
+        if (!batchEvaluationMode &&
+            playablePathValid &&
+            dungeonEnvironmentGenerator != null)
+        {
+            dungeonEnvironmentGenerator.GenerateEnvironment(this);
         }
 
         UnityEngine.Debug.Log(
