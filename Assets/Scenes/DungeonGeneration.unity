@@ -277,6 +277,7 @@ MonoBehaviour:
   playerController: {fileID: 2142187895}
   pulseController: {fileID: 2142187899}
   shaperController: {fileID: 2142187900}
+  runStatsManager: {fileID: 2142493819}
   unlitTorchSprite: {fileID: 2921046678229423985, guid: 569a70594e6b65545b4b8d96163a4ccf,
     type: 3}
   flameAnimationFrames:
@@ -895,6 +896,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dungeonGenerator: {fileID: 1044558306}
+  runStatsManager: {fileID: 2142493819}
   totalFloors: 5
   baseRunSeed: 12345
   floorTransitionDelay: 0.75
@@ -1168,6 +1170,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
+  runStatsManager: {fileID: 0}
   startingCharges: 1
   maximumCharges: 3
   shaperKey: 102
@@ -1453,6 +1456,7 @@ MonoBehaviour:
     type: 3}
   keyScale: 0.85
   exitObject: {fileID: 2144170878}
+  runStatsManager: {fileID: 2142493819}
 --- !u!4 &1429068667
 Transform:
   m_ObjectHideFlags: 0
@@ -1844,6 +1848,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dungeonGenerator: {fileID: 1044558306}
+  runStatsManager: {fileID: 2142493819}
   maximumHealth: 5
   movementDelay: 0.12
 --- !u!212 &2142187896
@@ -1925,7 +1930,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   fogRenderer: {fileID: 1034342223}
-  environmentGenerator: {fileID: 0}
+  environmentGenerator: {fileID: 1044558309}
   visionRange: 8
   visionAngle: 90
   immediateVisionRadius: 1.4
@@ -1943,6 +1948,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
+  runStatsManager: {fileID: 2142493819}
   startingCharges: 2
   maximumCharges: 5
   deployKey: 113
@@ -1966,6 +1972,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
+  runStatsManager: {fileID: 2142493819}
   startingCharges: 3
   maximumCharges: 3
   shaperKey: 102

@@ -16,6 +16,8 @@ public class DungeonRunManager : MonoBehaviour
     [SerializeField]
     private DungeonGenerator dungeonGenerator;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
 
     [Header("Run Settings")]
 
@@ -55,6 +57,11 @@ public class DungeonRunManager : MonoBehaviour
         if (transitioning || RunComplete)
             return;
 
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
 
         UnityEngine.Debug.Log(
             "========== FLOOR COMPLETE ==========\n" +
@@ -63,6 +70,12 @@ public class DungeonRunManager : MonoBehaviour
             "===================================="
         );
 
+        if (runStatsManager != null)
+        {
+            runStatsManager.RecordFloorCompleted(
+                1
+            );
+        }
 
         if (currentFloor >= totalFloors)
         {
@@ -145,6 +158,18 @@ public class DungeonRunManager : MonoBehaviour
         RunComplete = true;
         transitioning = false;
 
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        if (runStatsManager != null)
+        {
+            runStatsManager.EndRun(
+                true
+            );
+        }
 
         UnityEngine.Debug.Log(
             "=====================================\n" +

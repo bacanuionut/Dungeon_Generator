@@ -16,6 +16,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private DungeonGenerator dungeonGenerator;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
+
     [Header("Player Health")]
 
     [Tooltip("Health restored whenever a new dungeon is started.")]
@@ -168,6 +171,12 @@ public class PlayerController : MonoBehaviour
         UpdateFacingIndicator();
 
         initialised = true;
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
 
         UnityEngine.Debug.Log(
             $"Player spawned at grid position {gridPosition}."
@@ -337,11 +346,32 @@ public class PlayerController : MonoBehaviour
         if (damage <= 0)
             return;
 
+        int healthBeforeDamage =
+            currentHealth;
+
         currentHealth =
             Mathf.Max(
                 0,
                 currentHealth - damage
             );
+
+        int healthActuallyLost =
+            healthBeforeDamage -
+            currentHealth;
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        if (runStatsManager != null &&
+            healthActuallyLost > 0)
+        {
+            runStatsManager.RecordHeartLost(
+                healthActuallyLost
+            );
+        }
 
         UnityEngine.Debug.Log(
             $"PLAYER HIT - Damage: {damage}. " +
@@ -352,6 +382,13 @@ public class PlayerController : MonoBehaviour
         if (currentHealth <= 0)
         {
             initialised = false;
+
+            if (runStatsManager != null)
+            {
+                runStatsManager.EndRun(
+                    false
+                );
+            }
 
             UnityEngine.Debug.Log(
                 "========== GAME OVER ==========\n" +

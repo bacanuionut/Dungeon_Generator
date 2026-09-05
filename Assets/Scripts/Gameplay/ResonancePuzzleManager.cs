@@ -29,6 +29,8 @@ public class ResonancePuzzleManager : MonoBehaviour
     [SerializeField]
     private PlayerShaperController shaperController;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
 
     [Header("Torch Sprites")]
 
@@ -1844,6 +1846,20 @@ public class ResonancePuzzleManager : MonoBehaviour
     private void CompletePuzzle()
     {
         puzzleSolved = true;
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        if (runStatsManager != null)
+        {
+            runStatsManager.RecordPuzzleCompleted(
+                1
+            );
+        }
+
         acceptingInput = false;
 
         SetAllClueFlames(true);

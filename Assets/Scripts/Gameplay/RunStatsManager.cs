@@ -61,19 +61,43 @@ public class RunStatsManager : MonoBehaviour
     private DungeonGenerator dungeonGenerator;
 
 
+    [Header("Live Run Statistics - Debug")]
+
+    [SerializeField]
     private bool runActive;
+
+    [SerializeField]
     private bool runFinished;
+
+    [SerializeField]
     private bool runCompletedSuccessfully;
 
+
     private float runStartRealtime;
+
+    [SerializeField]
     private float finalElapsedSeconds;
 
+
+    [SerializeField]
     private int floorsCompleted;
+
+    [SerializeField]
     private int coinsCollected;
+
+    [SerializeField]
     private int heartsLost;
+
+    [SerializeField]
     private int pulseChargesUsed;
+
+    [SerializeField]
     private int shaperChargesUsed;
+
+    [SerializeField]
     private int keysCollected;
+
+    [SerializeField]
     private int puzzlesCompleted;
 
 

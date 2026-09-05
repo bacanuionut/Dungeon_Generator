@@ -20,6 +20,8 @@ public class PlayerShaperController : MonoBehaviour
     [SerializeField]
     private DungeonTerrainModifier terrainModifier;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
 
     [Header("Inventory")]
 
@@ -108,6 +110,13 @@ public class PlayerShaperController : MonoBehaviour
 
     private void Start()
     {
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
         remainingCharges =
             Mathf.Clamp(
                 startingCharges,
@@ -118,13 +127,10 @@ public class PlayerShaperController : MonoBehaviour
                 )
             );
 
-
         CreateWallHighlight();
-
 
         targetStateRecorded =
             false;
-
 
         UnityEngine.Debug.Log(
             $"SHAPER CHARGES: {remainingCharges}"
@@ -362,6 +368,12 @@ public class PlayerShaperController : MonoBehaviour
 
         remainingCharges--;
 
+        if (runStatsManager != null)
+        {
+            runStatsManager.RecordShaperChargeUsed(
+                1
+            );
+        }
 
         currentTarget =
             null;

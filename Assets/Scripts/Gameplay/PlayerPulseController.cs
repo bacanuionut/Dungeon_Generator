@@ -16,6 +16,8 @@ public class PlayerPulseController : MonoBehaviour
     [SerializeField]
     private PlayerController playerController;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
 
     [Header("Pulse Inventory")]
 
@@ -72,6 +74,13 @@ public class PlayerPulseController : MonoBehaviour
 
     private void Start()
     {
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
         remainingCharges =
             Mathf.Clamp(
                 startingCharges,
@@ -239,6 +248,12 @@ public class PlayerPulseController : MonoBehaviour
 
         remainingCharges--;
 
+        if (runStatsManager != null)
+        {
+            runStatsManager.RecordPulseChargeUsed(
+                1
+            );
+        }
 
         UnityEngine.Debug.Log(
             "PULSE DEPLOYED - " +
