@@ -1,19 +1,11 @@
 ﻿using System.Text;
 using UnityEngine;
-using UnityEngine.UI;
-using static System.Net.Mime.MediaTypeNames;
 
 /// <summary>
-/// Displays the important run and player state during gameplay.
+/// Displays important gameplay and run state.
 ///
-/// The HUD currently shows:
-/// - current procedural floor
-/// - Anchor Sigil progress
-/// - player health
-/// - remaining Pulse Charges
-///
-/// Further resources such as Shaper Charges and Warden distance can
-/// be added here later without changing the underlying game systems.
+/// The HUD deliberately reads existing authoritative systems rather than
+/// storing its own gameplay state.
 /// </summary>
 public class DungeonHUD : MonoBehaviour
 {
@@ -21,6 +13,9 @@ public class DungeonHUD : MonoBehaviour
 
     [SerializeField]
     private DungeonRunManager runManager;
+
+    [SerializeField]
+    private RunStatsManager runStatsManager;
 
     [SerializeField]
     private DungeonGenerator dungeonGenerator;
@@ -59,6 +54,8 @@ public class DungeonHUD : MonoBehaviour
 
     private void Start()
     {
+        ResolveReferences();
+
         RefreshHUD();
     }
 
@@ -71,11 +68,9 @@ public class DungeonHUD : MonoBehaviour
             return;
         }
 
-
         nextRefreshTime =
             Time.unscaledTime +
             refreshInterval;
-
 
         RefreshHUD();
     }
@@ -83,19 +78,15 @@ public class DungeonHUD : MonoBehaviour
 
     /// <summary>
     /// Builds the current HUD text from the existing gameplay systems.
-    ///
-    /// The text component is only changed when the displayed values
-    /// have actually changed.
+    /// The UI Text component is changed only when its content changes.
     /// </summary>
     private void RefreshHUD()
     {
         if (hudText == null)
             return;
 
-
         string display =
             BuildHUDText();
-
 
         if (display ==
             previousDisplay)
@@ -103,10 +94,8 @@ public class DungeonHUD : MonoBehaviour
             return;
         }
 
-
         hudText.text =
             display;
-
 
         previousDisplay =
             display;
@@ -120,26 +109,39 @@ public class DungeonHUD : MonoBehaviour
 
 
         // --------------------------------------------------------
-        // FLOOR
+        // FLOOR / RUN MODE
         // --------------------------------------------------------
 
         if (runManager != null)
         {
-            builder.Append(
-                "FLOOR "
-            );
+            if (runManager.IsSurvival)
+            {
+                builder.Append(
+                    "SURVIVAL FLOOR "
+                );
 
-            builder.Append(
-                runManager.CurrentFloor
-            );
+                builder.Append(
+                    runManager.CurrentFloor
+                );
+            }
+            else
+            {
+                builder.Append(
+                    "FLOOR "
+                );
 
-            builder.Append(
-                "/"
-            );
+                builder.Append(
+                    runManager.CurrentFloor
+                );
 
-            builder.Append(
-                runManager.TotalFloors
-            );
+                builder.Append(
+                    "/"
+                );
+
+                builder.Append(
+                    runManager.TotalFloors
+                );
+            }
         }
         else
         {
@@ -153,7 +155,7 @@ public class DungeonHUD : MonoBehaviour
 
 
         // --------------------------------------------------------
-        // ANCHOR SIGILS
+        // KEYS
         // --------------------------------------------------------
 
         FloorObjectiveManager objectiveManager =
@@ -161,11 +163,10 @@ public class DungeonHUD : MonoBehaviour
                 ? dungeonGenerator.ObjectiveManager
                 : null;
 
-
         if (objectiveManager != null)
         {
             builder.Append(
-                "SIGILS "
+                "KEYS "
             );
 
             builder.Append(
@@ -183,7 +184,7 @@ public class DungeonHUD : MonoBehaviour
         else
         {
             builder.Append(
-                "SIGILS -"
+                "KEYS -"
             );
         }
 
@@ -198,7 +199,6 @@ public class DungeonHUD : MonoBehaviour
         builder.Append(
             "HEALTH "
         );
-
 
         if (playerController != null)
         {
@@ -238,13 +238,37 @@ public class DungeonHUD : MonoBehaviour
 
 
         // --------------------------------------------------------
+        // RUN COINS
+        // --------------------------------------------------------
+
+        builder.Append(
+            "COINS "
+        );
+
+        if (runStatsManager != null)
+        {
+            builder.Append(
+                runStatsManager.CoinsCollected
+            );
+        }
+        else
+        {
+            builder.Append(
+                "-"
+            );
+        }
+
+
+        builder.AppendLine();
+
+
+        // --------------------------------------------------------
         // PULSE CHARGES
         // --------------------------------------------------------
 
         builder.Append(
             "PULSE "
         );
-
 
         if (pulseController != null)
         {
@@ -260,17 +284,16 @@ public class DungeonHUD : MonoBehaviour
         }
 
 
+        builder.AppendLine();
+
+
         // --------------------------------------------------------
         // SHAPER CHARGES
         // --------------------------------------------------------
 
-        builder.AppendLine();
-
-
         builder.Append(
             "SHAPER "
         );
-
 
         if (shaperController != null)
         {
@@ -285,17 +308,17 @@ public class DungeonHUD : MonoBehaviour
             );
         }
 
-        // --------------------------------------------------------
-        // WARDEN PURSUIT
-        // --------------------------------------------------------
 
         builder.AppendLine();
 
 
+        // --------------------------------------------------------
+        // WARDEN PURSUIT
+        // --------------------------------------------------------
+
         builder.Append(
             "WARDEN "
         );
-
 
         if (wardenManager != null)
         {
@@ -310,6 +333,7 @@ public class DungeonHUD : MonoBehaviour
             );
         }
 
+
         // --------------------------------------------------------
         // GAME STATE
         // --------------------------------------------------------
@@ -318,6 +342,7 @@ public class DungeonHUD : MonoBehaviour
             !playerController.IsAlive)
         {
             builder.AppendLine();
+
             builder.Append(
                 "GAME OVER"
             );
@@ -326,6 +351,7 @@ public class DungeonHUD : MonoBehaviour
                  runManager.RunComplete)
         {
             builder.AppendLine();
+
             builder.Append(
                 "RUN COMPLETE"
             );
@@ -349,13 +375,11 @@ public class DungeonHUD : MonoBehaviour
         StringBuilder hearts =
             new StringBuilder();
 
-
         int safeMaximum =
             Mathf.Max(
                 0,
                 maximumHealth
             );
-
 
         int safeCurrent =
             Mathf.Clamp(
@@ -363,7 +387,6 @@ public class DungeonHUD : MonoBehaviour
                 0,
                 safeMaximum
             );
-
 
         for (int i = 0;
              i < safeMaximum;
@@ -376,7 +399,52 @@ public class DungeonHUD : MonoBehaviour
             );
         }
 
-
         return hearts.ToString();
+    }
+
+
+    private void ResolveReferences()
+    {
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        if (runManager == null)
+        {
+            runManager =
+                FindObjectOfType<DungeonRunManager>();
+        }
+
+        if (dungeonGenerator == null)
+        {
+            dungeonGenerator =
+                FindObjectOfType<DungeonGenerator>();
+        }
+
+        if (playerController == null)
+        {
+            playerController =
+                FindObjectOfType<PlayerController>();
+        }
+
+        if (pulseController == null)
+        {
+            pulseController =
+                FindObjectOfType<PlayerPulseController>();
+        }
+
+        if (shaperController == null)
+        {
+            shaperController =
+                FindObjectOfType<PlayerShaperController>();
+        }
+
+        if (wardenManager == null)
+        {
+            wardenManager =
+                FindObjectOfType<WardenManager>();
+        }
     }
 }

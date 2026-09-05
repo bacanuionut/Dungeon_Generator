@@ -1,184 +1,238 @@
 ﻿using System.Collections;
-using System.Diagnostics;
 using UnityEngine;
 
-/// <summary>
-/// Controls progression across a complete multi-floor dungeon run.
-///
-/// DungeonGenerator remains responsible for generating one dungeon.
-/// DungeonRunManager decides which floor is being played and which
-/// deterministic seed that floor should use.
-/// </summary>
 public class DungeonRunManager : MonoBehaviour
 {
     [Header("References")]
+    [SerializeField] private DungeonGenerator dungeonGenerator;
+    [SerializeField] private RunStatsManager runStatsManager;
 
-    [SerializeField]
-    private DungeonGenerator dungeonGenerator;
+    [Header("Floor Transition")]
+    [Min(0f)]
+    [SerializeField] private float floorTransitionDelay = 0.75f;
 
-    [SerializeField]
-    private RunStatsManager runStatsManager;
-
-    [Header("Run Settings")]
-
-    [Tooltip("Number of generated floors required to complete a run.")]
-    [SerializeField]
-    private int totalFloors = 5;
-
-    [Tooltip("Starting seed from which deterministic floor seeds are derived.")]
-    [SerializeField]
-    private int baseRunSeed = 12345;
-
-    [Tooltip("Small delay before descending to the next generated floor.")]
-    [SerializeField]
-    private float floorTransitionDelay = 0.75f;
-
-
-    private int currentFloor = 1;
-
-    private bool transitioning;
-
+    [Header("Live Progression - Debug")]
+    [SerializeField] private int currentFloor = 1;
+    [SerializeField] private bool transitioning;
 
     public int CurrentFloor => currentFloor;
+    public int TotalFloors =>
+        runStatsManager != null ? runStatsManager.TargetFloors : 0;
+    public int BaseRunSeed =>
+        runStatsManager != null ? runStatsManager.BaseSeed : 0;
+    public bool IsSurvival =>
+        runStatsManager != null &&
+        runStatsManager.CurrentMode == RunStatsManager.GameMode.Survival;
+    public bool RunComplete =>
+        runStatsManager != null && runStatsManager.RunFinished;
 
-    public int TotalFloors => totalFloors;
-
-    public int BaseRunSeed => baseRunSeed;
-
-    public bool RunComplete { get; private set; }
-
-
-    /// <summary>
-    /// Called by DungeonGenerator when the player reaches the
-    /// currently active descent point.
-    /// </summary>
-    public void CompleteCurrentFloor()
+    private void Start()
     {
-        if (transitioning || RunComplete)
-            return;
+        ResolveReferences();
 
         if (runStatsManager == null)
         {
-            runStatsManager =
-                FindObjectOfType<RunStatsManager>();
-        }
-
-        UnityEngine.Debug.Log(
-            "========== FLOOR COMPLETE ==========\n" +
-            $"Floor: {currentFloor}/{totalFloors}\n" +
-            $"Seed: {dungeonGenerator.CurrentSeed}\n" +
-            "===================================="
-        );
-
-        if (runStatsManager != null)
-        {
-            runStatsManager.RecordFloorCompleted(
-                1
+            UnityEngine.Debug.LogError(
+                "DungeonRunManager could not start because RunStatsManager was not assigned."
             );
-        }
-
-        if (currentFloor >= totalFloors)
-        {
-            CompleteRun();
             return;
         }
 
+        if (runStatsManager.AutoBeginDebugRun)
+        {
+            StartConfiguredRun();
+        }
+    }
 
-        StartCoroutine(
-            DescendToNextFloor()
+    public void StartNewRun(
+        RunStatsManager.GameMode mode,
+        int selectedBaseSeed,
+        RunStatsManager.RunDifficulty difficulty,
+        int selectedTargetFloors)
+    {
+        ResolveReferences();
+
+        if (dungeonGenerator == null || runStatsManager == null)
+        {
+            UnityEngine.Debug.LogError(
+                "A new run could not start because DungeonRunManager is missing DungeonGenerator or RunStatsManager."
+            );
+            return;
+        }
+
+        StopAllCoroutines();
+        transitioning = false;
+
+        runStatsManager.BeginRun(
+            mode,
+            selectedBaseSeed,
+            difficulty,
+            selectedTargetFloors
+        );
+
+        StartConfiguredRun();
+    }
+
+    private void StartConfiguredRun()
+    {
+        ResolveReferences();
+
+        if (dungeonGenerator == null || runStatsManager == null)
+            return;
+
+        currentFloor = 1;
+        transitioning = false;
+
+        int firstFloorSeed =
+            CalculateFloorSeed(currentFloor);
+
+        UnityEngine.Debug.Log(
+            "========== FIRST FLOOR ==========\n" +
+            $"Mode: {runStatsManager.CurrentMode}\n" +
+            $"Floor: {BuildFloorProgressText()}\n" +
+            $"Seed: {firstFloorSeed}\n" +
+            "Generating new dungeon...\n" +
+            "================================="
+        );
+
+        dungeonGenerator.GenerateRunFloor(
+            firstFloorSeed,
+            currentFloor
         );
     }
 
+    public void CompleteCurrentFloor()
+    {
+        ResolveReferences();
 
-    /// <summary>
-    /// Advances the player one floor deeper and generates the
-    /// next deterministic dungeon.
-    /// </summary>
+        if (transitioning ||
+            runStatsManager == null ||
+            !runStatsManager.RunActive ||
+            runStatsManager.RunFinished)
+        {
+            return;
+        }
+
+        runStatsManager.RecordFloorCompleted(1);
+
+        UnityEngine.Debug.Log(
+            "========== FLOOR COMPLETE ==========\n" +
+            $"Mode: {runStatsManager.CurrentMode}\n" +
+            $"Floor: {BuildFloorProgressText()}\n" +
+            $"Seed: {dungeonGenerator.CurrentSeed}\n" +
+            $"Run floors completed: {runStatsManager.FloorsCompleted}\n" +
+            "===================================="
+        );
+
+        if (runStatsManager.CurrentMode == RunStatsManager.GameMode.Standard &&
+            currentFloor >= runStatsManager.TargetFloors)
+        {
+            CompleteStandardRun();
+            return;
+        }
+
+        StartCoroutine(DescendToNextFloor());
+    }
+
     private IEnumerator DescendToNextFloor()
     {
         transitioning = true;
-
 
         UnityEngine.Debug.Log(
             $"DESCENDING FROM FLOOR {currentFloor}..."
         );
 
-
         yield return new WaitForSeconds(
             floorTransitionDelay
         );
 
+        if (runStatsManager == null ||
+            runStatsManager.RunFinished ||
+            !runStatsManager.RunActive)
+        {
+            transitioning = false;
+            yield break;
+        }
 
         currentFloor++;
 
-
         int nextFloorSeed =
-            CalculateFloorSeed(
-                currentFloor
-            );
-
+            CalculateFloorSeed(currentFloor);
 
         UnityEngine.Debug.Log(
             "========== NEW FLOOR ==========\n" +
-            $"Floor: {currentFloor}/{totalFloors}\n" +
+            $"Mode: {runStatsManager.CurrentMode}\n" +
+            $"Floor: {BuildFloorProgressText()}\n" +
             $"Seed: {nextFloorSeed}\n" +
             "Generating new dungeon...\n" +
             "==============================="
         );
-
 
         dungeonGenerator.GenerateRunFloor(
             nextFloorSeed,
             currentFloor
         );
 
-
         transitioning = false;
     }
 
-
-    /// <summary>
-    /// Produces a stable but different seed for every floor.
-    ///
-    /// Using a prime multiplier separates the floor seeds while
-    /// keeping the entire run reproducible from one base seed.
-    /// </summary>
-    private int CalculateFloorSeed(
-        int floorNumber)
+    private int CalculateFloorSeed(int floorNumber)
     {
+        int baseSeed =
+            runStatsManager != null
+                ? runStatsManager.BaseSeed
+                : 0;
+
         return unchecked(
-            baseRunSeed +
+            baseSeed +
             (floorNumber - 1) * 1009
         );
     }
 
-
-    private void CompleteRun()
+    private void CompleteStandardRun()
     {
-        RunComplete = true;
         transitioning = false;
-
-        if (runStatsManager == null)
-        {
-            runStatsManager =
-                FindObjectOfType<RunStatsManager>();
-        }
 
         if (runStatsManager != null)
         {
-            runStatsManager.EndRun(
-                true
-            );
+            runStatsManager.EndRun(true);
         }
 
         UnityEngine.Debug.Log(
             "=====================================\n" +
             "              RUN COMPLETE\n" +
             "=====================================\n" +
-            $"Floors completed: {totalFloors}\n" +
-            $"Base run seed: {baseRunSeed}\n" +
+            "Mode: Standard\n" +
+            $"Floors completed: {currentFloor}\n" +
+            $"Base run seed: {BaseRunSeed}\n" +
             "The player escaped the dungeon.\n" +
             "====================================="
         );
+    }
+
+    private string BuildFloorProgressText()
+    {
+        if (runStatsManager == null)
+            return currentFloor.ToString();
+
+        if (runStatsManager.CurrentMode == RunStatsManager.GameMode.Survival)
+            return $"{currentFloor} (Unlimited)";
+
+        return $"{currentFloor}/{runStatsManager.TargetFloors}";
+    }
+
+    private void ResolveReferences()
+    {
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        if (dungeonGenerator == null)
+        {
+            dungeonGenerator =
+                FindObjectOfType<DungeonGenerator>();
+        }
     }
 }

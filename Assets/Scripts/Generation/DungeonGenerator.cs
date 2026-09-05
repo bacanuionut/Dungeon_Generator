@@ -291,7 +291,12 @@ public class DungeonGenerator : MonoBehaviour
 
     private void Start()
     {
-        GenerateDungeon();
+        // Normal gameplay startup is owned by DungeonRunManager.
+        // Standalone/test scenes without a run manager can still generate.
+        if (dungeonRunManager == null)
+        {
+            GenerateDungeon();
+        }
     }
 
     private void Update()

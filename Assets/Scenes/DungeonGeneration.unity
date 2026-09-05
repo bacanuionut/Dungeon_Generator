@@ -455,6 +455,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   runManager: {fileID: 872445781}
+  runStatsManager: {fileID: 0}
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   pulseController: {fileID: 2142187899}
@@ -897,9 +898,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dungeonGenerator: {fileID: 1044558306}
   runStatsManager: {fileID: 2142493819}
-  totalFloors: 5
-  baseRunSeed: 12345
   floorTransitionDelay: 0.75
+  currentFloor: 1
+  transitioning: 0
 --- !u!4 &872445782
 Transform:
   m_ObjectHideFlags: 0
@@ -2029,12 +2030,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d10087b000700cb4ea8d7bce7730006b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentMode: 0
+  currentMode: 1
   currentDifficulty: 1
   baseSeed: 12345
-  targetFloors: 5
+  targetFloors: 2
   autoBeginDebugRun: 1
-  dungeonGenerator: {fileID: 1044558306}
+  runActive: 0
+  runFinished: 0
+  runCompletedSuccessfully: 0
+  finalElapsedSeconds: 0
+  floorsCompleted: 0
+  coinsCollected: 0
+  heartsLost: 0
+  pulseChargesUsed: 0
+  shaperChargesUsed: 0
+  keysCollected: 0
+  puzzlesCompleted: 0
 --- !u!4 &2142493820
 Transform:
   m_ObjectHideFlags: 0
