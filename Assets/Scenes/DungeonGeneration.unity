@@ -2030,7 +2030,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d10087b000700cb4ea8d7bce7730006b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentMode: 1
+  currentMode: 0
   currentDifficulty: 1
   baseSeed: 12345
   targetFloors: 2
