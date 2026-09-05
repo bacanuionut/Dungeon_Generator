@@ -1,7 +1,70 @@
 fileFormatVersion: 2
 guid: 86cd5f88c5a9dc148acc8c91d4dab4d5
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: -6753082073175136350
+    second: Env_Flame_01
+  - first:
+      213: 4682762073298511618
+    second: Env_Flame_02
+  - first:
+      213: -7510799058878326544
+    second: Env_Flame_03
+  - first:
+      213: 1356099948948184447
+    second: Env_Flame_04
+  - first:
+      213: 8829000443624798463
+    second: Env_Flame_05
+  - first:
+      213: 5136758153458048110
+    second: Env_Flame_06
+  - first:
+      213: 5619091599236626059
+    second: Env_Flame_07
+  - first:
+      213: -1921395925472425623
+    second: Env_Flame_08
+  - first:
+      213: 4916762618032186353
+    second: Exit_Hatch_Closed
+  - first:
+      213: 1162904983464979844
+    second: Exit_Hatch_Open_01
+  - first:
+      213: 7064866138584929767
+    second: Exit_Hatch_Open_02
+  - first:
+      213: 6497220523634459294
+    second: Exit_Hatch_Open_03
+  - first:
+      213: 6340381744373260812
+    second: Exit_Hatch_Open_04
+  - first:
+      213: 879488825467366222
+    second: Exit_Hatch_Open_05
+  - first:
+      213: 2957073568020072224
+    second: Lever_01
+  - first:
+      213: -22633924164909025
+    second: Lever_02
+  - first:
+      213: 7219729056707571172
+    second: Lever_03
+  - first:
+      213: 5970955383309028103
+    second: Lever_04
+  - first:
+      213: 7948148392337320465
+    second: Push_Panel_01
+  - first:
+      213: -1609412331780087379
+    second: Push_Panel_02
+  - first:
+      213: 84367354525178517
+    second: Push_Panel_03
   externalObjects: {}
   serializedVersion: 11
   mipmaps:
@@ -121,7 +184,448 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: Env_Flame_01
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2a7665142ab3842a0800000000000000
+      internalID: -6753082073175136350
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_02
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 20721aa9b438cf040800000000000000
+      internalID: 4682762073298511618
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_03
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0f81834cc0844c790800000000000000
+      internalID: -7510799058878326544
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_04
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f7d5bf8f7b5d1d210800000000000000
+      internalID: 1356099948948184447
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_05
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ff8b50c1029e68a70800000000000000
+      internalID: 8829000443624798463
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_06
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e6c55f9235e694740800000000000000
+      internalID: 5136758153458048110
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_07
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b8671ecc9060bfd40800000000000000
+      internalID: 5619091599236626059
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Flame_08
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9694555f594d555e0800000000000000
+      internalID: -1921395925472425623
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Exit_Hatch_Closed
+      rect:
+        serializedVersion: 2
+        x: 160
+        y: 48
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1f36abc0d89db3440800000000000000
+      internalID: 4916762618032186353
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Exit_Hatch_Open_01
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 48
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 48d26fecbe7732010800000000000000
+      internalID: 1162904983464979844
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Exit_Hatch_Open_02
+      rect:
+        serializedVersion: 2
+        x: 224
+        y: 48
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7e55a0062527b0260800000000000000
+      internalID: 7064866138584929767
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Exit_Hatch_Open_03
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 48
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e920c9a74a3ca2a50800000000000000
+      internalID: 6497220523634459294
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Exit_Hatch_Open_04
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 48
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c026dbd8a9f8df750800000000000000
+      internalID: 6340381744373260812
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Exit_Hatch_Open_05
+      rect:
+        serializedVersion: 2
+        x: 320
+        y: 48
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e4b68e15d62943c00800000000000000
+      internalID: 879488825467366222
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Lever_01
+      rect:
+        serializedVersion: 2
+        x: 400
+        y: 225
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 027888c2eb2a90920800000000000000
+      internalID: 2957073568020072224
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Lever_02
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 225
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f18074ed0969faff0800000000000000
+      internalID: -22633924164909025
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Lever_03
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 225
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4edee974351a13460800000000000000
+      internalID: 7219729056707571172
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Lever_04
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 225
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 70b47df19481dd250800000000000000
+      internalID: 5970955383309028103
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Push_Panel_01
+      rect:
+        serializedVersion: 2
+        x: 369
+        y: 97
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 11aab5b0ade7d4e60800000000000000
+      internalID: 7948148392337320465
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Push_Panel_02
+      rect:
+        serializedVersion: 2
+        x: 385
+        y: 97
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: da16d13e2083aa9e0800000000000000
+      internalID: -1609412331780087379
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Push_Panel_03
+      rect:
+        serializedVersion: 2
+        x: 401
+        y: 97
+        width: 15
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 59adc1579abbb2100800000000000000
+      internalID: 84367354525178517
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     physicsShape: []
     bones: []

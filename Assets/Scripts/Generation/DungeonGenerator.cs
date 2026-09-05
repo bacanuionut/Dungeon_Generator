@@ -585,20 +585,23 @@ public class DungeonGenerator : MonoBehaviour
             floorObjectiveManager.GenerateObjectives(this);
         }
 
-        // Gameplay content is only added after the complete dungeon has
-        // passed validation and gameplay has been initialised.
-        if (!batchEvaluationMode && playablePathValid && dungeonContentGenerator != null)
-        {
-            dungeonContentGenerator.GenerateContent(this);
-        }
-
-        // Environmental decoration is generated after objectives and normal
-        // gameplay content so props can avoid all of those occupied cells.
+        // Environmental decoration is generated after objectives but before
+        // normal gameplay content. This makes the environment establish the
+        // navigation blockers first, so all subsequently generated enemies and
+        // collectibles can reject prop-occupied cells through DungeonGrid.
         if (!batchEvaluationMode &&
             playablePathValid &&
             dungeonEnvironmentGenerator != null)
         {
             dungeonEnvironmentGenerator.GenerateEnvironment(this);
+        }
+
+        // Gameplay content is generated after environmental blockers exist.
+        // DungeonContentGenerator therefore cannot place enemies or items on
+        // solid decoration. Collectibles also keep a visual clearance from it.
+        if (!batchEvaluationMode && playablePathValid && dungeonContentGenerator != null)
+        {
+            dungeonContentGenerator.GenerateContent(this);
         }
 
         UnityEngine.Debug.Log(
@@ -987,6 +990,14 @@ public class DungeonGenerator : MonoBehaviour
                 exitPosition.y + 0.5f,
                 -2f
             );
+
+        ExitHatchController hatch =
+            exitObject.GetComponent<ExitHatchController>();
+
+        if (hatch != null)
+        {
+            hatch.ResetForNewFloor();
+        }
 
         exitObject.SetActive(true);
     }

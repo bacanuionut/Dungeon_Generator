@@ -173,23 +173,11 @@ public class EnemyController : MonoBehaviour
 
         enemyRenderer = GetComponent<Renderer>();
 
+
         if (enemyRenderer != null)
         {
-            MaterialPropertyBlock properties =
-                new MaterialPropertyBlock();
-
-            enemyRenderer.GetPropertyBlock(properties);
-
             normalColour =
-                properties.GetColor("_Color");
-
-            // Fallback in case this enemy was created without
-            // a colour property block.
-            if (normalColour.a <= 0f)
-            {
-                normalColour =
-                    enemyRenderer.material.color;
-            }
+                enemyRenderer.material.color;
         }
 
 
@@ -763,7 +751,7 @@ public class EnemyController : MonoBehaviour
                 );
 
 
-            if (dungeonGenerator.Grid.IsWalkable(candidate) &&
+            if (dungeonGenerator.Grid.IsNavigable(candidate) &&
                 candidate !=
                     playerController.GridPosition)
             {
@@ -885,7 +873,7 @@ public class EnemyController : MonoBehaviour
                 }
 
 
-                if (!dungeonGenerator.Grid.IsWalkable(
+                if (!dungeonGenerator.Grid.IsNavigable(
                         neighbour))
                 {
                     continue;
@@ -951,7 +939,7 @@ public class EnemyController : MonoBehaviour
     private void MoveTo(
         Vector2Int targetCell)
     {
-        if (!dungeonGenerator.Grid.IsWalkable(
+        if (!dungeonGenerator.Grid.IsNavigable(
                 targetCell))
         {
             return;
@@ -1052,7 +1040,11 @@ public class EnemyController : MonoBehaviour
         }
 
 
-        SetEnemyColour(stunnedColour);
+        if (enemyRenderer != null)
+        {
+            enemyRenderer.material.color =
+                stunnedColour;
+        }
 
 
         stateBeforeStun =
@@ -1075,6 +1067,7 @@ public class EnemyController : MonoBehaviour
 
         waitingAtLastKnownPosition =
             false;
+
 
         UnityEngine.Debug.Log(
             $"{name} STUNNED for {duration:0.0} seconds."
@@ -1159,32 +1152,16 @@ public class EnemyController : MonoBehaviour
         }
 
 
-        SetEnemyColour(normalColour);
+        if (enemyRenderer != null)
+        {
+            enemyRenderer.material.color =
+                normalColour;
+        }
 
 
         UnityEngine.Debug.Log(
             $"{name} recovered from stun. " +
             $"New state: {currentState}"
-        );
-    }
-
-    private void SetEnemyColour(Color colour)
-    {
-        if (enemyRenderer == null)
-            return;
-
-        MaterialPropertyBlock properties =
-            new MaterialPropertyBlock();
-
-        enemyRenderer.GetPropertyBlock(properties);
-
-        properties.SetColor(
-            "_Color",
-            colour
-        );
-
-        enemyRenderer.SetPropertyBlock(
-            properties
         );
     }
 }

@@ -6,14 +6,15 @@ using UnityEngine;
 /// <summary>
 /// Controls the procedural objective for one generated floor.
 ///
-/// The player must collect all Anchor Sigils before the descent
-/// point becomes active.
+/// Anchor Sigils are placed in selected generated rooms. Collecting all of
+/// them satisfies the descent requirement, but the exit hatch remains closed
+/// until the player later approaches it within its configured proximity range.
 /// </summary>
 public class FloorObjectiveManager : MonoBehaviour
 {
     [Header("Objective Settings")]
 
-    [Tooltip("Number of Anchor Sigils required to unlock the descent.")]
+    [Tooltip("Target number of Anchor Sigils to place on each generated floor.")]
     [SerializeField]
     private int requiredSigils = 3;
 
@@ -26,15 +27,10 @@ public class FloorObjectiveManager : MonoBehaviour
     [SerializeField]
     private Color sigilColour = Color.cyan;
 
-    [SerializeField]
-    private Color lockedExitColour = Color.red;
-
-    [SerializeField]
-    private Color unlockedExitColour = Color.green;
-
 
     [Header("References")]
 
+    [Tooltip("The same Exit Hatch object referenced by DungeonGenerator.")]
     [SerializeField]
     private GameObject exitObject;
 
@@ -50,13 +46,27 @@ public class FloorObjectiveManager : MonoBehaviour
 
     private int collectedSigils;
 
+    // Kept separate from the Inspector target. This prevents one unusual
+    // floor that can only place two Sigils from permanently reducing later
+    // floors to two Sigils as well.
+    private int activeRequiredSigils;
+
 
     public int CollectedSigils => collectedSigils;
 
-    public int RequiredSigils => requiredSigils;
+    public int RequiredSigils =>
+        activeRequiredSigils > 0
+            ? activeRequiredSigils
+            : Mathf.Max(0, requiredSigils);
 
+    /// <summary>
+    /// Kept for compatibility with existing gameplay code.
+    /// This now means the objective requirement has been met.
+    /// It does NOT mean the hatch has already physically opened.
+    /// </summary>
     public bool ExitUnlocked =>
-        collectedSigils >= requiredSigils;
+        activeRequiredSigils > 0 &&
+        collectedSigils >= activeRequiredSigils;
 
     public IReadOnlyCollection<Vector2Int> ObjectiveCells =>
         objectiveCells;
@@ -71,13 +81,15 @@ public class FloorObjectiveManager : MonoBehaviour
         objectiveCells.Clear();
 
         collectedSigils = 0;
-
+        activeRequiredSigils = 0;
 
         if (objectiveParent != null)
         {
             Destroy(objectiveParent);
             objectiveParent = null;
         }
+
+        ResetExitHatchForNewFloor();
     }
 
 
@@ -89,7 +101,6 @@ public class FloorObjectiveManager : MonoBehaviour
         DungeonGenerator generator)
     {
         ClearObjectives();
-
 
         if (generator == null ||
             generator.Rooms == null ||
@@ -105,13 +116,8 @@ public class FloorObjectiveManager : MonoBehaviour
             return;
         }
 
-
         objectiveParent =
             new GameObject("Generated Objectives");
-
-
-        SetExitUnlocked(false);
-
 
         Dictionary<Room, int> distances =
             DungeonValidator.CalculateRoomDistances(
@@ -119,15 +125,15 @@ public class FloorObjectiveManager : MonoBehaviour
                 generator.Graph
             );
 
-
         List<Room> candidates =
             new List<Room>();
-
 
         foreach (Room room in generator.Rooms)
         {
             if (room == null)
+            {
                 continue;
+            }
 
             if (room == generator.StartRoom ||
                 room == generator.ExitRoom ||
@@ -137,19 +143,18 @@ public class FloorObjectiveManager : MonoBehaviour
             }
 
             if (!distances.ContainsKey(room))
+            {
                 continue;
-
+            }
 
             candidates.Add(room);
         }
-
 
         List<Room> selectedRooms =
             SelectSigilRooms(
                 candidates,
                 distances
             );
-
 
         System.Random random =
             new System.Random(
@@ -158,7 +163,6 @@ public class FloorObjectiveManager : MonoBehaviour
                     15485863
                 )
             );
-
 
         foreach (Room room in selectedRooms)
         {
@@ -173,24 +177,23 @@ public class FloorObjectiveManager : MonoBehaviour
                 continue;
             }
 
-
-            CreateSigil(
-                cell
-            );
+            CreateSigil(cell);
         }
 
-
-        // Use the number that was actually successfully placed.
-        requiredSigils =
+        // Use the number actually placed on THIS floor without modifying
+        // the Inspector target used by later procedural floors.
+        activeRequiredSigils =
             sigilsByCell.Count;
 
+        UpdateExitHatchProgress();
 
         UnityEngine.Debug.Log(
             "========== FLOOR OBJECTIVE ==========\n" +
             $"Seed: {generator.CurrentSeed}\n" +
-            $"Anchor Sigils placed: {requiredSigils}\n" +
-            $"Anchor Sigils collected: {collectedSigils}/{requiredSigils}\n" +
-            $"Descent shaft unlocked: {ExitUnlocked}\n" +
+            $"Anchor Sigils placed: {activeRequiredSigils}\n" +
+            $"Anchor Sigils collected: {collectedSigils}/{activeRequiredSigils}\n" +
+            $"Descent requirement complete: {ExitUnlocked}\n" +
+            "Hatch opening requires player proximity: YES\n" +
             "====================================="
         );
     }
@@ -210,29 +213,26 @@ public class FloorObjectiveManager : MonoBehaviour
         List<Room> selected =
             new List<Room>();
 
-
         int targetCount =
             Mathf.Min(
-                requiredSigils,
+                Mathf.Max(0, requiredSigils),
                 candidates.Count
             );
-
 
         while (selected.Count < targetCount)
         {
             Room bestRoom = null;
             float bestScore = float.MinValue;
 
-
             foreach (Room candidate in candidates)
             {
                 if (selected.Contains(candidate))
+                {
                     continue;
-
+                }
 
                 float score =
                     distances[candidate] * 20f;
-
 
                 // After the first choice, favour rooms that are
                 // spatially separated from the Sigils already chosen.
@@ -240,7 +240,6 @@ public class FloorObjectiveManager : MonoBehaviour
                 {
                     int minimumSeparation =
                         int.MaxValue;
-
 
                     foreach (Room existing in selected)
                     {
@@ -254,7 +253,6 @@ public class FloorObjectiveManager : MonoBehaviour
                                 existing.Centre.y
                             );
 
-
                         minimumSeparation =
                             Mathf.Min(
                                 minimumSeparation,
@@ -262,11 +260,9 @@ public class FloorObjectiveManager : MonoBehaviour
                             );
                     }
 
-
                     score +=
                         minimumSeparation;
                 }
-
 
                 if (score > bestScore)
                 {
@@ -275,14 +271,13 @@ public class FloorObjectiveManager : MonoBehaviour
                 }
             }
 
-
             if (bestRoom == null)
+            {
                 break;
-
+            }
 
             selected.Add(bestRoom);
         }
-
 
         return selected;
     }
@@ -298,7 +293,6 @@ public class FloorObjectiveManager : MonoBehaviour
         out Vector2Int selectedCell)
     {
         const int maximumAttempts = 40;
-
 
         for (int attempt = 0;
              attempt < maximumAttempts;
@@ -316,14 +310,13 @@ public class FloorObjectiveManager : MonoBehaviour
                     room.Bounds.yMax
                 );
 
-
             Vector2Int candidate =
                 new Vector2Int(x, y);
 
-
             if (!generator.Grid.IsWalkable(candidate))
+            {
                 continue;
-
+            }
 
             if (candidate ==
                 generator.GetPlayerSpawnPosition())
@@ -331,22 +324,20 @@ public class FloorObjectiveManager : MonoBehaviour
                 continue;
             }
 
-
             if (candidate ==
                 generator.GetExitPosition())
             {
                 continue;
             }
 
-
             if (objectiveCells.Contains(candidate))
+            {
                 continue;
-
+            }
 
             selectedCell = candidate;
             return true;
         }
-
 
         selectedCell =
             Vector2Int.zero;
@@ -363,15 +354,12 @@ public class FloorObjectiveManager : MonoBehaviour
                 PrimitiveType.Quad
             );
 
-
         sigil.name =
             $"Anchor Sigil ({gridPosition.x}, {gridPosition.y})";
-
 
         sigil.transform.SetParent(
             objectiveParent.transform
         );
-
 
         sigil.transform.position =
             new Vector3(
@@ -380,7 +368,6 @@ public class FloorObjectiveManager : MonoBehaviour
                 -2.1f
             );
 
-
         sigil.transform.localScale =
             new Vector3(
                 sigilScale,
@@ -388,27 +375,22 @@ public class FloorObjectiveManager : MonoBehaviour
                 1f
             );
 
-
         Collider sigilCollider =
             sigil.GetComponent<Collider>();
-
 
         if (sigilCollider != null)
         {
             Destroy(sigilCollider);
         }
 
-
         Renderer renderer =
             sigil.GetComponent<Renderer>();
-
 
         if (renderer != null)
         {
             renderer.material.color =
                 sigilColour;
         }
-
 
         sigilsByCell[gridPosition] =
             sigil;
@@ -427,7 +409,6 @@ public class FloorObjectiveManager : MonoBehaviour
     {
         GameObject sigil;
 
-
         if (!sigilsByCell.TryGetValue(
                 gridPosition,
                 out sigil))
@@ -435,70 +416,82 @@ public class FloorObjectiveManager : MonoBehaviour
             return false;
         }
 
-
         sigilsByCell.Remove(
             gridPosition
         );
 
-
         objectiveCells.Remove(
             gridPosition
         );
-
 
         if (sigil != null)
         {
             Destroy(sigil);
         }
 
-
         collectedSigils++;
-
 
         UnityEngine.Debug.Log(
             "ANCHOR SIGIL COLLECTED - " +
-            $"{collectedSigils}/{requiredSigils}"
+            $"{collectedSigils}/{activeRequiredSigils}"
         );
 
+        UpdateExitHatchProgress();
 
         if (ExitUnlocked)
         {
-            SetExitUnlocked(true);
-
-
             UnityEngine.Debug.Log(
                 "====================================\n" +
-                "       DESCENT SHAFT ACTIVATED\n" +
+                "     DESCENT REQUIREMENT COMPLETE\n" +
                 "All Anchor Sigils have been collected.\n" +
+                "The hatch remains closed until the player approaches it.\n" +
                 "===================================="
             );
         }
-
 
         return true;
     }
 
 
     /// <summary>
-    /// Updates the exit marker so its state is visually obvious.
+    /// Sends objective progress to the visual hatch controller.
+    /// The hatch controller decides when proximity should actually open it.
     /// </summary>
-    private void SetExitUnlocked(
-        bool unlocked)
+    private void UpdateExitHatchProgress()
     {
         if (exitObject == null)
-            return;
-
-
-        Renderer renderer =
-            exitObject.GetComponent<Renderer>();
-
-
-        if (renderer != null)
         {
-            renderer.material.color =
-                unlocked
-                    ? unlockedExitColour
-                    : lockedExitColour;
+            return;
+        }
+
+        ExitHatchController hatch =
+            exitObject.GetComponent<ExitHatchController>();
+
+        if (hatch == null)
+        {
+            return;
+        }
+
+        hatch.SetObjectiveProgress(
+            collectedSigils,
+            activeRequiredSigils
+        );
+    }
+
+
+    private void ResetExitHatchForNewFloor()
+    {
+        if (exitObject == null)
+        {
+            return;
+        }
+
+        ExitHatchController hatch =
+            exitObject.GetComponent<ExitHatchController>();
+
+        if (hatch != null)
+        {
+            hatch.ResetForNewFloor();
         }
     }
 }

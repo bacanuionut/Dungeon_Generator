@@ -221,14 +221,24 @@ public class PlayerShaperController : MonoBehaviour
         }
 
 
-        Vector2Int wallCell =
+        Vector2Int frontCell =
             playerCell +
             facing;
 
 
-        // Shaping is only offered while actually facing solid terrain.
+        /*
+         * Ordinary open floor is not a valid Shaper starting point.
+         *
+         * A solid environmental prop is different. Props such as tables,
+         * sacks, crates and rubble occupy an underlying walkable floor cell,
+         * but the navigation layer marks that cell as blocked. In that case
+         * we allow the dynamic pathfinder to look through the breakable prop
+         * and find the real wall behind it.
+         */
         if (dungeonGenerator.Grid.IsWalkable(
-                wallCell))
+                frontCell) &&
+            !dungeonGenerator.Grid.IsNavigationBlocked(
+                frontCell))
         {
             return;
         }
@@ -255,6 +265,8 @@ public class PlayerShaperController : MonoBehaviour
 
 
         ShowWallHighlight(
+            target,
+            playerCell,
             facing
         );
     }
@@ -456,22 +468,36 @@ public class PlayerShaperController : MonoBehaviour
 
 
     private void ShowWallHighlight(
+        ShaperPathResult target,
+        Vector2Int playerCell,
         Vector2Int facing)
     {
-        if (wallHighlight == null)
+        if (wallHighlight == null ||
+            target == null)
+        {
             return;
+        }
 
 
         /*
-         * Player transform already sits at the centre of its grid
-         * cell, so one local unit places this overlay directly on the
-         * wall cell being faced.
+         * WallCell is already the first genuine dungeon wall selected by
+         * DynamicShaperPathfinder. If a table, sack, crate or other solid
+         * environmental prop sits between the player and that wall, the
+         * pathfinder skips the prop before assigning WallCell.
+         *
+         * Position the highlight directly from the grid coordinate rather
+         * than from a local offset. This keeps it on the actual wall even
+         * when a prop visually hugs the wall or spans more than one cell.
          */
-        wallHighlight.transform.localPosition =
+        Vector2Int highlightCell =
+            target.WallCell;
+
+
+        wallHighlight.transform.position =
             new Vector3(
-                facing.x,
-                facing.y,
-                0.3f
+                highlightCell.x + 0.5f,
+                highlightCell.y + 0.5f,
+                transform.position.z + 0.3f
             );
 
 

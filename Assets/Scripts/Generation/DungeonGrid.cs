@@ -52,6 +52,12 @@ public class DungeonGrid
     private readonly HashSet<Vector2Int> navigationBlockedCells =
         new HashSet<Vector2Int>();
 
+    // Walk-over environmental details do not block movement, but collectibles
+    // should not spawn directly on top of them. Keeping these cells separate
+    // preserves navigation while giving content placement a clean exclusion map.
+    private readonly HashSet<Vector2Int> collectibleExclusionCells =
+        new HashSet<Vector2Int>();
+
 
     public IReadOnlyCollection<Vector2Int> DynamicFloorCells =>
         dynamicFloorCells;
@@ -65,6 +71,12 @@ public class DungeonGrid
 
     public int NavigationBlockedCellCount =>
         navigationBlockedCells.Count;
+
+    public IReadOnlyCollection<Vector2Int> CollectibleExclusionCells =>
+        collectibleExclusionCells;
+
+    public int CollectibleExclusionCellCount =>
+        collectibleExclusionCells.Count;
 
 
     public IReadOnlyCollection<Vector2Int> OrganicRoomCells =>
@@ -144,6 +156,7 @@ public class DungeonGrid
         organicRoomCells.Clear();
         dynamicFloorCells.Clear();
         navigationBlockedCells.Clear();
+        collectibleExclusionCells.Clear();
     }
 
 
@@ -247,6 +260,104 @@ public class DungeonGrid
 
 
     /// <summary>
+    /// Returns true when a collectible can be placed without occupying or
+    /// visually crowding a solid environmental prop.
+    ///
+    /// clearance 0 checks only the candidate cell. A clearance of 1 also
+    /// checks the surrounding eight cells, which prevents pickups from
+    /// appearing underneath overhanging crate, table or rubble artwork.
+    /// </summary>
+    public bool IsClearForCollectible(
+        Vector2Int position,
+        int clearance = 1)
+    {
+        if (!IsNavigable(position))
+        {
+            return false;
+        }
+
+        int safeClearance =
+            Mathf.Max(
+                0,
+                clearance
+            );
+
+        for (int x = -safeClearance;
+             x <= safeClearance;
+             x++)
+        {
+            for (int y = -safeClearance;
+                 y <= safeClearance;
+                 y++)
+            {
+                Vector2Int check =
+                    position +
+                    new Vector2Int(
+                        x,
+                        y
+                    );
+
+                if (navigationBlockedCells.Contains(check) ||
+                    collectibleExclusionCells.Contains(check))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+
+    /// <summary>
+    /// Marks a floor cell as visually occupied by walk-over environmental
+    /// decoration. This does not affect movement or pathfinding.
+    /// </summary>
+    public bool AddCollectibleExclusion(Vector2Int cell)
+    {
+        if (!floorCells.Contains(cell))
+        {
+            return false;
+        }
+
+        return collectibleExclusionCells.Add(cell);
+    }
+
+
+    /// <summary>
+    /// Adds several walk-over detail cells to the collectible exclusion map.
+    /// </summary>
+    public int AddCollectibleExclusions(IEnumerable<Vector2Int> cells)
+    {
+        if (cells == null)
+        {
+            return 0;
+        }
+
+        int added = 0;
+
+        foreach (Vector2Int cell in cells)
+        {
+            if (AddCollectibleExclusion(cell))
+            {
+                added++;
+            }
+        }
+
+        return added;
+    }
+
+
+    /// <summary>
+    /// Clears only walk-over detail exclusions. Navigation blockers are kept.
+    /// </summary>
+    public void ClearCollectibleExclusions()
+    {
+        collectibleExclusionCells.Clear();
+    }
+
+
+    /// <summary>
     /// Reserves one existing floor cell for a solid environmental prop.
     /// </summary>
     public bool AddNavigationBlocker(Vector2Int cell)
@@ -282,6 +393,41 @@ public class DungeonGrid
         }
 
         return added;
+    }
+
+
+    /// <summary>
+    /// Removes one environmental navigation blocker without changing the
+    /// underlying floor geometry. Used when the Shaper destroys a prop.
+    /// </summary>
+    public bool RemoveNavigationBlocker(Vector2Int cell)
+    {
+        return navigationBlockedCells.Remove(cell);
+    }
+
+
+    /// <summary>
+    /// Removes several environmental navigation blockers.
+    /// Returns how many blocker cells were removed.
+    /// </summary>
+    public int RemoveNavigationBlockers(IEnumerable<Vector2Int> cells)
+    {
+        if (cells == null)
+        {
+            return 0;
+        }
+
+        int removed = 0;
+
+        foreach (Vector2Int cell in cells)
+        {
+            if (RemoveNavigationBlocker(cell))
+            {
+                removed++;
+            }
+        }
+
+        return removed;
     }
 
 

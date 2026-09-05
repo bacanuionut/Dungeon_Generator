@@ -24,6 +24,16 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     }
 
 
+    private enum FloorDetailFamily
+    {
+        Ember,
+        Book,
+        Paper,
+        Bone,
+        Weapon
+    }
+
+
     private struct PropWeights
     {
         public int Pottery;
@@ -128,6 +138,87 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     [SerializeField]
     private Sprite[] webSprites;
 
+    [SerializeField]
+    private Sprite[] emberSprites;
+
+    [SerializeField]
+    private Sprite[] bookStackSprites;
+
+    [SerializeField]
+    private Sprite[] openBookSprites;
+
+    [SerializeField]
+    private Sprite[] letterSprites;
+
+    [SerializeField]
+    private Sprite[] boneFragmentSprites;
+
+    [SerializeField]
+    private Sprite[] tableClutterSprites;
+
+    [SerializeField]
+    private Sprite[] looseWeaponSprites;
+
+    [SerializeField]
+    private Sprite quillSprite;
+
+    [SerializeField]
+    private Sprite unlitCandlesSprite;
+
+    [SerializeField]
+    private Sprite usedCandleSprite;
+
+    [Tooltip("Reserved for the animated-light pass. Not scattered as floor clutter.")]
+    [SerializeField]
+    private Sprite unlitTorchSprite;
+
+
+    [Header("Animated Wall Torches")]
+
+    [SerializeField]
+    private Sprite[] flameAnimationFrames;
+
+    [Range(0, 4)]
+    [SerializeField]
+    private int maximumTorchesPerRoom = 2;
+
+    [Range(0, 40)]
+    [SerializeField]
+    private int maximumTorchesPerFloor = 18;
+
+    [Range(0f, 1f)]
+    [SerializeField]
+    private float baseTorchChance = 0.35f;
+
+    [Range(1f, 20f)]
+    [SerializeField]
+    private float torchFramesPerSecond = 9f;
+
+    [Range(0f, 0.5f)]
+    [SerializeField]
+    private float torchSpeedVariation = 0.12f;
+
+    [Tooltip("Vertical offset from the centre of the floor cell below a top wall face.")]
+    [SerializeField]
+    private float torchVerticalOffset = 0.58f;
+
+    [SerializeField]
+    private float torchMountZ = -1.90f;
+
+    [SerializeField]
+    private float torchFlameZ = -1.95f;
+
+    [Tooltip("Vertical position of the animated flame relative to the torch mount.")]
+    [SerializeField]
+    private float torchFlameVerticalOffset = 0.50f;
+
+    [Tooltip(
+        "Radius of permanent torch illumination on walkable floor cells. " +
+        "1.4 matches the player immediate-light footprint."
+    )]
+    [SerializeField]
+    private float torchLightRadius = 1.4f;
+
 
     [Header("Placement")]
 
@@ -142,6 +233,23 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     [Range(0, 5)]
     [SerializeField]
     private int maximumWebsPerRoom = 3;
+
+
+    [Range(0, 8)]
+    [SerializeField]
+    private int maximumWalkOverDetailsPerRoom = 5;
+
+    [Range(0, 20)]
+    [SerializeField]
+    private int maximumCorridorDetailsPerFloor = 8;
+
+    [Range(0f, 0.10f)]
+    [SerializeField]
+    private float corridorDetailChance = 0.025f;
+
+    [Range(0, 3)]
+    [SerializeField]
+    private int maximumTableDetails = 3;
 
     [Range(0, 3)]
     [SerializeField]
@@ -198,7 +306,6 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     [SerializeField]
     private float largeWebCornerOffset = 0.18f;
 
-
     private GameObject environmentParent;
 
     private DungeonGrid activeGrid;
@@ -212,6 +319,20 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     private readonly HashSet<Vector2Int> protectedCells =
         new HashSet<Vector2Int>();
 
+    // Walkable floor cells illuminated by procedural wall torches.
+    // PlayerVisionController merges these with the existing fog-of-war
+    // visibility states so torch light looks identical to player light.
+    private readonly HashSet<Vector2Int> torchLitFloorCells =
+        new HashSet<Vector2Int>();
+
+    // Runtime lookup used when the Shaper destroys environmental obstacles.
+    // Multi-cell props map every occupied grid cell back to the same object.
+    private readonly Dictionary<Vector2Int, GameObject> solidPropObjectsByCell =
+        new Dictionary<Vector2Int, GameObject>();
+
+    private readonly Dictionary<GameObject, List<Vector2Int>> solidPropFootprintsByObject =
+        new Dictionary<GameObject, List<Vector2Int>>();
+
     // The original rectangular room plus the connected organic CA-grown
     // floor immediately around it. This lets decoration occupy the U-shaped
     // pockets created by room shaping instead of stopping at the BSP rectangle.
@@ -220,6 +341,10 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
 
     private int solidPropsGenerated;
     private int webDetailsGenerated;
+    private int floorDetailsGenerated;
+    private int corridorDetailsGenerated;
+    private int tableDetailsGenerated;
+    private int torchesGenerated;
     private int alcoveClustersGenerated;
     private int tablesGenerated;
     private int chairsGenerated;
@@ -227,9 +352,80 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     private int roomsUsingFallback;
 
     private RoomDecorationProfile currentRoomProfile;
+    private System.Random currentRoomDetailRandom;
 
     public IReadOnlyCollection<Vector2Int> SolidPropCells =>
         solidPropCells;
+
+    public IReadOnlyCollection<Vector2Int> TorchLitFloorCells =>
+        torchLitFloorCells;
+
+
+    /// <summary>
+    /// Destroys any solid environmental props occupying one of the supplied
+    /// cells and releases their complete navigation footprints.
+    ///
+    /// If one cell of a multi-cell table is hit, the whole table is removed.
+    /// Cobwebs and other walk-over details are not registered here and remain.
+    /// </summary>
+    public int DestroySolidPropsAtCells(
+        IEnumerable<Vector2Int> cells)
+    {
+        if (cells == null)
+            return 0;
+
+        HashSet<GameObject> propsToDestroy =
+            new HashSet<GameObject>();
+
+        foreach (Vector2Int cell in cells)
+        {
+            GameObject prop;
+
+            if (solidPropObjectsByCell.TryGetValue(
+                    cell,
+                    out prop) &&
+                prop != null)
+            {
+                propsToDestroy.Add(prop);
+            }
+        }
+
+        int destroyed = 0;
+
+        foreach (GameObject prop in propsToDestroy)
+        {
+            List<Vector2Int> footprint;
+
+            if (!solidPropFootprintsByObject.TryGetValue(
+                    prop,
+                    out footprint))
+            {
+                continue;
+            }
+
+            foreach (Vector2Int cell in footprint)
+            {
+                solidPropCells.Remove(cell);
+                solidPropObjectsByCell.Remove(cell);
+
+                if (activeGrid != null)
+                {
+                    activeGrid.RemoveNavigationBlocker(cell);
+                }
+            }
+
+            solidPropFootprintsByObject.Remove(prop);
+
+            // Hide immediately. Destroy() then removes it safely at the end
+            // of the current Unity frame.
+            prop.SetActive(false);
+            Destroy(prop);
+
+            destroyed++;
+        }
+
+        return destroyed;
+    }
 
 
     public void ClearEnvironment()
@@ -237,13 +433,17 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
         if (activeGrid != null)
         {
             activeGrid.ClearNavigationBlockers();
+            activeGrid.ClearCollectibleExclusions();
         }
 
         activeGrid = null;
 
         solidPropCells.Clear();
+        solidPropObjectsByCell.Clear();
+        solidPropFootprintsByObject.Clear();
         detailCells.Clear();
         protectedCells.Clear();
+        torchLitFloorCells.Clear();
         currentRoomRegion.Clear();
 
         if (environmentParent != null)
@@ -301,6 +501,10 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
 
         solidPropsGenerated = 0;
         webDetailsGenerated = 0;
+        floorDetailsGenerated = 0;
+        corridorDetailsGenerated = 0;
+        tableDetailsGenerated = 0;
+        torchesGenerated = 0;
         alcoveClustersGenerated = 0;
         tablesGenerated = 0;
         chairsGenerated = 0;
@@ -334,6 +538,11 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
                     roomEnvironmentSeed
                 );
 
+            currentRoomDetailRandom =
+                new System.Random(
+                    unchecked(roomEnvironmentSeed ^ 1597334677)
+                );
+
             currentRoomProfile =
                 GenerateRoomDecorationProfile(
                     room,
@@ -345,7 +554,10 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
                 solidPropsGenerated;
 
             int detailsBefore =
-                webDetailsGenerated;
+                webDetailsGenerated +
+                floorDetailsGenerated +
+                tableDetailsGenerated +
+                torchesGenerated;
 
             GenerateAlcoveClustersForRoom(
                 room,
@@ -371,8 +583,26 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
                 roomRandom
             );
 
+            GenerateWalkOverDetailsForRoom(
+                room,
+                theme,
+                currentRoomDetailRandom
+            );
+
+            GenerateWallTorchesForRoom(
+                room,
+                theme,
+                new System.Random(unchecked(roomEnvironmentSeed ^ 32452843))
+            );
+
+            int detailsAfter =
+                webDetailsGenerated +
+                floorDetailsGenerated +
+                tableDetailsGenerated +
+                torchesGenerated;
+
             if (solidPropsGenerated == propsBefore &&
-                webDetailsGenerated == detailsBefore)
+                detailsAfter == detailsBefore)
             {
                 if (EnsureRoomHasDecoration(
                         room,
@@ -383,14 +613,26 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
                 }
             }
 
+            detailsAfter =
+                webDetailsGenerated +
+                floorDetailsGenerated +
+                tableDetailsGenerated +
+                torchesGenerated;
+
             if (solidPropsGenerated > propsBefore ||
-                webDetailsGenerated > detailsBefore)
+                detailsAfter > detailsBefore)
             {
                 roomsDecorated++;
             }
         }
 
+        GenerateCorridorDetails(
+            theme,
+            new System.Random(unchecked(environmentSeed ^ 982451653))
+        );
+
         activeGrid.AddNavigationBlockers(solidPropCells);
+        activeGrid.AddCollectibleExclusions(detailCells);
 
         UnityEngine.Debug.Log(
             "========== PROCEDURAL ENVIRONMENT ==========" +
@@ -406,7 +648,13 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
             $"Alcove clusters: {alcoveClustersGenerated}\n" +
             $"Tables: {tablesGenerated}\n" +
             $"Chairs: {chairsGenerated}\n" +
+            $"Table-top details: {tableDetailsGenerated}\n" +
+            $"Animated wall torches: {torchesGenerated}\n" +
+            $"Torch-lit floor cells: {torchLitFloorCells.Count}\n" +
             $"Walk-over cobweb details: {webDetailsGenerated}\n" +
+            $"Room floor details: {floorDetailsGenerated}\n" +
+            $"Corridor details: {corridorDetailsGenerated}\n" +
+            $"Collectible exclusion cells: {detailCells.Count}\n" +
             "Floor connectivity preserved: YES\n" +
             "============================================"
         );
@@ -1791,12 +2039,26 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
         if (!WouldPreserveConnectivity(footprint))
             return false;
 
-        CreateSpriteObject(label, sprite, room, footprint, solidPropZ);
+        GameObject createdProp =
+            CreateSpriteObject(
+                label,
+                sprite,
+                room,
+                footprint,
+                solidPropZ
+            );
+
         ReserveSolidFootprint(footprint);
 
         if (label == "Table")
         {
             tablesGenerated++;
+
+            TryDecorateTable(
+                createdProp,
+                footprint,
+                currentRoomDetailRandom ?? random
+            );
         }
 
         if (allowChair && chairSprite != null && random.NextDouble() < 0.75)
@@ -2203,6 +2465,979 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     }
 
 
+    /// <summary>
+    /// Places tiny, non-blocking details across room floors. These are a
+    /// separate procedural layer from solid props so they can add visual
+    /// richness without reducing traversal space.
+    /// </summary>
+    private void GenerateWalkOverDetailsForRoom(
+        Room room,
+        DungeonVisualTheme theme,
+        System.Random random)
+    {
+        if (random == null || !HasAnyFloorDetailSprites())
+            return;
+
+        float density = Mathf.Clamp01(
+            theme.EnvironmentalDetailAmount * densityMultiplier
+        );
+
+        float expected =
+            Mathf.Sqrt(Mathf.Max(1, currentRoomRegion.Count)) *
+            density *
+            0.80f *
+            RandomRange(random, 0.80f, 1.20f);
+
+        if (room.Role == RoomRole.Puzzle ||
+            room.Role == RoomRole.Reward ||
+            room.Role == RoomRole.Rest)
+        {
+            expected += 0.45f;
+        }
+
+        int target = Mathf.FloorToInt(expected);
+
+        if (random.NextDouble() < expected - target)
+        {
+            target++;
+        }
+
+        target = Mathf.Clamp(
+            target,
+            0,
+            maximumWalkOverDetailsPerRoom
+        );
+
+        if (target <= 0)
+            return;
+
+        List<Vector2Int> contextual = new List<Vector2Int>();
+        List<Vector2Int> openFloor = new List<Vector2Int>();
+
+        foreach (Vector2Int cell in currentRoomRegion)
+        {
+            if (!IsSafeWalkOverDetailCell(cell))
+                continue;
+
+            if (IsAdjacentToAnyWall(cell) ||
+                IsAdjacentToSolidProp(cell))
+            {
+                contextual.Add(cell);
+            }
+            else
+            {
+                openFloor.Add(cell);
+            }
+        }
+
+        Shuffle(contextual, random);
+        Shuffle(openFloor, random);
+
+        List<Vector2Int> candidates = new List<Vector2Int>();
+        candidates.AddRange(contextual);
+        candidates.AddRange(openFloor);
+
+        int placed = 0;
+
+        for (int i = 0;
+             i < candidates.Count && placed < target;
+             i++)
+        {
+            Vector2Int cell = candidates[i];
+
+            Sprite sprite = ChooseFloorDetailSprite(
+                room,
+                theme,
+                random
+            );
+
+            if (sprite == null)
+                continue;
+
+            Vector3 position = new Vector3(
+                cell.x + 0.5f + RandomRange(random, -0.18f, 0.18f),
+                cell.y + 0.5f + RandomRange(random, -0.18f, 0.18f),
+                detailZ
+            );
+
+            CreateDetailObject(
+                "Floor Detail",
+                sprite,
+                position,
+                detailZ
+            );
+
+            detailCells.Add(cell);
+            floorDetailsGenerated++;
+            placed++;
+        }
+    }
+
+
+
+    /// <summary>
+    /// Places a small number of animated torches on top-facing wall faces.
+    ///
+    /// Placement is deterministic and biased by visual theme, semantic room
+    /// role and generated room geometry. The rules limit quantity and spacing
+    /// rather than prescribing exact torch positions.
+    /// </summary>
+    private void GenerateWallTorchesForRoom(
+        Room room,
+        DungeonVisualTheme theme,
+        System.Random random)
+    {
+        if (room == null ||
+            unlitTorchSprite == null ||
+            !HasSprites(flameAnimationFrames) ||
+            maximumTorchesPerRoom <= 0 ||
+            maximumTorchesPerFloor <= 0 ||
+            torchesGenerated >= maximumTorchesPerFloor)
+        {
+            return;
+        }
+
+        // Puzzle rooms use their own controlled clue torches.
+        // Ordinary procedural torches would make the clue sequence ambiguous.
+        if (room.Role == RoomRole.Puzzle)
+        {
+            return;
+        }
+
+        float chance =
+            baseTorchChance *
+            GetTorchThemeMultiplier(theme.ThemeName) *
+            GetTorchRoleMultiplier(room.Role) *
+            Mathf.Lerp(
+                0.75f,
+                1.20f,
+                theme.EnvironmentalDetailAmount
+            );
+
+        chance = Mathf.Clamp01(chance);
+
+        if (random.NextDouble() > chance)
+            return;
+
+        List<Vector2Int> candidates =
+            BuildTopWallTorchCandidates(room);
+
+        if (candidates.Count == 0)
+            return;
+
+        Shuffle(candidates, random);
+
+        int target = 1;
+
+        if (candidates.Count >= 6 &&
+            maximumTorchesPerRoom >= 2 &&
+            random.NextDouble() < 0.45)
+        {
+            target++;
+        }
+
+        target = Mathf.Min(
+            target,
+            maximumTorchesPerRoom,
+            maximumTorchesPerFloor - torchesGenerated
+        );
+
+        List<Vector2Int> chosen =
+            new List<Vector2Int>();
+
+        for (int i = 0;
+             i < candidates.Count && chosen.Count < target;
+             i++)
+        {
+            Vector2Int candidate = candidates[i];
+
+            bool tooClose = false;
+
+            for (int j = 0; j < chosen.Count; j++)
+            {
+                if (Mathf.Abs(chosen[j].x - candidate.x) < 3)
+                {
+                    tooClose = true;
+                    break;
+                }
+            }
+
+            if (tooClose)
+                continue;
+
+            CreateAnimatedWallTorch(
+                candidate,
+                random
+            );
+
+            chosen.Add(candidate);
+            torchesGenerated++;
+        }
+    }
+
+
+    private List<Vector2Int> BuildTopWallTorchCandidates(
+        Room room)
+    {
+        List<Vector2Int> candidates =
+            new List<Vector2Int>();
+
+        foreach (Vector2Int floorCell in currentRoomRegion)
+        {
+            if (!activeGrid.IsWalkable(floorCell) ||
+                activeGrid.IsCorridorCell(floorCell) ||
+                protectedCells.Contains(floorCell) ||
+                detailCells.Contains(floorCell) ||
+                solidPropCells.Contains(floorCell))
+            {
+                continue;
+            }
+
+            // A top-facing wall face exists where room floor has solid space
+            // immediately above it.
+            if (!IsWallCell(floorCell + Vector2Int.up))
+                continue;
+
+            // Do not place directly beside a corridor mouth or narrow doorway.
+            if (activeGrid.IsCorridorCell(floorCell + Vector2Int.left) ||
+                activeGrid.IsCorridorCell(floorCell + Vector2Int.right) ||
+                activeGrid.IsCorridorCell(floorCell + Vector2Int.down))
+            {
+                continue;
+            }
+
+            // Give the torch a little horizontal breathing room so it does
+            // not sit directly inside an exposed corner.
+            bool hasLeftSupport =
+                IsWallCell(floorCell + Vector2Int.up + Vector2Int.left);
+
+            bool hasRightSupport =
+                IsWallCell(floorCell + Vector2Int.up + Vector2Int.right);
+
+            if (!hasLeftSupport && !hasRightSupport)
+                continue;
+
+            candidates.Add(floorCell);
+        }
+
+        return candidates;
+    }
+
+
+    private float GetTorchThemeMultiplier(
+        string themeName)
+    {
+        switch (themeName)
+        {
+            case "Cold Stone":
+                return 0.85f;
+
+            case "Ashen Ruins":
+                return 1.20f;
+
+            case "Ancient Blue Vault":
+                return 0.45f;
+
+            case "Faded Violet Halls":
+                return 0.70f;
+
+            case "Deep Slate Vault":
+                return 0.60f;
+
+            case "Dust Temple":
+                return 1.15f;
+
+            case "Verdigris Crypt":
+                return 0.70f;
+
+            case "Ember Ruins":
+                return 1.40f;
+        }
+
+        return 1f;
+    }
+
+
+    private float GetTorchRoleMultiplier(
+        RoomRole role)
+    {
+        switch (role)
+        {
+            case RoomRole.Start:
+                return 1.20f;
+
+            case RoomRole.Exit:
+                return 1.30f;
+
+            case RoomRole.Puzzle:
+                return 1.15f;
+
+            case RoomRole.Reward:
+                return 1.10f;
+
+            case RoomRole.Rest:
+                return 1.10f;
+
+            case RoomRole.Elite:
+                return 1.00f;
+
+            case RoomRole.Combat:
+                return 0.90f;
+        }
+
+        return 1f;
+    }
+
+
+    private void CreateAnimatedWallTorch(
+        Vector2Int floorCell,
+        System.Random random)
+    {
+        GameObject torch =
+            new GameObject("Environment Animated Wall Torch");
+
+        torch.transform.SetParent(
+            environmentParent.transform
+        );
+
+        Vector3 basePosition =
+            new Vector3(
+                floorCell.x + 0.5f,
+                floorCell.y + 0.5f + torchVerticalOffset,
+                torchMountZ
+            );
+
+        torch.transform.position = basePosition;
+
+        SpriteRenderer mountRenderer =
+            torch.AddComponent<SpriteRenderer>();
+
+        mountRenderer.sprite = unlitTorchSprite;
+        mountRenderer.color = Color.white;
+
+        GameObject flame =
+            new GameObject("Flame");
+
+        flame.transform.SetParent(
+            torch.transform,
+            false
+        );
+
+        // The flame sits slightly above the small unlit wall-mount sprite.
+        flame.transform.localPosition =
+            new Vector3(
+                0f,
+                torchFlameVerticalOffset,
+                torchFlameZ - torchMountZ
+            );
+
+        SpriteRenderer flameRenderer =
+            flame.AddComponent<SpriteRenderer>();
+
+        int startFrame =
+            random.Next(
+                0,
+                flameAnimationFrames.Length
+            );
+
+        flameRenderer.sprite =
+            flameAnimationFrames[startFrame];
+
+        flameRenderer.color = Color.white;
+
+        float variation =
+            1f +
+            RandomRange(
+                random,
+                -torchSpeedVariation,
+                torchSpeedVariation
+            );
+
+        EnvironmentSpriteAnimator animator =
+            flame.AddComponent<EnvironmentSpriteAnimator>();
+
+        animator.Initialise(
+            flameRenderer,
+            flameAnimationFrames,
+            torchFramesPerSecond,
+            startFrame,
+            variation
+        );
+
+        RegisterTorchLightCells(
+            floorCell
+        );
+    }
+
+
+    /// <summary>
+    /// Registers the walkable floor around a wall torch as illuminated.
+    ///
+    /// This intentionally mirrors the player's immediate visibility radius
+    /// rather than drawing coloured quads over the dungeon. FogOfWarRenderer
+    /// can therefore render these cells using the exact same fully-visible
+    /// state as the player torch.
+    /// </summary>
+    private void RegisterTorchLightCells(
+        Vector2Int sourceFloorCell)
+    {
+        if (activeGrid == null)
+            return;
+
+        float safeRadius =
+            Mathf.Max(0f, torchLightRadius);
+
+        int radius =
+            Mathf.CeilToInt(safeRadius);
+
+        for (int x = sourceFloorCell.x - radius;
+             x <= sourceFloorCell.x + radius;
+             x++)
+        {
+            for (int y = sourceFloorCell.y - radius;
+                 y <= sourceFloorCell.y + radius;
+                 y++)
+            {
+                Vector2Int cell =
+                    new Vector2Int(x, y);
+
+                if (!activeGrid.IsWalkable(cell))
+                    continue;
+
+                Vector2 difference =
+                    new Vector2(
+                        cell.x - sourceFloorCell.x,
+                        cell.y - sourceFloorCell.y
+                    );
+
+                if (difference.magnitude > safeRadius)
+                    continue;
+
+                if (!DungeonVisibilityUtility.HasLineOfSight(
+                        activeGrid,
+                        sourceFloorCell,
+                        cell))
+                {
+                    continue;
+                }
+
+                torchLitFloorCells.Add(cell);
+            }
+        }
+    }
+
+
+    private void GenerateCorridorDetails(
+        DungeonVisualTheme theme,
+        System.Random random)
+    {
+        if (activeGrid == null ||
+            random == null ||
+            maximumCorridorDetailsPerFloor <= 0)
+        {
+            return;
+        }
+
+        bool hasEmbers = HasSprites(emberSprites);
+        bool hasBones = HasSprites(boneFragmentSprites);
+
+        if (!hasEmbers && !hasBones)
+            return;
+
+        List<Vector2Int> candidates =
+            new List<Vector2Int>(activeGrid.CorridorCells);
+
+        Shuffle(candidates, random);
+
+        float themeScale =
+            GetCorridorDetailThemeScale(theme.ThemeName);
+
+        float chance = Mathf.Clamp01(
+            corridorDetailChance *
+            themeScale *
+            Mathf.Lerp(
+                0.75f,
+                1.35f,
+                theme.EnvironmentalDetailAmount
+            )
+        );
+
+        for (int i = 0;
+             i < candidates.Count &&
+             corridorDetailsGenerated < maximumCorridorDetailsPerFloor;
+             i++)
+        {
+            Vector2Int cell = candidates[i];
+
+            if (!IsSafeWalkOverDetailCell(cell))
+                continue;
+
+            if (random.NextDouble() > chance)
+                continue;
+
+            Sprite sprite;
+
+            if (hasEmbers && hasBones)
+            {
+                bool preferEmber =
+                    ThemePrefersEmbers(theme.ThemeName)
+                        ? random.NextDouble() < 0.72
+                        : random.NextDouble() < 0.35;
+
+                sprite = preferEmber
+                    ? ChooseSprite(emberSprites, random)
+                    : ChooseSprite(boneFragmentSprites, random);
+            }
+            else
+            {
+                sprite = hasEmbers
+                    ? ChooseSprite(emberSprites, random)
+                    : ChooseSprite(boneFragmentSprites, random);
+            }
+
+            if (sprite == null)
+                continue;
+
+            Vector3 position = new Vector3(
+                cell.x + 0.5f + RandomRange(random, -0.16f, 0.16f),
+                cell.y + 0.5f + RandomRange(random, -0.16f, 0.16f),
+                detailZ
+            );
+
+            CreateDetailObject(
+                "Corridor Detail",
+                sprite,
+                position,
+                detailZ
+            );
+
+            detailCells.Add(cell);
+            corridorDetailsGenerated++;
+        }
+    }
+
+
+    private bool IsSafeWalkOverDetailCell(
+        Vector2Int cell)
+    {
+        return activeGrid != null &&
+               activeGrid.IsWalkable(cell) &&
+               !protectedCells.Contains(cell) &&
+               !solidPropCells.Contains(cell) &&
+               !detailCells.Contains(cell);
+    }
+
+
+    private bool IsAdjacentToSolidProp(
+        Vector2Int cell)
+    {
+        return solidPropCells.Contains(cell + Vector2Int.up) ||
+               solidPropCells.Contains(cell + Vector2Int.down) ||
+               solidPropCells.Contains(cell + Vector2Int.left) ||
+               solidPropCells.Contains(cell + Vector2Int.right);
+    }
+
+
+    private bool HasAnyFloorDetailSprites()
+    {
+        return HasSprites(emberSprites) ||
+               HasSprites(bookStackSprites) ||
+               HasSprites(openBookSprites) ||
+               HasSprites(letterSprites) ||
+               HasSprites(boneFragmentSprites) ||
+               HasSprites(looseWeaponSprites);
+    }
+
+
+    private Sprite ChooseFloorDetailSprite(
+        Room room,
+        DungeonVisualTheme theme,
+        System.Random random)
+    {
+        List<FloorDetailFamily> families =
+            new List<FloorDetailFamily>();
+
+        List<int> weights =
+            new List<int>();
+
+        int emberWeight = ThemePrefersEmbers(theme.ThemeName) ? 8 : 2;
+        int bookWeight = 4;
+        int paperWeight = 3;
+        int boneWeight = ThemePrefersBones(theme.ThemeName) ? 7 : 2;
+        int weaponWeight = 1;
+
+        switch (room.Role)
+        {
+            case RoomRole.Puzzle:
+                bookWeight += 5;
+                paperWeight += 5;
+                emberWeight = Mathf.Max(1, emberWeight - 2);
+                break;
+
+            case RoomRole.Reward:
+                bookWeight += 2;
+                paperWeight += 2;
+                break;
+
+            case RoomRole.Rest:
+                bookWeight += 3;
+                paperWeight += 2;
+                weaponWeight = 0;
+                break;
+
+            case RoomRole.Combat:
+                boneWeight += 3;
+                weaponWeight += 4;
+                break;
+
+            case RoomRole.Elite:
+                boneWeight += 4;
+                weaponWeight += 5;
+                break;
+        }
+
+        AddDetailFamilyIfAvailable(
+            families,
+            weights,
+            FloorDetailFamily.Ember,
+            emberWeight,
+            HasSprites(emberSprites)
+        );
+
+        AddDetailFamilyIfAvailable(
+            families,
+            weights,
+            FloorDetailFamily.Book,
+            bookWeight,
+            HasSprites(bookStackSprites) || HasSprites(openBookSprites)
+        );
+
+        AddDetailFamilyIfAvailable(
+            families,
+            weights,
+            FloorDetailFamily.Paper,
+            paperWeight,
+            HasSprites(letterSprites)
+        );
+
+        AddDetailFamilyIfAvailable(
+            families,
+            weights,
+            FloorDetailFamily.Bone,
+            boneWeight,
+            HasSprites(boneFragmentSprites)
+        );
+
+        AddDetailFamilyIfAvailable(
+            families,
+            weights,
+            FloorDetailFamily.Weapon,
+            weaponWeight,
+            HasSprites(looseWeaponSprites)
+        );
+
+        if (families.Count == 0)
+            return null;
+
+        int total = 0;
+
+        for (int i = 0; i < weights.Count; i++)
+        {
+            total += weights[i];
+        }
+
+        int roll = random.Next(0, Mathf.Max(1, total));
+        int running = 0;
+        FloorDetailFamily selected = families[0];
+
+        for (int i = 0; i < families.Count; i++)
+        {
+            running += weights[i];
+
+            if (roll < running)
+            {
+                selected = families[i];
+                break;
+            }
+        }
+
+        switch (selected)
+        {
+            case FloorDetailFamily.Ember:
+                return ChooseSprite(emberSprites, random);
+
+            case FloorDetailFamily.Book:
+                if (HasSprites(openBookSprites) &&
+                    random.NextDouble() < 0.45)
+                {
+                    return ChooseSprite(openBookSprites, random);
+                }
+
+                return ChooseSprite(bookStackSprites, random);
+
+            case FloorDetailFamily.Paper:
+                return ChooseSprite(letterSprites, random);
+
+            case FloorDetailFamily.Bone:
+                return ChooseSprite(boneFragmentSprites, random);
+
+            case FloorDetailFamily.Weapon:
+                return ChooseSprite(looseWeaponSprites, random);
+        }
+
+        return null;
+    }
+
+
+    private void AddDetailFamilyIfAvailable(
+        List<FloorDetailFamily> families,
+        List<int> weights,
+        FloorDetailFamily family,
+        int weight,
+        bool available)
+    {
+        if (!available || weight <= 0)
+            return;
+
+        families.Add(family);
+        weights.Add(weight);
+    }
+
+
+    private bool ThemePrefersEmbers(string themeName)
+    {
+        return themeName == "Ashen Ruins" ||
+               themeName == "Ember Ruins";
+    }
+
+
+    private bool ThemePrefersBones(string themeName)
+    {
+        return themeName == "Verdigris Crypt" ||
+               themeName == "Deep Slate Vault" ||
+               themeName == "Ashen Ruins";
+    }
+
+
+    private float GetCorridorDetailThemeScale(string themeName)
+    {
+        if (themeName == "Ember Ruins" ||
+            themeName == "Ashen Ruins")
+        {
+            return 1.55f;
+        }
+
+        if (themeName == "Verdigris Crypt" ||
+            themeName == "Deep Slate Vault")
+        {
+            return 1.20f;
+        }
+
+        return 0.85f;
+    }
+
+
+    private void TryDecorateTable(
+        GameObject table,
+        IReadOnlyList<Vector2Int> footprint,
+        System.Random random)
+    {
+        if (table == null ||
+            footprint == null ||
+            footprint.Count == 0 ||
+            random == null ||
+            maximumTableDetails <= 0)
+        {
+            return;
+        }
+
+        if (!HasAnyTableDetailSprites())
+            return;
+
+        int target = 1;
+
+        if (maximumTableDetails >= 2 &&
+            random.NextDouble() < 0.65 * currentRoomProfile.TableScale)
+        {
+            target++;
+        }
+
+        if (maximumTableDetails >= 3 &&
+            random.NextDouble() < 0.32 * currentRoomProfile.TableScale)
+        {
+            target++;
+        }
+
+        target = Mathf.Clamp(target, 1, maximumTableDetails);
+
+        Vector3 centre = table.transform.position;
+
+        // More-negative Z renders the small objects in front of the table
+        // with the current top-down camera setup.
+        float tableDetailZ = solidPropZ - 0.05f;
+
+        List<float> xOffsets = new List<float>
+        {
+            -0.34f,
+            0f,
+            0.34f
+        };
+
+        ShuffleFloats(xOffsets, random);
+
+        for (int i = 0; i < target && i < xOffsets.Count; i++)
+        {
+            Sprite sprite = ChooseTableDetailSprite(random);
+
+            if (sprite == null)
+                continue;
+
+            Vector3 worldPosition = new Vector3(
+                centre.x + xOffsets[i] + RandomRange(random, -0.05f, 0.05f),
+                centre.y + RandomRange(random, -0.03f, 0.08f),
+                tableDetailZ
+            );
+
+            CreateAttachedDetailObject(
+                "Table Detail",
+                sprite,
+                table,
+                worldPosition,
+                tableDetailZ
+            );
+
+            tableDetailsGenerated++;
+        }
+    }
+
+
+    private bool HasAnyTableDetailSprites()
+    {
+        return HasSprites(tableClutterSprites) ||
+               HasSprites(openBookSprites) ||
+               HasSprites(letterSprites) ||
+               quillSprite != null ||
+               unlitCandlesSprite != null ||
+               usedCandleSprite != null;
+    }
+
+
+    private Sprite ChooseTableDetailSprite(System.Random random)
+    {
+        List<Sprite> choices = new List<Sprite>();
+
+        AddSpritesToList(choices, tableClutterSprites, 4);
+        AddSpritesToList(choices, openBookSprites, 2);
+        AddSpritesToList(choices, letterSprites, 2);
+
+        if (quillSprite != null)
+        {
+            choices.Add(quillSprite);
+        }
+
+        if (unlitCandlesSprite != null)
+        {
+            choices.Add(unlitCandlesSprite);
+            choices.Add(unlitCandlesSprite);
+        }
+
+        if (usedCandleSprite != null)
+        {
+            choices.Add(usedCandleSprite);
+        }
+
+        if (choices.Count == 0)
+            return null;
+
+        return choices[random.Next(0, choices.Count)];
+    }
+
+
+    private void AddSpritesToList(
+        List<Sprite> destination,
+        Sprite[] sprites,
+        int repetitions)
+    {
+        if (destination == null ||
+            sprites == null ||
+            repetitions <= 0)
+        {
+            return;
+        }
+
+        for (int r = 0; r < repetitions; r++)
+        {
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                if (sprites[i] != null)
+                {
+                    destination.Add(sprites[i]);
+                }
+            }
+        }
+    }
+
+
+    private void CreateAttachedDetailObject(
+        string label,
+        Sprite sprite,
+        GameObject parent,
+        Vector3 worldPosition,
+        float zPosition)
+    {
+        if (sprite == null || parent == null)
+            return;
+
+        GameObject detail =
+            new GameObject($"Environment {label}");
+
+        detail.transform.SetParent(parent.transform, true);
+
+        SpriteRenderer renderer =
+            detail.AddComponent<SpriteRenderer>();
+
+        renderer.sprite = sprite;
+        renderer.color = Color.white;
+
+        detail.transform.position = new Vector3(
+            worldPosition.x,
+            worldPosition.y,
+            zPosition
+        );
+    }
+
+
+    private float RandomRange(
+        System.Random random,
+        float minimum,
+        float maximum)
+    {
+        if (random == null)
+            return minimum;
+
+        return Mathf.Lerp(
+            minimum,
+            maximum,
+            (float)random.NextDouble()
+        );
+    }
+
+
+    private void ShuffleFloats(
+        List<float> values,
+        System.Random random)
+    {
+        for (int i = values.Count - 1; i > 0; i--)
+        {
+            int swapIndex = random.Next(0, i + 1);
+
+            float temporary = values[i];
+            values[i] = values[swapIndex];
+            values[swapIndex] = temporary;
+        }
+    }
+
+
     private void GenerateWebsForRoom(
         Room room,
         DungeonVisualTheme theme,
@@ -2448,7 +3683,7 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
     }
 
 
-    private void CreateSpriteObject(
+    private GameObject CreateSpriteObject(
         string label,
         Sprite sprite,
         Room room,
@@ -2456,7 +3691,7 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
         float zPosition)
     {
         if (sprite == null || footprint == null || footprint.Count == 0)
-            return;
+            return null;
 
         GameObject prop = new GameObject($"Environment {label}");
         prop.transform.SetParent(environmentParent.transform);
@@ -2473,6 +3708,45 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
             basePosition.y + bias.y * wallHugOffset,
             zPosition
         );
+
+        RegisterSolidPropObject(
+            prop,
+            footprint
+        );
+
+        return prop;
+    }
+
+
+    private void RegisterSolidPropObject(
+        GameObject prop,
+        IReadOnlyList<Vector2Int> footprint)
+    {
+        if (prop == null ||
+            footprint == null ||
+            footprint.Count == 0)
+        {
+            return;
+        }
+
+        List<Vector2Int> copiedFootprint =
+            new List<Vector2Int>(
+                footprint.Count
+            );
+
+        for (int i = 0;
+             i < footprint.Count;
+             i++)
+        {
+            Vector2Int cell =
+                footprint[i];
+
+            copiedFootprint.Add(cell);
+            solidPropObjectsByCell[cell] = prop;
+        }
+
+        solidPropFootprintsByObject[prop] =
+            copiedFootprint;
     }
 
 

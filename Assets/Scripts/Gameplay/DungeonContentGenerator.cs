@@ -307,9 +307,11 @@ public class DungeonContentGenerator : MonoBehaviour
         Vector2Int cell;
 
         if (!TryFindFreeRoomCell(
+                generator.Grid,
                 room,
                 random,
                 occupiedCells,
+                false,
                 out cell))
         {
             return;
@@ -324,18 +326,18 @@ public class DungeonContentGenerator : MonoBehaviour
             );
 
 
-                EnemyController enemyController =
-                    enemy.AddComponent<EnemyController>();
+        EnemyController enemyController =
+            enemy.AddComponent<EnemyController>();
 
 
-                // Each enemy gets its own deterministic AI random sequence.
-                int enemySeed =
-                    unchecked(
-                        random.Next() +
-                        enemySequence * 997
-                    );
+        // Each enemy gets its own deterministic AI random sequence.
+        int enemySeed =
+            unchecked(
+                random.Next() +
+                enemySequence * 997
+            );
 
-                enemySequence++;
+        enemySequence++;
 
 
         enemyController.Initialise(
@@ -353,7 +355,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
         enemyObjects.Add(enemy);
-                occupiedCells.Add(cell);
+        occupiedCells.Add(cell);
     }
 
 
@@ -361,6 +363,7 @@ public class DungeonContentGenerator : MonoBehaviour
     /// Creates an item marker on a free room cell.
     /// </summary>
     private void SpawnItem(
+        DungeonGenerator generator,
         Room room,
         System.Random random,
         HashSet<Vector2Int> occupiedCells)
@@ -368,9 +371,11 @@ public class DungeonContentGenerator : MonoBehaviour
         Vector2Int cell;
 
         if (!TryFindFreeRoomCell(
+                generator.Grid,
                 room,
                 random,
                 occupiedCells,
+                true,
                 out cell))
         {
             return;
@@ -395,12 +400,23 @@ public class DungeonContentGenerator : MonoBehaviour
     /// returns the first cell that has not already been occupied.
     /// </summary>
     private bool TryFindFreeRoomCell(
+        DungeonGrid grid,
         Room room,
         System.Random random,
         HashSet<Vector2Int> occupiedCells,
+        bool requireCollectibleClearance,
         out Vector2Int selectedCell)
     {
-        const int maximumAttempts = 30;
+        const int maximumAttempts = 40;
+
+        if (grid == null ||
+            room == null)
+        {
+            selectedCell =
+                Vector2Int.zero;
+
+            return false;
+        }
 
         for (int attempt = 0;
              attempt < maximumAttempts;
@@ -419,16 +435,45 @@ public class DungeonContentGenerator : MonoBehaviour
                 );
 
             Vector2Int candidate =
-                new Vector2Int(x, y);
+                new Vector2Int(
+                    x,
+                    y
+                );
 
-            if (!occupiedCells.Contains(candidate))
+            if (occupiedCells.Contains(
+                    candidate))
             {
-                selectedCell = candidate;
-                return true;
+                continue;
             }
+
+            // All actors and items must be placed on real floor that is not
+            // occupied by a solid environmental prop.
+            if (!grid.IsNavigable(
+                    candidate))
+            {
+                continue;
+            }
+
+            // Collectibles keep one extra cell of visual clearance from solid
+            // props so overhanging pixel art cannot make the pickup look as if
+            // it was generated inside a crate, table or rubble pile.
+            if (requireCollectibleClearance &&
+                !grid.IsClearForCollectible(
+                    candidate,
+                    1))
+            {
+                continue;
+            }
+
+            selectedCell =
+                candidate;
+
+            return true;
         }
 
-        selectedCell = Vector2Int.zero;
+        selectedCell =
+            Vector2Int.zero;
+
         return false;
     }
 
@@ -678,6 +723,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
             SpawnItem(
+                generator,
                 room,
                 random,
                 occupiedCells
@@ -723,6 +769,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
             SpawnItem(
+                generator,
                 room,
                 random,
                 occupiedCells

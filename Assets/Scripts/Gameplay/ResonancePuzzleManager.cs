@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Generates and controls one deterministic resonance puzzle on each
-/// floor which contains a semantic Puzzle room.
+/// Upgraded deterministic Resonance puzzle for semantic Puzzle rooms.
 ///
-/// Three nodes flash in a seed-derived sequence. The player then walks
-/// over those nodes in the same order.
-///
-/// Correct completion creates Pulse and Shaper resource rewards.
+/// Visual design:
+/// - three animated clue torches on the upper wall;
+/// - three coloured levers inside the room;
+/// - one replay tile placed close to the clue torches;
+/// - replay shows the SAME sequence again;
+/// - player presses E near a lever to use it;
+/// - success reveals the existing Pulse/Shaper rewards.
 /// </summary>
 public class ResonancePuzzleManager : MonoBehaviour
 {
@@ -28,73 +30,113 @@ public class ResonancePuzzleManager : MonoBehaviour
     private PlayerShaperController shaperController;
 
 
-    [Header("Puzzle")]
+    [Header("Torch Sprites")]
 
-    [Tooltip("Number of resonance nodes used by the puzzle.")]
-    [Range(3, 5)]
     [SerializeField]
-    private int nodeCount = 3;
+    private Sprite unlitTorchSprite;
 
-    [Tooltip("Minimum Manhattan separation between puzzle nodes.")]
     [SerializeField]
-    private int minimumNodeSeparation = 3;
+    private Sprite[] flameAnimationFrames;
+
+
+    [Header("Lever Sprites")]
+
+    [SerializeField]
+    private Sprite[] leverFrames;
+
+
+    [Header("Replay Push Panel Sprites")]
+
+    [Tooltip("Fully pressed frame: Push_Panel_01.")]
+    [SerializeField]
+    private Sprite pushPanelPressedSprite;
+
+    [Tooltip("Middle transition frame: Push_Panel_02.")]
+    [SerializeField]
+    private Sprite pushPanelMiddleSprite;
+
+    [Tooltip("Unpressed/resting frame: Push_Panel_03.")]
+    [SerializeField]
+    private Sprite pushPanelReleasedSprite;
+
+    [Min(0.02f)]
+    [SerializeField]
+    private float pushPanelFrameDuration = 0.08f;
+
+    [Min(0.02f)]
+    [SerializeField]
+    private float pushPanelPressedHoldDuration = 0.12f;
 
 
     [Header("Sequence Timing")]
 
+    [Min(0.05f)]
     [SerializeField]
-    private float initialSequenceDelay = 0.4f;
+    private float initialSequenceDelay = 0.40f;
 
+    [Min(0.10f)]
     [SerializeField]
     private float nodeFlashDuration = 0.55f;
 
+    [Min(0.05f)]
     [SerializeField]
     private float gapBetweenFlashes = 0.18f;
 
+    [Min(0.02f)]
     [SerializeField]
-    private float failureReplayDelay = 0.75f;
+    private float leverFrameDuration = 0.08f;
 
-
-    [Header("Node Appearance")]
-
+    [Min(1f)]
     [SerializeField]
-    private float nodeScale = 0.48f;
+    private float flameFramesPerSecond = 9f;
 
-    [SerializeField]
-    private Color idleColour =
-        new Color(
-            0.18f,
-            0.45f,
-            0.55f,
-            1f
-        );
 
-    [SerializeField]
-    private Color flashColour =
-        new Color(
-            1f,
-            0.85f,
-            0.20f,
-            1f
-        );
+    [Header("Interaction")]
 
+    [Min(0)]
     [SerializeField]
-    private Color correctColour =
-        new Color(
-            0.25f,
-            1f,
-            0.45f,
-            1f
-        );
+    private int leverInteractionRange = 1;
+
+
+    [Header("Replay Tile Placement")]
+
+    [Tooltip("Minimum tiles below the upper wall for the replay tile.")]
+    [Range(2, 4)]
+    [SerializeField]
+    private int minimumReplayRowsBelowTopWall = 2;
+
+    [Tooltip("Maximum tiles below the upper wall for the replay tile.")]
+    [Range(2, 4)]
+    [SerializeField]
+    private int maximumReplayRowsBelowTopWall = 4;
+
+
+    [Header("Visual Positioning")]
 
     [SerializeField]
-    private Color failureColour =
-        new Color(
-            1f,
-            0.20f,
-            0.20f,
-            1f
-        );
+    private float leverZ = -1.93f;
+
+    [SerializeField]
+    private float leverMarkerZ = -1.94f;
+
+    [SerializeField]
+    private float replayTileZ = -1.82f;
+
+    [Range(0.5f, 1.5f)]
+    [SerializeField]
+    private float replayPanelScale = 0.90f;
+
+    [SerializeField]
+    private float torchMountZ = -1.90f;
+
+    [SerializeField]
+    private float torchFlameZ = -1.95f;
+
+    [SerializeField]
+    private float torchVerticalOffset = 0.90f;
+
+    [SerializeField]
+    private float torchFlameVerticalOffset = 0.50f;
 
 
     [Header("Reward")]
@@ -106,55 +148,81 @@ public class ResonancePuzzleManager : MonoBehaviour
     private int shaperReward = 1;
 
 
-    private class PuzzleNode
+    private sealed class PuzzleLever
     {
         public int Index;
-
+        public string ColourName;
+        public Color Colour;
         public Vector2Int Cell;
-
-        public GameObject Object;
-
-        public Renderer Renderer;
-
-        public Material Material;
+        public SpriteRenderer Renderer;
     }
 
 
-    private readonly List<PuzzleNode> nodes =
-        new List<PuzzleNode>();
+    private sealed class PuzzleColourOption
+    {
+        public string Name;
+        public Color Colour;
 
+        public PuzzleColourOption(
+            string name,
+            Color colour)
+        {
+            Name = name;
+            Colour = colour;
+        }
+    }
+
+
+    private readonly List<PuzzleLever> levers =
+        new List<PuzzleLever>();
 
     private readonly List<int> sequence =
         new List<int>();
+
+    private readonly List<SpriteRenderer> clueFlames =
+        new List<SpriteRenderer>();
+
+    private readonly List<PuzzleColourOption> chosenColours =
+        new List<PuzzleColourOption>();
 
 
     private Room puzzleRoom;
 
     private GameObject puzzleParent;
 
+    private SpriteRenderer replayTileRenderer;
 
-    private int observedGenerationVersion =
-        -1;
+    private Vector2Int replayTileCell;
 
+    private int observedGenerationVersion = -1;
 
     private int currentSequencePosition;
 
-
     private bool puzzleSolved;
-
     private bool showingSequence;
-
     private bool acceptingInput;
-
+    private bool initialSequenceShown;
     private bool playerWasInsideRoom;
 
-
     private Vector2Int previousPlayerCell;
-
     private bool previousPlayerCellRecorded;
 
-
     private Coroutine activeSequenceCoroutine;
+    private Coroutine leverCoroutine;
+    private Coroutine replayPanelCoroutine;
+
+    private bool hasInteractionMessage;
+    private string currentInteractionMessage =
+        string.Empty;
+
+    private static Sprite whitePixelSprite;
+
+
+    public bool HasInteractionMessage =>
+        hasInteractionMessage;
+
+    public string CurrentInteractionMessage =>
+        currentInteractionMessage;
 
 
     private void Update()
@@ -166,90 +234,72 @@ public class ResonancePuzzleManager : MonoBehaviour
             return;
         }
 
-
-        /*
-         * A new procedural floor needs a fresh puzzle.
-         */
         if (observedGenerationVersion !=
             dungeonGenerator.GenerationVersion)
         {
             observedGenerationVersion =
                 dungeonGenerator.GenerationVersion;
 
-
             GeneratePuzzleForCurrentFloor();
         }
-
 
         if (puzzleRoom == null ||
             puzzleSolved ||
             !playerController.IsAlive)
         {
+            ClearInteractionMessage();
             RecordPlayerCell();
-
             return;
         }
-
 
         Vector2Int playerCell =
             playerController.GridPosition;
 
-
         bool playerInside =
-            IsPlayerInsidePuzzleRoom(
-                playerCell
-            );
+            puzzleRoom.Contains(playerCell);
 
-
-        /*
-         * Entering the chamber shows the sequence.
-         *
-         * If the player leaves without solving it, entering again will
-         * replay the sequence.
-         */
         if (playerInside &&
             !playerWasInsideRoom &&
+            !initialSequenceShown &&
             !showingSequence)
         {
-            BeginSequenceDisplay();
+            BeginSequenceDisplay(false);
         }
 
+        bool enteredReplayTile =
+            playerInside &&
+            playerCell == replayTileCell &&
+            (!previousPlayerCellRecorded ||
+             previousPlayerCell != playerCell);
 
-        if (!playerInside &&
-            playerWasInsideRoom)
+        if (enteredReplayTile &&
+            !showingSequence &&
+            leverCoroutine == null)
         {
-            acceptingInput =
-                false;
+            PressReplayPanel();
 
-
-            currentSequencePosition =
-                0;
+            BeginSequenceDisplay(true);
         }
 
+        UpdateInteractionMessage(
+            playerCell,
+            playerInside
+        );
 
-        /*
-         * A node only activates when the player actually ENTERS its
-         * cell, rather than triggering repeatedly while standing on it.
-         */
         if (playerInside &&
             acceptingInput &&
-            previousPlayerCellRecorded &&
-            playerCell !=
-                previousPlayerCell)
+            !showingSequence &&
+            leverCoroutine == null &&
+            Input.GetKeyDown(KeyCode.E))
         {
-            CheckNodeEntry(
-                playerCell
-            );
+            TryActivateNearbyLever(playerCell);
         }
-
 
         playerWasInsideRoom =
             playerInside;
 
-
         previousPlayerCell =
             playerCell;
-
 
         previousPlayerCellRecorded =
             true;
@@ -264,102 +314,76 @@ public class ResonancePuzzleManager : MonoBehaviour
     {
         ClearPuzzle();
 
-
         puzzleRoom =
             FindPuzzleRoom();
-
 
         if (puzzleRoom == null)
         {
             UnityEngine.Debug.LogWarning(
-                "RESONANCE PUZZLE - No semantic Puzzle room was " +
-                "available on this floor."
+                "RESONANCE PUZZLE - No semantic Puzzle room was available on this floor."
             );
-
-
             return;
         }
 
-
-        puzzleParent =
-            new GameObject(
-                "Generated Resonance Puzzle"
-            );
-
-
-        System.Random random =
-            new System.Random(
-                unchecked(
-                    dungeonGenerator.CurrentSeed *
-                        2281 +
-                    6700417
-                )
-            );
-
-
-        List<Vector2Int> nodeCells =
-            ChooseNodeCells(
-                puzzleRoom,
-                random
-            );
-
-
-        if (nodeCells.Count <
-            nodeCount)
+        if (unlitTorchSprite == null ||
+            flameAnimationFrames == null ||
+            flameAnimationFrames.Length == 0 ||
+            leverFrames == null ||
+            leverFrames.Length == 0 ||
+            pushPanelPressedSprite == null ||
+            pushPanelMiddleSprite == null ||
+            pushPanelReleasedSprite == null)
         {
             UnityEngine.Debug.LogWarning(
-                "RESONANCE PUZZLE - Could not place enough nodes."
+                "RESONANCE PUZZLE - Assign the torch sprite, flame frames, " +
+                "lever frames and all three Push_Panel sprites in the Inspector."
             );
-
-
-            ClearPuzzle();
-
             return;
         }
 
+        puzzleParent =
+            new GameObject("Generated Resonance Puzzle");
 
-        for (int i = 0;
-             i < nodeCells.Count;
-             i++)
-        {
-            CreateNode(
-                i,
-                nodeCells[i]
+        int puzzleSeed =
+            unchecked(
+                dungeonGenerator.CurrentSeed * 2281 ^
+                puzzleRoom.Centre.x * 7919 ^
+                puzzleRoom.Centre.y * 104729 ^
+                dungeonGenerator.CurrentFloorDepth * 6700417
             );
+
+        System.Random random =
+            new System.Random(puzzleSeed);
+
+        ChoosePuzzleColours(random);
+
+        if (!CreatePuzzleLayout(random))
+        {
+            UnityEngine.Debug.LogWarning(
+                "RESONANCE PUZZLE - Could not create a safe visual layout in the Puzzle room."
+            );
+            ClearPuzzle();
+            return;
         }
 
+        BuildSequence(random);
 
-        BuildSequence(
-            random
-        );
-
-
-        currentSequencePosition =
-            0;
-
-
-        puzzleSolved =
-            false;
-
-        showingSequence =
-            false;
-
-        acceptingInput =
-            false;
-
-        playerWasInsideRoom =
-            false;
-
-        previousPlayerCellRecorded =
-            false;
-
+        currentSequencePosition = 0;
+        puzzleSolved = false;
+        showingSequence = false;
+        acceptingInput = false;
+        initialSequenceShown = false;
+        playerWasInsideRoom = false;
+        previousPlayerCellRecorded = false;
 
         UnityEngine.Debug.Log(
             "========== RESONANCE PUZZLE ==========\n" +
             $"Seed: {dungeonGenerator.CurrentSeed}\n" +
             $"Room centre: {puzzleRoom.Centre}\n" +
-            $"Nodes: {nodes.Count}\n" +
+            $"Colours: {BuildColourSetDebugString()}\n" +
             $"Sequence: {BuildSequenceDebugString()}\n" +
+            $"Replay tile: ({replayTileCell.x}, {replayTileCell.y})\n" +
+            "Input: stand near a lever and press E\n" +
             "======================================"
         );
     }
@@ -370,299 +394,1084 @@ public class ResonancePuzzleManager : MonoBehaviour
         if (dungeonGenerator.Rooms == null)
             return null;
 
-
-        foreach (Room room in
-                 dungeonGenerator.Rooms)
+        foreach (Room room in dungeonGenerator.Rooms)
         {
             if (room != null &&
-                room.Role ==
-                    RoomRole.Puzzle)
+                room.Role == RoomRole.Puzzle)
             {
                 return room;
             }
         }
 
-
         return null;
     }
 
 
-    // ============================================================
-    // NODE PLACEMENT
-    // ============================================================
-
-    private List<Vector2Int> ChooseNodeCells(
-        Room room,
+    private void ChoosePuzzleColours(
         System.Random random)
     {
-        List<Vector2Int> selected =
-            new List<Vector2Int>();
+        chosenColours.Clear();
 
+        List<PuzzleColourOption> palette =
+            BuildColourPalette();
 
-        List<Vector2Int> candidates =
-            new List<Vector2Int>();
-
-
-        /*
-         * Keep nodes away from the immediate outer edge of the
-         * original room when possible.
-         */
-        for (int x =
-                 room.Bounds.xMin + 1;
-             x <
-                 room.Bounds.xMax - 1;
-             x++)
-        {
-            for (int y =
-                     room.Bounds.yMin + 1;
-                 y <
-                     room.Bounds.yMax - 1;
-                 y++)
-            {
-                Vector2Int cell =
-                    new Vector2Int(
-                        x,
-                        y
-                    );
-
-
-                if (!dungeonGenerator.Grid.IsWalkable(
-                        cell))
-                {
-                    continue;
-                }
-
-
-                if (IsObjectiveCell(cell))
-                {
-                    continue;
-                }
-
-
-                candidates.Add(
-                    cell
-                );
-            }
-        }
-
+        ShuffleColourList(
+            palette,
+            random
+        );
 
         /*
-         * Deterministic Fisher-Yates shuffle.
+         * Puzzle colours must be immediately distinguishable during a short
+         * memory sequence.
+         *
+         * RGB distance alone is not enough because colours such as:
+         * - red / orange
+         * - yellow / orange
+         * - blue / cyan
+         * - purple / pink
+         *
+         * can still look very similar once multiplied through the original
+         * pixel-art flame and lever sprites.
+         *
+         * Instead, colours are accepted only when their HSV hue is separated
+         * by at least 0.24 around the colour wheel (about 86 degrees).
+         *
+         * With only three puzzle colours this still leaves plenty of valid
+         * combinations while making the sequence much easier to read.
          */
-        for (int i =
-                 candidates.Count - 1;
-             i > 0;
-             i--)
+        const float minimumHueSeparation =
+            0.24f;
+
+        foreach (PuzzleColourOption candidate in
+                 palette)
         {
-            int swapIndex =
-                random.Next(
-                    0,
-                    i + 1
-                );
-
-
-            Vector2Int temporary =
-                candidates[i];
-
-
-            candidates[i] =
-                candidates[swapIndex];
-
-
-            candidates[swapIndex] =
-                temporary;
-        }
-
-
-        foreach (Vector2Int candidate in
-                 candidates)
-        {
-            bool sufficientlySeparated =
+            bool sufficientlyDifferent =
                 true;
 
-
-            foreach (Vector2Int existing in
-                     selected)
+            foreach (PuzzleColourOption existing in
+                     chosenColours)
             {
-                int distance =
-                    Mathf.Abs(
-                        candidate.x -
-                        existing.x
-                    ) +
-                    Mathf.Abs(
-                        candidate.y -
-                        existing.y
-                    );
-
-
-                if (distance <
-                    minimumNodeSeparation)
+                if (HueDistance(
+                        candidate.Colour,
+                        existing.Colour) <
+                    minimumHueSeparation)
                 {
-                    sufficientlySeparated =
+                    sufficientlyDifferent =
                         false;
 
                     break;
                 }
             }
 
-
-            if (!sufficientlySeparated)
+            if (!sufficientlyDifferent)
+            {
                 continue;
+            }
 
-
-            selected.Add(
+            chosenColours.Add(
                 candidate
             );
 
-
-            if (selected.Count >=
-                nodeCount)
+            if (chosenColours.Count >= 3)
             {
                 break;
             }
         }
 
+        /*
+         * The palette below is deliberately spaced widely enough that the
+         * normal path should always find three colours. This fallback is only
+         * defensive in case the palette is changed later.
+         */
+        if (chosenColours.Count < 3)
+        {
+            chosenColours.Clear();
 
-        return selected;
+            chosenColours.Add(
+                FindColourByName(
+                    palette,
+                    "Red"
+                )
+            );
+
+            chosenColours.Add(
+                FindColourByName(
+                    palette,
+                    "Green"
+                )
+            );
+
+            chosenColours.Add(
+                FindColourByName(
+                    palette,
+                    "Blue"
+                )
+            );
+        }
     }
 
-    private bool IsObjectiveCell(
-    Vector2Int cell)
+
+    private float HueDistance(
+        Color a,
+        Color b)
     {
-        if (dungeonGenerator.ObjectiveManager ==
-            null)
+        Color.RGBToHSV(
+            a,
+            out float hueA,
+            out _,
+            out _
+        );
+
+        Color.RGBToHSV(
+            b,
+            out float hueB,
+            out _,
+            out _
+        );
+
+        float directDistance =
+            Mathf.Abs(
+                hueA -
+                hueB
+            );
+
+        return Mathf.Min(
+            directDistance,
+            1f - directDistance
+        );
+    }
+
+
+    private PuzzleColourOption FindColourByName(
+        List<PuzzleColourOption> palette,
+        string colourName)
+    {
+        foreach (PuzzleColourOption option in
+                 palette)
+        {
+            if (option.Name ==
+                colourName)
+            {
+                return option;
+            }
+        }
+
+        return palette[0];
+    }
+
+
+    private List<PuzzleColourOption> BuildColourPalette()
+    {
+        /*
+         * Deliberately avoid neutral and warm intermediate colours.
+         *
+         * Removed:
+         * - White / Grey / Black: poor tinting on the existing artwork.
+         * - Brown: too close to the lever sprite's original colour.
+         * - Orange: too close to the normal flame / red / yellow.
+         *
+         * Yellow is retained because it is visually strong, but the hue
+         * separation rule prevents it appearing beside another similar
+         * warm colour.
+         */
+        return new List<PuzzleColourOption>
+        {
+            new PuzzleColourOption(
+                "Red",
+                new Color(
+                    1.00f,
+                    0.10f,
+                    0.10f,
+                    1f
+                )
+            ),
+
+            new PuzzleColourOption(
+                "Green",
+                new Color(
+                    0.08f,
+                    1.00f,
+                    0.18f,
+                    1f
+                )
+            ),
+
+            new PuzzleColourOption(
+                "Blue",
+                new Color(
+                    0.08f,
+                    0.32f,
+                    1.00f,
+                    1f
+                )
+            ),
+
+            new PuzzleColourOption(
+                "Purple",
+                new Color(
+                    0.62f,
+                    0.10f,
+                    1.00f,
+                    1f
+                )
+            ),
+
+            new PuzzleColourOption(
+                "Cyan",
+                new Color(
+                    0.05f,
+                    0.95f,
+                    1.00f,
+                    1f
+                )
+            ),
+
+            new PuzzleColourOption(
+                "Yellow",
+                new Color(
+                    1.00f,
+                    0.95f,
+                    0.05f,
+                    1f
+                )
+            ),
+
+            new PuzzleColourOption(
+                "Pink",
+                new Color(
+                    1.00f,
+                    0.08f,
+                    0.62f,
+                    1f
+                )
+            )
+        };
+    }
+
+
+    private void ShuffleColourList(
+        List<PuzzleColourOption> list,
+        System.Random random)
+    {
+        for (int i = list.Count - 1;
+             i > 0;
+             i--)
+        {
+            int swapIndex =
+                random.Next(0, i + 1);
+
+            PuzzleColourOption temporary =
+                list[i];
+
+            list[i] =
+                list[swapIndex];
+
+            list[swapIndex] =
+                temporary;
+        }
+    }
+
+
+    // ============================================================
+    // PROCEDURAL LAYOUT
+    // ============================================================
+
+    private bool CreatePuzzleLayout(
+        System.Random random)
+    {
+        HashSet<Vector2Int> usedCells =
+            new HashSet<Vector2Int>();
+
+        if (!TryPlaceReplayTile(random, usedCells))
         {
             return false;
         }
 
+        List<int> clueXs =
+            ChooseClueColumns(random);
 
-        foreach (Vector2Int objectiveCell in
-                 dungeonGenerator.ObjectiveManager
-                     .ObjectiveCells)
+        for (int i = 0;
+             i < 3;
+             i++)
         {
-            if (objectiveCell ==
-                cell)
+            CreateClueStation(
+                i,
+                clueXs[i],
+                chosenColours[i].Colour,
+                random
+            );
+        }
+
+        if (!TryPlaceLevers(random, usedCells))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    private bool TryPlaceReplayTile(
+        System.Random random,
+        HashSet<Vector2Int> usedCells)
+    {
+        int centreX =
+            puzzleRoom.Centre.x;
+
+        for (int rowsDown =
+                 minimumReplayRowsBelowTopWall;
+             rowsDown <=
+                 maximumReplayRowsBelowTopWall;
+             rowsDown++)
+        {
+            Vector2Int topAnchor =
+                FindNorthWallFloorAnchor(centreX);
+
+            Vector2Int preferred =
+                new Vector2Int(
+                    topAnchor.x,
+                    topAnchor.y - rowsDown
+                );
+
+            if (TryFindSafePuzzleCell(
+                    preferred,
+                    usedCells,
+                    3,
+                    out replayTileCell))
             {
+                usedCells.Add(replayTileCell);
+                CreateReplayTile();
                 return true;
             }
         }
-
 
         return false;
     }
 
 
-    private void CreateNode(
-        int index,
+    private List<int> ChooseClueColumns(
+        System.Random random)
+    {
+        List<int> candidates =
+            new List<int>();
+
+        int minX =
+            puzzleRoom.Bounds.xMin + 1;
+
+        int maxX =
+            puzzleRoom.Bounds.xMax - 2;
+
+        int replayX =
+            replayTileCell.x;
+
+        AddUniqueClampedColumn(
+            candidates,
+            replayX - 4,
+            minX,
+            maxX
+        );
+
+        AddUniqueClampedColumn(
+            candidates,
+            replayX - 2,
+            minX,
+            maxX
+        );
+
+        AddUniqueClampedColumn(
+            candidates,
+            replayX,
+            minX,
+            maxX
+        );
+
+        AddUniqueClampedColumn(
+            candidates,
+            replayX + 2,
+            minX,
+            maxX
+        );
+
+        AddUniqueClampedColumn(
+            candidates,
+            replayX + 4,
+            minX,
+            maxX
+        );
+
+        AddUniqueClampedColumn(
+            candidates,
+            minX,
+            minX,
+            maxX
+        );
+
+        AddUniqueClampedColumn(
+            candidates,
+            maxX,
+            minX,
+            maxX
+        );
+
+        ShuffleIntList(candidates, random);
+
+        List<int> selected =
+            new List<int>();
+
+        for (int i = 0;
+             i < candidates.Count &&
+             selected.Count < 3;
+             i++)
+        {
+            bool tooClose = false;
+
+            for (int j = 0;
+                 j < selected.Count;
+                 j++)
+            {
+                if (Mathf.Abs(
+                        selected[j] -
+                        candidates[i]) < 2)
+                {
+                    tooClose = true;
+                    break;
+                }
+            }
+
+            if (!tooClose)
+            {
+                selected.Add(candidates[i]);
+            }
+        }
+
+        while (selected.Count < 3)
+        {
+            selected.Add(replayX);
+        }
+
+        return selected;
+    }
+
+
+    private void AddUniqueClampedColumn(
+        List<int> list,
+        int x,
+        int minX,
+        int maxX)
+    {
+        int clamped =
+            Mathf.Clamp(x, minX, maxX);
+
+        if (!list.Contains(clamped))
+        {
+            list.Add(clamped);
+        }
+    }
+
+
+    private void ShuffleIntList(
+        List<int> list,
+        System.Random random)
+    {
+        for (int i = list.Count - 1;
+             i > 0;
+             i--)
+        {
+            int swapIndex =
+                random.Next(0, i + 1);
+
+            int temporary =
+                list[i];
+
+            list[i] =
+                list[swapIndex];
+
+            list[swapIndex] =
+                temporary;
+        }
+    }
+
+
+    private bool TryPlaceLevers(
+        System.Random random,
+        HashSet<Vector2Int> usedCells)
+    {
+        List<Vector2Int[]> patterns =
+            BuildLeverPatterns();
+
+        ShufflePatternList(patterns, random);
+
+        for (int p = 0;
+             p < patterns.Count;
+             p++)
+        {
+            Vector2Int[] pattern =
+                patterns[p];
+
+            List<Vector2Int> chosenCells =
+                new List<Vector2Int>();
+
+            HashSet<Vector2Int> temporaryUsed =
+                new HashSet<Vector2Int>(usedCells);
+
+            bool validPattern = true;
+
+            for (int i = 0;
+                 i < pattern.Length;
+                 i++)
+            {
+                Vector2Int preferred =
+                    puzzleRoom.Centre +
+                    pattern[i];
+
+                if (!TryFindSafePuzzleCell(
+                        preferred,
+                        temporaryUsed,
+                        2,
+                        out Vector2Int foundCell))
+                {
+                    validPattern = false;
+                    break;
+                }
+
+                chosenCells.Add(foundCell);
+                temporaryUsed.Add(foundCell);
+            }
+
+            if (!validPattern)
+            {
+                continue;
+            }
+
+            for (int i = 0;
+                 i < chosenCells.Count;
+                 i++)
+            {
+                usedCells.Add(chosenCells[i]);
+
+                CreateLever(
+                    i,
+                    chosenCells[i],
+                    chosenColours[i].Name,
+                    chosenColours[i].Colour
+                );
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+
+    private List<Vector2Int[]> BuildLeverPatterns()
+    {
+        return new List<Vector2Int[]>
+        {
+            new[]
+            {
+                new Vector2Int(-2, -1),
+                new Vector2Int( 0,  0),
+                new Vector2Int( 2, -1)
+            },
+
+            new[]
+            {
+                new Vector2Int(-2,  0),
+                new Vector2Int( 0, -1),
+                new Vector2Int( 2,  1)
+            },
+
+            new[]
+            {
+                new Vector2Int(-1, -1),
+                new Vector2Int( 1,  0),
+                new Vector2Int(-2,  1)
+            },
+
+            new[]
+            {
+                new Vector2Int( 0, -1),
+                new Vector2Int(-2,  1),
+                new Vector2Int( 2,  1)
+            },
+
+            new[]
+            {
+                new Vector2Int(-1,  1),
+                new Vector2Int( 1, -1),
+                new Vector2Int( 2,  0)
+            },
+
+            new[]
+            {
+                new Vector2Int(-2,  0),
+                new Vector2Int( 1,  0),
+                new Vector2Int( 0,  2)
+            },
+
+            new[]
+            {
+                new Vector2Int(-1,  2),
+                new Vector2Int( 1,  1),
+                new Vector2Int( 0, -1)
+            }
+        };
+    }
+
+
+    private void ShufflePatternList(
+        List<Vector2Int[]> list,
+        System.Random random)
+    {
+        for (int i = list.Count - 1;
+             i > 0;
+             i--)
+        {
+            int swapIndex =
+                random.Next(0, i + 1);
+
+            Vector2Int[] temporary =
+                list[i];
+
+            list[i] =
+                list[swapIndex];
+
+            list[swapIndex] =
+                temporary;
+        }
+    }
+
+
+    private bool TryFindSafePuzzleCell(
+        Vector2Int preferred,
+        HashSet<Vector2Int> usedCells,
+        int maximumRadius,
+        out Vector2Int selected)
+    {
+        for (int radius = 0;
+             radius <= maximumRadius;
+             radius++)
+        {
+            for (int x = -radius;
+                 x <= radius;
+                 x++)
+            {
+                for (int y = -radius;
+                     y <= radius;
+                     y++)
+                {
+                    if (Mathf.Abs(x) +
+                        Mathf.Abs(y) !=
+                        radius)
+                    {
+                        continue;
+                    }
+
+                    Vector2Int candidate =
+                        preferred +
+                        new Vector2Int(x, y);
+
+                    if (!puzzleRoom.Contains(candidate))
+                    {
+                        continue;
+                    }
+
+                    if (!dungeonGenerator.Grid.IsNavigable(candidate))
+                    {
+                        continue;
+                    }
+
+                    if (IsObjectiveCell(candidate))
+                    {
+                        continue;
+                    }
+
+                    if (usedCells != null &&
+                        usedCells.Contains(candidate))
+                    {
+                        continue;
+                    }
+
+                    selected = candidate;
+                    return true;
+                }
+            }
+        }
+
+        selected = Vector2Int.zero;
+        return false;
+    }
+
+
+    private bool IsObjectiveCell(
         Vector2Int cell)
     {
-        GameObject nodeObject =
-            GameObject.CreatePrimitive(
-                PrimitiveType.Quad
+        if (dungeonGenerator.ObjectiveManager == null)
+        {
+            return false;
+        }
+
+        foreach (Vector2Int objectiveCell in
+                 dungeonGenerator.ObjectiveManager.ObjectiveCells)
+        {
+            if (objectiveCell == cell)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    private void CreateLever(
+        int index,
+        Vector2Int cell,
+        string colourName,
+        Color colour)
+    {
+        GameObject leverObject =
+            new GameObject(
+                $"Resonance Lever - {colourName}"
             );
 
-
-        nodeObject.name =
-            $"Resonance Node {index + 1}";
-
-
-        nodeObject.transform.SetParent(
+        leverObject.transform.SetParent(
             puzzleParent.transform
         );
 
-
-        nodeObject.transform.position =
+        leverObject.transform.position =
             new Vector3(
                 cell.x + 0.5f,
                 cell.y + 0.5f,
-                -2.12f
+                leverZ
             );
 
+        SpriteRenderer renderer =
+            leverObject.AddComponent<SpriteRenderer>();
 
-        nodeObject.transform.localScale =
+        renderer.sprite =
+            leverFrames[0];
+
+        /*
+         * The lever sprite itself carries the puzzle colour.
+         * No separate colour square is generated.
+         */
+        renderer.color =
+            colour;
+
+        PuzzleLever lever =
+            new PuzzleLever();
+
+        lever.Index = index;
+        lever.ColourName = colourName;
+        lever.Colour = colour;
+        lever.Cell = cell;
+        lever.Renderer = renderer;
+
+        levers.Add(lever);
+    }
+
+
+    private void CreateClueStation(
+        int index,
+        int preferredX,
+        Color colour,
+        System.Random random)
+    {
+        Vector2Int anchor =
+            FindNorthWallFloorAnchor(preferredX);
+
+        GameObject station =
+            new GameObject(
+                $"Resonance Clue - {chosenColours[index].Name}"
+            );
+
+        station.transform.SetParent(
+            puzzleParent.transform
+        );
+
+        Vector3 floorCentre =
             new Vector3(
-                nodeScale,
-                nodeScale,
+                anchor.x + 0.5f,
+                anchor.y + 0.5f,
+                0f
+            );
+
+        GameObject torch =
+            new GameObject("Unlit Torch");
+
+        torch.transform.SetParent(
+            station.transform
+        );
+
+        torch.transform.position =
+            new Vector3(
+                floorCentre.x,
+                floorCentre.y + torchVerticalOffset,
+                torchMountZ
+            );
+
+        SpriteRenderer torchRenderer =
+            torch.AddComponent<SpriteRenderer>();
+
+        torchRenderer.sprite =
+            unlitTorchSprite;
+
+        torchRenderer.color =
+            Color.white;
+
+        GameObject flame =
+            new GameObject("Clue Flame");
+
+        flame.transform.SetParent(
+            torch.transform,
+            false
+        );
+
+        flame.transform.localPosition =
+            new Vector3(
+                0f,
+                torchFlameVerticalOffset,
+                torchFlameZ - torchMountZ
+            );
+
+        SpriteRenderer flameRenderer =
+            flame.AddComponent<SpriteRenderer>();
+
+        int startFrame =
+            random.Next(0, flameAnimationFrames.Length);
+
+        flameRenderer.sprite =
+            flameAnimationFrames[startFrame];
+
+        flameRenderer.color =
+            colour;
+
+        EnvironmentSpriteAnimator animator =
+            flame.AddComponent<EnvironmentSpriteAnimator>();
+
+        animator.Initialise(
+            flameRenderer,
+            flameAnimationFrames,
+            flameFramesPerSecond,
+            startFrame,
+            1f
+        );
+
+        flameRenderer.enabled = false;
+
+        clueFlames.Add(flameRenderer);
+    }
+
+
+    private Vector2Int FindNorthWallFloorAnchor(
+        int preferredX)
+    {
+        DungeonGrid grid =
+            dungeonGenerator.Grid;
+
+        int minX =
+            puzzleRoom.Bounds.xMin;
+
+        int maxX =
+            puzzleRoom.Bounds.xMax - 1;
+
+        int startingX =
+            Mathf.Clamp(
+                preferredX,
+                minX,
+                maxX
+            );
+
+        int maximumHorizontalSearch =
+            Mathf.Max(2, puzzleRoom.Bounds.width);
+
+        for (int xDistance = 0;
+             xDistance <= maximumHorizontalSearch;
+             xDistance++)
+        {
+            int leftX =
+                startingX - xDistance;
+
+            int rightX =
+                startingX + xDistance;
+
+            if (TryFindNorthAnchorInColumn(
+                    grid,
+                    leftX,
+                    minX,
+                    maxX,
+                    out Vector2Int leftAnchor))
+            {
+                return leftAnchor;
+            }
+
+            if (rightX != leftX &&
+                TryFindNorthAnchorInColumn(
+                    grid,
+                    rightX,
+                    minX,
+                    maxX,
+                    out Vector2Int rightAnchor))
+            {
+                return rightAnchor;
+            }
+        }
+
+        return new Vector2Int(
+            startingX,
+            puzzleRoom.Bounds.yMax - 1
+        );
+    }
+
+
+    private bool TryFindNorthAnchorInColumn(
+        DungeonGrid grid,
+        int x,
+        int minX,
+        int maxX,
+        out Vector2Int anchor)
+    {
+        if (x < minX ||
+            x > maxX)
+        {
+            anchor = Vector2Int.zero;
+            return false;
+        }
+
+        for (int y = puzzleRoom.Bounds.yMax + 6;
+             y >= puzzleRoom.Bounds.yMin;
+             y--)
+        {
+            Vector2Int floorCell =
+                new Vector2Int(x, y);
+
+            if (!grid.IsWalkable(floorCell))
+            {
+                continue;
+            }
+
+            Vector2Int above =
+                floorCell + Vector2Int.up;
+
+            if (grid.IsWalkable(above))
+            {
+                continue;
+            }
+
+            anchor = floorCell;
+            return true;
+        }
+
+        anchor = Vector2Int.zero;
+        return false;
+    }
+
+
+    private void CreateReplayTile()
+    {
+        GameObject replay =
+            new GameObject(
+                "Resonance Replay Push Panel"
+            );
+
+        replay.transform.SetParent(
+            puzzleParent.transform
+        );
+
+        replay.transform.position =
+            new Vector3(
+                replayTileCell.x + 0.5f,
+                replayTileCell.y + 0.5f,
+                replayTileZ
+            );
+
+        replay.transform.localScale =
+            new Vector3(
+                replayPanelScale,
+                replayPanelScale,
                 1f
             );
 
+        replayTileRenderer =
+            replay.AddComponent<SpriteRenderer>();
 
-        Collider collider =
-            nodeObject.GetComponent<Collider>();
+        /*
+         * Push_Panel_03 is the normal unpressed state.
+         * No coloured square is generated anymore.
+         */
+        replayTileRenderer.sprite =
+            pushPanelReleasedSprite;
+
+        replayTileRenderer.color =
+            Color.white;
+    }
 
 
-        if (collider != null)
+    private void PressReplayPanel()
+    {
+        if (replayTileRenderer == null)
         {
-            Destroy(
-                collider
+            return;
+        }
+
+        if (replayPanelCoroutine != null)
+        {
+            StopCoroutine(
+                replayPanelCoroutine
             );
         }
 
-
-        Renderer renderer =
-            nodeObject.GetComponent<Renderer>();
-
-
-        Material material =
-            null;
-
-
-        Shader shader =
-            Shader.Find(
-                "Unlit/Color"
+        replayPanelCoroutine =
+            StartCoroutine(
+                AnimateReplayPanelPress()
             );
+    }
 
 
-        if (shader == null)
-        {
-            shader =
-                Shader.Find(
-                    "Sprites/Default"
-                );
-        }
+    private IEnumerator AnimateReplayPanelPress()
+    {
+        replayTileRenderer.color =
+            Color.white;
 
+        replayTileRenderer.sprite =
+            pushPanelReleasedSprite;
 
-        if (renderer != null &&
-            shader != null)
-        {
-            material =
-                new Material(
-                    shader
-                );
-
-
-            material.color =
-                idleColour;
-
-
-            renderer.sharedMaterial =
-                material;
-        }
-
-
-        PuzzleNode node =
-            new PuzzleNode();
-
-
-        node.Index =
-            index;
-
-        node.Cell =
-            cell;
-
-        node.Object =
-            nodeObject;
-
-        node.Renderer =
-            renderer;
-
-        node.Material =
-            material;
-
-
-        nodes.Add(
-            node
+        yield return new WaitForSeconds(
+            pushPanelFrameDuration
         );
+
+        replayTileRenderer.sprite =
+            pushPanelMiddleSprite;
+
+        yield return new WaitForSeconds(
+            pushPanelFrameDuration
+        );
+
+        replayTileRenderer.sprite =
+            pushPanelPressedSprite;
+
+        yield return new WaitForSeconds(
+            pushPanelPressedHoldDuration
+        );
+
+        /*
+         * Release the button after the press so it is ready for another
+         * replay later.
+         */
+        replayTileRenderer.sprite =
+            pushPanelMiddleSprite;
+
+        yield return new WaitForSeconds(
+            pushPanelFrameDuration
+        );
+
+        replayTileRenderer.sprite =
+            pushPanelReleasedSprite;
+
+        replayPanelCoroutine =
+            null;
     }
 
 
@@ -675,44 +1484,39 @@ public class ResonancePuzzleManager : MonoBehaviour
     {
         sequence.Clear();
 
+        sequence.Add(0);
+        sequence.Add(1);
+        sequence.Add(2);
 
-        for (int i = 0;
-             i < nodes.Count;
-             i++)
-        {
-            sequence.Add(
-                i
-            );
-        }
-
-
-        /*
-         * Shuffle the node order using the dungeon-derived random
-         * stream so replaying the same seed reproduces the puzzle.
-         */
-        for (int i =
-                 sequence.Count - 1;
+        for (int i = sequence.Count - 1;
              i > 0;
              i--)
         {
             int swapIndex =
-                random.Next(
-                    0,
-                    i + 1
-                );
-
+                random.Next(0, i + 1);
 
             int temporary =
                 sequence[i];
 
-
             sequence[i] =
                 sequence[swapIndex];
-
 
             sequence[swapIndex] =
                 temporary;
         }
+    }
+
+
+    private string BuildColourSetDebugString()
+    {
+        if (chosenColours.Count == 0)
+        {
+            return "-";
+        }
+
+        return chosenColours[0].Name + ", " +
+               chosenColours[1].Name + ", " +
+               chosenColours[2].Name;
     }
 
 
@@ -721,10 +1525,8 @@ public class ResonancePuzzleManager : MonoBehaviour
         if (sequence.Count == 0)
             return "-";
 
-
         string result =
-            "";
-
+            string.Empty;
 
         for (int i = 0;
              i < sequence.Count;
@@ -732,16 +1534,11 @@ public class ResonancePuzzleManager : MonoBehaviour
         {
             if (i > 0)
             {
-                result +=
-                    " -> ";
+                result += " -> ";
             }
 
-
-            result +=
-                (sequence[i] + 1)
-                    .ToString();
+            result += chosenColours[sequence[i]].Name;
         }
-
 
         return result;
     }
@@ -751,103 +1548,90 @@ public class ResonancePuzzleManager : MonoBehaviour
     // SEQUENCE PRESENTATION
     // ============================================================
 
-    private void BeginSequenceDisplay()
+    private void BeginSequenceDisplay(
+        bool replayed)
     {
-        acceptingInput =
-            false;
-
-
-        currentSequencePosition =
-            0;
-
-
-        if (activeSequenceCoroutine !=
-            null)
+        if (puzzleSolved ||
+            showingSequence)
         {
-            StopCoroutine(
-                activeSequenceCoroutine
-            );
+            return;
         }
 
+        acceptingInput = false;
+        currentSequencePosition = 0;
+
+        ResetLeverVisuals();
+
+        if (activeSequenceCoroutine != null)
+        {
+            StopCoroutine(activeSequenceCoroutine);
+        }
 
         activeSequenceCoroutine =
             StartCoroutine(
-                ShowSequence()
+                ShowSequence(replayed)
             );
     }
 
 
-    private IEnumerator ShowSequence()
+    private IEnumerator ShowSequence(
+        bool replayed)
     {
-        showingSequence =
-            true;
+        showingSequence = true;
+        initialSequenceShown = true;
 
+        SetAllClueFlames(false);
 
-        SetAllNodeColours(
-            idleColour
-        );
+        if (replayed)
+        {
+            UnityEngine.Debug.Log(
+                "RESONANCE REPLAY TILE - Replaying sequence: " +
+                BuildSequenceDebugString()
+            );
+        }
 
-
-        yield return new WaitForSeconds(
-            initialSequenceDelay
-        );
-
+        yield return new WaitForSeconds(initialSequenceDelay);
 
         for (int i = 0;
              i < sequence.Count;
              i++)
         {
-            PuzzleNode node =
-                nodes[
-                    sequence[i]
-                ];
+            int clueIndex =
+                sequence[i];
 
+            SpriteRenderer flame =
+                clueFlames[clueIndex];
 
-            SetNodeColour(
-                node,
-                flashColour
-            );
+            if (flame != null)
+            {
+                flame.enabled = true;
+            }
 
+            yield return new WaitForSeconds(nodeFlashDuration);
 
-            yield return new WaitForSeconds(
-                nodeFlashDuration
-            );
+            if (flame != null)
+            {
+                flame.enabled = false;
+            }
 
-
-            SetNodeColour(
-                node,
-                idleColour
-            );
-
-
-            yield return new WaitForSeconds(
-                gapBetweenFlashes
-            );
+            if (i < sequence.Count - 1)
+            {
+                yield return new WaitForSeconds(gapBetweenFlashes);
+            }
         }
 
-
-        currentSequencePosition =
-            0;
-
-
-        acceptingInput =
-            true;
-
-
-        showingSequence =
-            false;
-
+        currentSequencePosition = 0;
+        acceptingInput = true;
+        showingSequence = false;
+        activeSequenceCoroutine = null;
 
         previousPlayerCell =
             playerController.GridPosition;
 
-
-        previousPlayerCellRecorded =
-            true;
-
+        previousPlayerCellRecorded = true;
 
         UnityEngine.Debug.Log(
-            "RESONANCE PUZZLE - Awaiting player sequence."
+            "RESONANCE PUZZLE - Awaiting lever sequence."
         );
     }
 
@@ -856,110 +1640,182 @@ public class ResonancePuzzleManager : MonoBehaviour
     // PLAYER INPUT
     // ============================================================
 
-    private void CheckNodeEntry(
+    private void UpdateInteractionMessage(
+        Vector2Int playerCell,
+        bool playerInside)
+    {
+        ClearInteractionMessage();
+
+        if (!playerInside)
+        {
+            return;
+        }
+
+        if (acceptingInput &&
+            !showingSequence &&
+            leverCoroutine == null)
+        {
+            PuzzleLever nearest =
+                FindNearestLeverInRange(playerCell);
+
+            if (nearest != null)
+            {
+                hasInteractionMessage = true;
+                currentInteractionMessage =
+                    "Press E to use the " +
+                    nearest.ColourName +
+                    " lever.";
+                return;
+            }
+        }
+
+        int replayDistance =
+            Mathf.Abs(playerCell.x - replayTileCell.x) +
+            Mathf.Abs(playerCell.y - replayTileCell.y);
+
+        if (replayDistance <= 1 &&
+            !showingSequence &&
+            !puzzleSolved)
+        {
+            hasInteractionMessage = true;
+            currentInteractionMessage =
+                "Step on the floor panel to replay the clue.";
+        }
+    }
+
+
+    private void TryActivateNearbyLever(
         Vector2Int playerCell)
     {
-        PuzzleNode enteredNode =
-            FindNodeAtCell(
-                playerCell
-            );
+        PuzzleLever lever =
+            FindNearestLeverInRange(playerCell);
 
-
-        if (enteredNode == null)
+        if (lever == null)
         {
             return;
         }
 
-
-        int expectedNodeIndex =
-            sequence[
-                currentSequencePosition
-            ];
-
-
-        if (enteredNode.Index !=
-            expectedNodeIndex)
-        {
-            HandleIncorrectNode(
-                enteredNode
+        leverCoroutine =
+            StartCoroutine(
+                PullLeverAndCheckInput(lever)
             );
+    }
 
 
-            return;
+    private PuzzleLever FindNearestLeverInRange(
+        Vector2Int playerCell)
+    {
+        PuzzleLever nearest =
+            null;
+
+        int nearestDistance =
+            int.MaxValue;
+
+        foreach (PuzzleLever lever in levers)
+        {
+            int distance =
+                Mathf.Abs(playerCell.x - lever.Cell.x) +
+                Mathf.Abs(playerCell.y - lever.Cell.y);
+
+            if (distance >
+                    leverInteractionRange ||
+                distance >= nearestDistance)
+            {
+                continue;
+            }
+
+            nearest = lever;
+            nearestDistance = distance;
         }
 
+        return nearest;
+    }
 
-        SetNodeColour(
-            enteredNode,
-            correctColour
-        );
 
+    private IEnumerator PullLeverAndCheckInput(
+        PuzzleLever lever)
+    {
+        acceptingInput = false;
+
+        if (lever != null &&
+            lever.Renderer != null)
+        {
+            for (int i = 0;
+                 i < leverFrames.Length;
+                 i++)
+            {
+                if (leverFrames[i] != null)
+                {
+                    lever.Renderer.sprite =
+                        leverFrames[i];
+                }
+
+                yield return new WaitForSeconds(
+                    leverFrameDuration
+                );
+            }
+        }
+
+        int expectedLeverIndex =
+            sequence[currentSequencePosition];
+
+        if (lever.Index != expectedLeverIndex)
+        {
+            UnityEngine.Debug.Log(
+                "RESONANCE INCORRECT - " +
+                $"Expected {chosenColours[expectedLeverIndex].Name}, " +
+                $"received {lever.ColourName}. " +
+                "Sequence reset. Use the replay tile if you need the clue again."
+            );
+
+            currentSequencePosition = 0;
+
+            yield return new WaitForSeconds(0.25f);
+
+            ResetLeverVisuals();
+
+            acceptingInput = true;
+            leverCoroutine = null;
+            yield break;
+        }
 
         currentSequencePosition++;
 
-
         UnityEngine.Debug.Log(
-            $"RESONANCE CORRECT - " +
+            "RESONANCE CORRECT - " +
+            $"{lever.ColourName}. " +
             $"{currentSequencePosition}/{sequence.Count}"
         );
 
-
-        if (currentSequencePosition >=
-            sequence.Count)
+        if (currentSequencePosition >= sequence.Count)
         {
+            leverCoroutine = null;
             CompletePuzzle();
+            yield break;
         }
+
+        acceptingInput = true;
+        leverCoroutine = null;
     }
 
 
-    private void HandleIncorrectNode(
-        PuzzleNode incorrectNode)
+    private void ResetLeverVisuals()
     {
-        acceptingInput =
-            false;
+        if (leverFrames == null ||
+            leverFrames.Length == 0)
+        {
+            return;
+        }
 
-
-        currentSequencePosition =
-            0;
-
-
-        UnityEngine.Debug.Log(
-            "RESONANCE INCORRECT - Sequence reset."
-        );
-
-
-        StartCoroutine(
-            FailureSequence(
-                incorrectNode
-            )
-        );
-    }
-
-
-    private IEnumerator FailureSequence(
-        PuzzleNode incorrectNode)
-    {
-        SetAllNodeColours(
-            failureColour
-        );
-
-
-        yield return new WaitForSeconds(
-            failureReplayDelay
-        );
-
-
-        SetAllNodeColours(
-            idleColour
-        );
-
-
-        yield return new WaitForSeconds(
-            0.25f
-        );
-
-
-        BeginSequenceDisplay();
+        foreach (PuzzleLever lever in levers)
+        {
+            if (lever.Renderer != null &&
+                leverFrames[0] != null)
+            {
+                lever.Renderer.sprite =
+                    leverFrames[0];
+            }
+        }
     }
 
 
@@ -969,23 +1825,31 @@ public class ResonancePuzzleManager : MonoBehaviour
 
     private void CompletePuzzle()
     {
-        puzzleSolved =
-            true;
+        puzzleSolved = true;
+        acceptingInput = false;
 
+        SetAllClueFlames(true);
 
-        acceptingInput =
-            false;
+        if (replayTileRenderer != null)
+        {
+            /*
+             * Once the puzzle is solved the replay control is no longer
+             * needed, so leave the physical panel visibly pressed.
+             */
+            replayTileRenderer.color =
+                Color.white;
 
-
-        SetAllNodeColours(
-            correctColour
-        );
-
+            replayTileRenderer.sprite =
+                pushPanelPressedSprite;
+        }
 
         UnityEngine.Debug.Log(
-            "========== RESONANCE PUZZLE COMPLETE =========="
+            "========== RESONANCE PUZZLE COMPLETE ==========\n" +
+            $"Colours: {BuildColourSetDebugString()}\n" +
+            $"Sequence: {BuildSequenceDebugString()}\n" +
+            "Puzzle reward unlocked.\n" +
+            "================================================"
         );
-
 
         SpawnRewards();
     }
@@ -996,50 +1860,29 @@ public class ResonancePuzzleManager : MonoBehaviour
         List<Vector2Int> rewardCells =
             FindRewardCells();
 
-
-        int rewardIndex =
-            0;
-
+        int rewardIndex = 0;
 
         if (pulseReward > 0 &&
-            rewardIndex <
-                rewardCells.Count)
+            rewardIndex < rewardCells.Count)
         {
             CreateReward(
                 ResourcePickup.ResourceType.Pulse,
                 pulseReward,
-                rewardCells[
-                    rewardIndex
-                ],
-                new Color(
-                    0.20f,
-                    0.75f,
-                    1f,
-                    1f
-                )
+                rewardCells[rewardIndex],
+                new Color(0.20f, 0.75f, 1f, 1f)
             );
-
 
             rewardIndex++;
         }
 
-
         if (shaperReward > 0 &&
-            rewardIndex <
-                rewardCells.Count)
+            rewardIndex < rewardCells.Count)
         {
             CreateReward(
                 ResourcePickup.ResourceType.Shaper,
                 shaperReward,
-                rewardCells[
-                    rewardIndex
-                ],
-                new Color(
-                    1f,
-                    0.35f,
-                    0.85f,
-                    1f
-                )
+                rewardCells[rewardIndex],
+                new Color(1f, 0.35f, 0.85f, 1f)
             );
         }
     }
@@ -1050,52 +1893,55 @@ public class ResonancePuzzleManager : MonoBehaviour
         List<Vector2Int> result =
             new List<Vector2Int>();
 
-
         Vector2Int centre =
             puzzleRoom.Centre;
 
-
         Vector2Int[] offsets =
         {
+            Vector2Int.up,
+            Vector2Int.up + Vector2Int.left,
+            Vector2Int.up + Vector2Int.right,
             Vector2Int.zero,
             Vector2Int.left,
             Vector2Int.right,
-            Vector2Int.up,
             Vector2Int.down
         };
 
-
-        foreach (Vector2Int offset in
-                 offsets)
+        foreach (Vector2Int offset in offsets)
         {
             Vector2Int cell =
-                centre +
-                offset;
+                centre + offset;
 
-
-            if (!dungeonGenerator.Grid.IsWalkable(
-                    cell))
+            if (!puzzleRoom.Contains(cell))
             {
                 continue;
             }
 
-
-            if (FindNodeAtCell(
-                    cell) != null)
+            if (!dungeonGenerator.Grid.IsNavigable(cell))
             {
                 continue;
             }
 
+            if (FindLeverAtCell(cell) != null)
+            {
+                continue;
+            }
 
-            result.Add(
-                cell
-            );
+            if (cell == replayTileCell)
+            {
+                continue;
+            }
 
+            if (IsObjectiveCell(cell))
+            {
+                continue;
+            }
+
+            result.Add(cell);
 
             if (result.Count >= 2)
                 break;
         }
-
 
         return result;
     }
@@ -1108,26 +1954,19 @@ public class ResonancePuzzleManager : MonoBehaviour
         Color colour)
     {
         GameObject reward =
-            GameObject.CreatePrimitive(
-                PrimitiveType.Quad
-            );
-
+            GameObject.CreatePrimitive(PrimitiveType.Quad);
 
         reward.name =
-            type ==
-                ResourcePickup.ResourceType.Pulse
-                ? "Puzzle Reward - Pulse"
-                : "Puzzle Reward - Shaper";
-
+            type == ResourcePickup.ResourceType.Pulse
+            ? "Puzzle Reward - Pulse"
+            : "Puzzle Reward - Shaper";
 
         reward.transform.SetParent(
             puzzleParent.transform
         );
 
-
         ResourcePickup pickup =
             reward.AddComponent<ResourcePickup>();
-
 
         pickup.Initialise(
             type,
@@ -1145,72 +1984,30 @@ public class ResonancePuzzleManager : MonoBehaviour
     // HELPERS
     // ============================================================
 
-    private bool IsPlayerInsidePuzzleRoom(
+    private PuzzleLever FindLeverAtCell(
         Vector2Int cell)
     {
-        /*
-         * First test the original logical room.
-         */
-        if (puzzleRoom.Contains(
-                cell))
+        foreach (PuzzleLever lever in levers)
         {
-            return true;
-        }
-
-
-        /*
-         * CA post-processing can grow the physical room outside its
-         * original rectangle.
-         *
-         * For this first puzzle version the interaction starts once the
-         * player reaches the logical room core. The surrounding organic
-         * shape remains normal traversable space.
-         */
-        return false;
-    }
-
-
-    private PuzzleNode FindNodeAtCell(
-        Vector2Int cell)
-    {
-        foreach (PuzzleNode node in
-                 nodes)
-        {
-            if (node.Cell ==
-                cell)
+            if (lever.Cell == cell)
             {
-                return node;
+                return lever;
             }
         }
-
 
         return null;
     }
 
 
-    private void SetAllNodeColours(
-        Color colour)
+    private void SetAllClueFlames(
+        bool visible)
     {
-        foreach (PuzzleNode node in
-                 nodes)
+        foreach (SpriteRenderer flame in clueFlames)
         {
-            SetNodeColour(
-                node,
-                colour
-            );
-        }
-    }
-
-
-    private void SetNodeColour(
-        PuzzleNode node,
-        Color colour)
-    {
-        if (node != null &&
-            node.Material != null)
-        {
-            node.Material.color =
-                colour;
+            if (flame != null)
+            {
+                flame.enabled = visible;
+            }
         }
     }
 
@@ -1220,77 +2017,82 @@ public class ResonancePuzzleManager : MonoBehaviour
         if (playerController == null)
             return;
 
-
         previousPlayerCell =
             playerController.GridPosition;
-
 
         previousPlayerCellRecorded =
             true;
     }
 
 
+    private void ClearInteractionMessage()
+    {
+        hasInteractionMessage = false;
+        currentInteractionMessage = string.Empty;
+    }
+
+
     private void ClearPuzzle()
     {
-        if (activeSequenceCoroutine !=
-            null)
+        if (activeSequenceCoroutine != null)
         {
-            StopCoroutine(
-                activeSequenceCoroutine
-            );
-
-
-            activeSequenceCoroutine =
-                null;
+            StopCoroutine(activeSequenceCoroutine);
+            activeSequenceCoroutine = null;
         }
 
-
-        foreach (PuzzleNode node in
-                 nodes)
+        if (leverCoroutine != null)
         {
-            if (node.Material != null)
-            {
-                Destroy(
-                    node.Material
-                );
-            }
+            StopCoroutine(leverCoroutine);
+            leverCoroutine = null;
         }
 
+        if (replayPanelCoroutine != null)
+        {
+            StopCoroutine(replayPanelCoroutine);
+            replayPanelCoroutine = null;
+        }
 
-        nodes.Clear();
-
+        levers.Clear();
         sequence.Clear();
-
+        clueFlames.Clear();
+        chosenColours.Clear();
 
         if (puzzleParent != null)
         {
-            Destroy(
-                puzzleParent
-            );
-
-
-            puzzleParent =
-                null;
+            Destroy(puzzleParent);
+            puzzleParent = null;
         }
 
+        puzzleRoom = null;
+        replayTileRenderer = null;
+        replayTileCell = Vector2Int.zero;
+        currentSequencePosition = 0;
+        puzzleSolved = false;
+        showingSequence = false;
+        acceptingInput = false;
+        initialSequenceShown = false;
+        playerWasInsideRoom = false;
+        previousPlayerCellRecorded = false;
 
-        puzzleRoom =
-            null;
+        ClearInteractionMessage();
+    }
 
 
-        puzzleSolved =
-            false;
+    private Sprite GetWhitePixelSprite()
+    {
+        if (whitePixelSprite != null)
+        {
+            return whitePixelSprite;
+        }
 
-        showingSequence =
-            false;
+        whitePixelSprite =
+            Sprite.Create(
+                Texture2D.whiteTexture,
+                new Rect(0f, 0f, 1f, 1f),
+                new Vector2(0.5f, 0.5f),
+                1f
+            );
 
-        acceptingInput =
-            false;
-
-        playerWasInsideRoom =
-            false;
-
-        previousPlayerCellRecorded =
-            false;
+        return whitePixelSprite;
     }
 }

@@ -20,6 +20,13 @@ public class PlayerVisionController : MonoBehaviour
     [SerializeField]
     private FogOfWarRenderer fogRenderer;
 
+    [Tooltip(
+        "Procedural environment source used for static wall-torch lighting. " +
+        "If left empty it is resolved from the DungeonGenerator GameObject."
+    )]
+    [SerializeField]
+    private DungeonEnvironmentGenerator environmentGenerator;
+
 
     [Header("Vision")]
 
@@ -135,8 +142,16 @@ public class PlayerVisionController : MonoBehaviour
         visibleDisplayCells.Clear();
 
         exploredDisplayCells.Clear();
-        
+
         currentRegionDisplayCells.Clear();
+
+
+        if (environmentGenerator == null &&
+            dungeonGenerator != null)
+        {
+            environmentGenerator =
+                dungeonGenerator.GetComponent<DungeonEnvironmentGenerator>();
+        }
 
 
         fogRenderer.BuildForGrid(
@@ -198,7 +213,11 @@ public class PlayerVisionController : MonoBehaviour
         RefreshCurrentRegion(
             grid,
             playerCell
-        ); 
+        );
+
+        AddEnvironmentalTorchVisibility(
+            grid
+        );
 
 
         /*
@@ -249,6 +268,44 @@ public class PlayerVisionController : MonoBehaviour
             currentRegionDisplayCells,
             exploredDisplayCells
         );
+    }
+
+
+    /// <summary>
+    /// Promotes procedural torch-lit floor cells into the same fully-visible
+    /// set used by the player's own light.
+    ///
+    /// Unexplored rooms are deliberately not revealed from across the map.
+    /// A static torch becomes fully bright once its cell belongs to the
+    /// player's current region, has already been explored, or is already
+    /// visible through the player's directional vision.
+    /// </summary>
+    private void AddEnvironmentalTorchVisibility(
+        DungeonGrid grid)
+    {
+        if (grid == null ||
+            environmentGenerator == null ||
+            environmentGenerator.TorchLitFloorCells == null)
+        {
+            return;
+        }
+
+        foreach (Vector2Int cell in
+                 environmentGenerator.TorchLitFloorCells)
+        {
+            if (!grid.IsWalkable(cell))
+                continue;
+
+            bool torchRegionKnown =
+                visibleFloorCells.Contains(cell) ||
+                currentRegionDisplayCells.Contains(cell) ||
+                exploredDisplayCells.Contains(cell);
+
+            if (!torchRegionKnown)
+                continue;
+
+            visibleFloorCells.Add(cell);
+        }
     }
 
 
@@ -542,7 +599,7 @@ public class PlayerVisionController : MonoBehaviour
         {
             return;
         }
-        
+
         Vector2Int axis =
             DetermineCorridorAxis(
                 corridorCells,

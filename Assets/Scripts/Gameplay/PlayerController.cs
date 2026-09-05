@@ -232,7 +232,7 @@ public class PlayerController : MonoBehaviour
         Vector2Int targetPosition =
             gridPosition + direction;
 
-        if (!dungeonGenerator.Grid.IsWalkable(targetPosition))
+        if (!dungeonGenerator.Grid.IsNavigable(targetPosition))
         {
             return;
         }

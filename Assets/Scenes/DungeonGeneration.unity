@@ -273,17 +273,46 @@ MonoBehaviour:
   playerController: {fileID: 2142187895}
   pulseController: {fileID: 2142187899}
   shaperController: {fileID: 2142187900}
-  nodeCount: 3
-  minimumNodeSeparation: 3
+  unlitTorchSprite: {fileID: 2921046678229423985, guid: 569a70594e6b65545b4b8d96163a4ccf,
+    type: 3}
+  flameAnimationFrames:
+  - {fileID: -6753082073175136350, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 4682762073298511618, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: -7510799058878326544, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 1356099948948184447, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 8829000443624798463, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 5136758153458048110, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 5619091599236626059, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: -1921395925472425623, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  leverFrames:
+  - {fileID: 2957073568020072224, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: -22633924164909025, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 7219729056707571172, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 5970955383309028103, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  pushPanelPressedSprite: {fileID: 7948148392337320465, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5,
+    type: 3}
+  pushPanelMiddleSprite: {fileID: -1609412331780087379, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5,
+    type: 3}
+  pushPanelReleasedSprite: {fileID: 84367354525178517, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5,
+    type: 3}
+  pushPanelFrameDuration: 0.08
+  pushPanelPressedHoldDuration: 0.12
   initialSequenceDelay: 0.4
   nodeFlashDuration: 0.55
   gapBetweenFlashes: 0.18
-  failureReplayDelay: 0.75
-  nodeScale: 0.48
-  idleColour: {r: 0.18, g: 0.45, b: 0.55, a: 1}
-  flashColour: {r: 1, g: 0.85, b: 0.2, a: 1}
-  correctColour: {r: 0.25, g: 1, b: 0.45, a: 1}
-  failureColour: {r: 1, g: 0.2, b: 0.2, a: 1}
+  leverFrameDuration: 0.08
+  flameFramesPerSecond: 9
+  leverInteractionRange: 1
+  minimumReplayRowsBelowTopWall: 2
+  maximumReplayRowsBelowTopWall: 4
+  leverZ: -1.93
+  leverMarkerZ: -1.94
+  replayTileZ: -1.82
+  replayPanelScale: 0.9
+  torchMountZ: -1.9
+  torchFlameZ: -1.95
+  torchVerticalOffset: 0.9
+  torchFlameVerticalOffset: 0.5
   pulseReward: 1
   shaperReward: 1
 --- !u!4 &438204754
@@ -743,6 +772,87 @@ MonoBehaviour:
   m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_EffectDistance: {x: 1, y: -1}
   m_UseGraphicAlpha: 1
+--- !u!1 &808587831
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 808587833}
+  - component: {fileID: 808587832}
+  m_Layer: 0
+  m_Name: Actor Sprite Visual Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &808587832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 808587831}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8809a3fa39392f42a01c00956704361, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  playerController: {fileID: 2142187895}
+  playerSpriteSet:
+    setName: Character2
+    spriteSheet: {fileID: 2800000, guid: 637bd73c22caec74d9323ca463454d75, type: 3}
+    pixelsPerUnit: 16
+    sideFramesFaceRight: 0
+    visualScale: 0.75
+    visualOffset: {x: 0, y: 0}
+  enemy1SpriteSet:
+    setName: Enemy1
+    spriteSheet: {fileID: 2800000, guid: 2956bdc0e1fc5704e9b7634b5d14765b, type: 3}
+    pixelsPerUnit: 16
+    sideFramesFaceRight: 0
+    visualScale: 0.75
+    visualOffset: {x: 0, y: 0}
+  enemy2SpriteSet:
+    setName: Enemy2
+    spriteSheet: {fileID: 2800000, guid: 334e9ffd388226d46b8dbbf52f21ae75, type: 3}
+    pixelsPerUnit: 16
+    sideFramesFaceRight: 0
+    visualScale: 0.75
+    visualOffset: {x: 0, y: 0}
+  enemy3SpriteSet:
+    setName: Enemy3
+    spriteSheet: {fileID: 2800000, guid: fbce4d2f554b9c84b828e8fb33c32bac, type: 3}
+    pixelsPerUnit: 16
+    sideFramesFaceRight: 0
+    visualScale: 0.75
+    visualOffset: {x: 0, y: 0}
+  wardenSpriteSet:
+    setName: Enemy4 - Warden
+    spriteSheet: {fileID: 2800000, guid: cb2c5b86332a4ff4aa11959f9ffc2da9, type: 3}
+    pixelsPerUnit: 16
+    sideFramesFaceRight: 0
+    visualScale: 1
+    visualOffset: {x: 0, y: 0}
+  discoveryInterval: 0.2
+--- !u!4 &808587833
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 808587831}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 22.46057, y: 23.206882, z: -214.07318}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 18
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &872445780
 GameObject:
   m_ObjectHideFlags: 0
@@ -1012,7 +1122,7 @@ MonoBehaviour:
   organicSmoothingIterations: 2
   dungeonRenderer: {fileID: 1128854572}
   playerController: {fileID: 2142187895}
-  exitObject: {fileID: 1628025814}
+  exitObject: {fileID: 2144170878}
   dungeonRunManager: {fileID: 872445781}
   floorObjectiveManager: {fileID: 1429068666}
   dungeonContentGenerator: {fileID: 655920709}
@@ -1098,13 +1208,73 @@ MonoBehaviour:
   webSprites:
   - {fileID: -4140751099741325648, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
   - {fileID: -3915039470393639136, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  emberSprites:
+  - {fileID: -6992663022216289954, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: -7513919189135700380, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: -6683448872128771399, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  bookStackSprites:
+  - {fileID: 7869590707087543074, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: -5646253328180648556, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 739340447324915214, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  openBookSprites:
+  - {fileID: 8314816720326175289, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: -2335298254681958902, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  letterSprites:
+  - {fileID: -2584964373557488381, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 3803145564655875638, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  boneFragmentSprites:
+  - {fileID: -8878459768552309715, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 8014261746031541410, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  tableClutterSprites:
+  - {fileID: 6802047168219873237, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 5784502266423631333, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: -5634546230502415619, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 2417278246124044392, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  looseWeaponSprites:
+  - {fileID: 540584779514729484, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 4206039771327888235, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  - {fileID: 6582443588611728415, guid: 569a70594e6b65545b4b8d96163a4ccf, type: 3}
+  quillSprite: {fileID: -1594290522971542195, guid: 569a70594e6b65545b4b8d96163a4ccf,
+    type: 3}
+  unlitCandlesSprite: {fileID: 7606839399717165327, guid: 569a70594e6b65545b4b8d96163a4ccf,
+    type: 3}
+  usedCandleSprite: {fileID: -592817689880104303, guid: 569a70594e6b65545b4b8d96163a4ccf,
+    type: 3}
+  unlitTorchSprite: {fileID: 2921046678229423985, guid: 569a70594e6b65545b4b8d96163a4ccf,
+    type: 3}
+  flameAnimationFrames:
+  - {fileID: -6753082073175136350, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 4682762073298511618, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: -7510799058878326544, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 1356099948948184447, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 8829000443624798463, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 5136758153458048110, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 5619091599236626059, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: -1921395925472425623, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  maximumTorchesPerRoom: 2
+  maximumTorchesPerFloor: 18
+  baseTorchChance: 0.35
+  torchFramesPerSecond: 9
+  torchSpeedVariation: 0.12
+  torchVerticalOffset: 0.9
+  torchMountZ: -1.9
+  torchFlameZ: -1.95
+  torchFlameVerticalOffset: 0.5
+  torchLightRadius: 1.4
   densityMultiplier: 1.25
   maximumSolidPropsPerRoom: 5
   maximumWebsPerRoom: 3
+  maximumWalkOverDetailsPerRoom: 5
+  maximumCorridorDetailsPerFloor: 8
+  corridorDetailChance: 0.025
+  maximumTableDetails: 3
   protectedCellClearance: 1
   corridorClearance: 1
   clusterChance: 0.65
   maximumExtraPropsPerCluster: 2
+  organicDecorationReach: 3
+  alcoveFillChance: 0.75
+  maximumAlcoveClustersPerRoom: 2
   solidPropZ: -1.85
   detailZ: -1.7
   wallHugOffset: 0.18
@@ -1267,9 +1437,7 @@ MonoBehaviour:
   requiredSigils: 3
   sigilScale: 0.45
   sigilColour: {r: 0, g: 1, b: 1, a: 1}
-  lockedExitColour: {r: 1, g: 0, b: 0, a: 1}
-  unlockedExitColour: {r: 0, g: 1, b: 0, a: 1}
-  exitObject: {fileID: 1628025814}
+  exitObject: {fileID: 2144170878}
 --- !u!4 &1429068667
 Transform:
   m_ObjectHideFlags: 0
@@ -1300,7 +1468,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1628025815
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1640,6 +1808,7 @@ GameObject:
   - component: {fileID: 2142187898}
   - component: {fileID: 2142187899}
   - component: {fileID: 2142187900}
+  - component: {fileID: 2142187901}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1741,6 +1910,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   fogRenderer: {fileID: 1034342223}
+  environmentGenerator: {fileID: 0}
   visionRange: 8
   visionAngle: 90
   immediateVisionRadius: 1.4
@@ -1789,3 +1959,133 @@ MonoBehaviour:
   maximumSideDeviation: 5
   validWallColour: {r: 0.45, g: 0.75, b: 1, a: 0.45}
   highlightScale: 0.94
+--- !u!114 &2142187901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2142187894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1306f6fd6ec370e42b58bb2da1a0406c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  walkFramesPerSecond: 6.67
+  movementAnimationHold: 0.6
+  visualStepDuration: 0.55
+  maximumAnimatedStepDistance: 1.1
+  visualZOffset: -10
+  feetAnchorYOffset: -0.5
+  stunnedTint: {r: 0.45, g: 0.72, b: 1, a: 1}
+--- !u!1 &2144170878
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2144170881}
+  - component: {fileID: 2144170880}
+  - component: {fileID: 2144170879}
+  m_Layer: 0
+  m_Name: Exit Hatch
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2144170879
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144170878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cb9a1ce7512b274ba3898733c9e3c29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerController: {fileID: 2142187895}
+  closedSprite: {fileID: 4916762618032186353, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5,
+    type: 3}
+  openingFrames:
+  - {fileID: 1162904983464979844, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 7064866138584929767, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 6497220523634459294, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 6340381744373260812, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  - {fileID: 879488825467366222, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
+  shaftColour: {r: 0.02, g: 0.02, b: 0.04, a: 1}
+  shaftSize: 0.9
+  shaftYOffset: -0.45
+  shaftZOffset: 0.05
+  frameDuration: 0.1
+  activationRangeTiles: 2
+  lockedMessage: The descent hatch is sealed. Collect all Anchor Sigils to open it.
+--- !u!212 &2144170880
+SpriteRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144170878}
+  m_Enabled: 1
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 0
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_Sprite: {fileID: 4916762618032186353, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5,
+    type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_FlipX: 0
+  m_FlipY: 0
+  m_DrawMode: 0
+  m_Size: {x: 1.0625, y: 2}
+  m_AdaptiveModeThreshold: 0.5
+  m_SpriteTileMode: 0
+  m_WasSpriteAssigned: 1
+  m_MaskInteraction: 0
+  m_SpriteSortPoint: 0
+--- !u!4 &2144170881
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144170878}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 22.46057, y: 23.206882, z: -214.07318}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 17
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

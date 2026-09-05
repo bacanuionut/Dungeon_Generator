@@ -52,8 +52,32 @@ public static class DynamicShaperPathfinder
             facingDirection;
 
 
-        // The Shaper starts by breaking a wall.
-        // If the cell ahead is already floor, this is not a valid use.
+        /*
+         * A solid environmental prop may sit directly in front of the wall.
+         *
+         * The prop still occupies geometric floor, so IsWalkable() is true,
+         * but it should not hide an otherwise valid Shaper wall target.
+         * Skip a very small number of consecutive breakable prop cells, then
+         * require the next cell to be genuine solid dungeon terrain.
+         */
+        const int maximumBreakablePropsBeforeWall = 2;
+
+        int skippedPropCells = 0;
+
+        while (grid.IsNavigationBlocked(
+                   firstWallCell) &&
+               skippedPropCells <
+                   maximumBreakablePropsBeforeWall)
+        {
+            firstWallCell +=
+                facingDirection;
+
+            skippedPropCells++;
+        }
+
+
+        // The Shaper still starts by breaking genuine dungeon terrain.
+        // Ordinary open floor in front of the player remains an invalid use.
         if (grid.IsWalkable(
                 firstWallCell))
         {
@@ -65,6 +89,22 @@ public static class DynamicShaperPathfinder
             Mathf.Max(
                 1,
                 minimumSolidCells
+            );
+
+
+        /*
+         * Breakable props in front of the wall are part of the obstruction
+         * the Shaper is being asked to remove.
+         *
+         * The search itself starts at genuine dungeon terrain, so without
+         * this adjustment a prop + thin wall could be rejected because the
+         * wall portion alone did not satisfy minimumSolidCells.
+         */
+        int effectiveMinimumSolidCells =
+            Mathf.Max(
+                1,
+                minimumSolidCells -
+                    skippedPropCells
             );
 
 
@@ -219,7 +259,7 @@ public static class DynamicShaperPathfinder
              * adjacent cell for an existing room/corridor.
              */
             if (currentSteps >=
-                minimumSolidCells)
+                effectiveMinimumSolidCells)
             {
                 foreach (Vector2Int direction in
                          directions)
@@ -249,7 +289,8 @@ public static class DynamicShaperPathfinder
                             originCell,
                             possibleTarget,
                             facingDirection,
-                            maximumSolidCells,
+                            maximumSolidCells +
+                                skippedPropCells,
                             maximumSideDeviation))
                     {
                         continue;
@@ -320,7 +361,8 @@ public static class DynamicShaperPathfinder
                         originCell,
                         neighbour,
                         facingDirection,
-                        maximumSolidCells,
+                        maximumSolidCells +
+                            skippedPropCells,
                         maximumSideDeviation))
                 {
                     continue;
@@ -389,6 +431,17 @@ public static class DynamicShaperPathfinder
 
         if (!targetFound)
         {
+            if (skippedPropCells > 0)
+            {
+                UnityEngine.Debug.Log(
+                    "SHAPER TARGET REJECTED AFTER PROP - " +
+                    $"Facing {facingDirection}, " +
+                    $"props skipped: {skippedPropCells}, " +
+                    $"first wall cell: {firstWallCell}. " +
+                    "No valid generated room/corridor was found within the search envelope."
+                );
+            }
+
             return false;
         }
 
@@ -402,7 +455,7 @@ public static class DynamicShaperPathfinder
 
 
         if (guide.Count <
-                minimumSolidCells ||
+                effectiveMinimumSolidCells ||
             guide.Count >
                 maximumSolidCells)
         {
@@ -691,6 +744,236 @@ public static class DynamicShaperPathfinder
 
 
         return region;
+    }
+
+    /// <summary>
+    /// Adds one complete room region to a set, including organic
+    /// CA-generated floor connected to its original BSP room.
+    /// </summary>
+    private static void AddRoomRegion(
+        DungeonGenerator generator,
+        Room room,
+        HashSet<Vector2Int> destination)
+    {
+        if (generator == null ||
+            generator.Grid == null ||
+            room == null ||
+            destination == null)
+        {
+            return;
+        }
+
+
+        DungeonGrid grid =
+            generator.Grid;
+
+
+        Queue<Vector2Int> frontier =
+            new Queue<Vector2Int>();
+
+
+        /*
+         * Add the original BSP room cells.
+         */
+        for (int x = room.Bounds.xMin;
+             x < room.Bounds.xMax;
+             x++)
+        {
+            for (int y = room.Bounds.yMin;
+                 y < room.Bounds.yMax;
+                 y++)
+            {
+                Vector2Int cell =
+                    new Vector2Int(
+                        x,
+                        y
+                    );
+
+
+                if (!grid.IsWalkable(
+                        cell))
+                {
+                    continue;
+                }
+
+
+                if (destination.Add(
+                        cell))
+                {
+                    frontier.Enqueue(
+                        cell
+                    );
+                }
+            }
+        }
+
+
+        /*
+         * Grow outward only through cells classified as organic room
+         * floor.
+         *
+         * This associates the irregular CA boundary with its room without
+         * flood-filling ordinary corridors and therefore the entire map.
+         */
+        while (frontier.Count > 0)
+        {
+            Vector2Int current =
+                frontier.Dequeue();
+
+
+            foreach (Vector2Int direction in
+                     directions)
+            {
+                Vector2Int neighbour =
+                    current +
+                    direction;
+
+
+                if (destination.Contains(
+                        neighbour))
+                {
+                    continue;
+                }
+
+
+                if (!grid.IsOrganicRoomCell(
+                        neighbour))
+                {
+                    continue;
+                }
+
+
+                destination.Add(
+                    neighbour
+                );
+
+
+                frontier.Enqueue(
+                    neighbour
+                );
+            }
+        }
+    }
+
+    private static bool CorridorContainsCell(
+    CorridorGenerator.Corridor corridor,
+    Vector2Int targetCell)
+    {
+        if (corridor == null ||
+            corridor.Cells == null)
+        {
+            return false;
+        }
+
+
+        foreach (Vector2Int cell in
+                 corridor.Cells)
+        {
+            if (cell ==
+                targetCell)
+            {
+                return true;
+            }
+        }
+
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when any cell of a corridor overlaps or is cardinally
+    /// adjacent to the supplied room region.
+    /// </summary>
+    private static bool CorridorTouchesRegion(
+        CorridorGenerator.Corridor corridor,
+        HashSet<Vector2Int> region)
+    {
+        if (corridor == null ||
+            corridor.Cells == null ||
+            region == null)
+        {
+            return false;
+        }
+
+
+        foreach (Vector2Int corridorCell in
+                 corridor.Cells)
+        {
+            if (region.Contains(
+                    corridorCell))
+            {
+                return true;
+            }
+
+
+            foreach (Vector2Int direction in
+                     directions)
+            {
+                if (region.Contains(
+                        corridorCell +
+                        direction))
+                {
+                    return true;
+                }
+            }
+        }
+
+
+        return false;
+    }
+
+    /// <summary>
+    /// Tests whether the original room boundary touches a supplied
+    /// corridor region.
+    /// </summary>
+    private static bool RoomTouchesRegion(
+        Room room,
+        HashSet<Vector2Int> region)
+    {
+        if (room == null ||
+            region == null)
+        {
+            return false;
+        }
+
+
+        for (int x = room.Bounds.xMin;
+             x < room.Bounds.xMax;
+             x++)
+        {
+            for (int y = room.Bounds.yMin;
+                 y < room.Bounds.yMax;
+                 y++)
+            {
+                Vector2Int roomCell =
+                    new Vector2Int(
+                        x,
+                        y
+                    );
+
+
+                if (region.Contains(
+                        roomCell))
+                {
+                    return true;
+                }
+
+
+                foreach (Vector2Int direction in
+                         directions)
+                {
+                    if (region.Contains(
+                            roomCell +
+                            direction))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+
+        return false;
     }
 
     private static bool IsValidDestination(

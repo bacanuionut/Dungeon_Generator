@@ -8,6 +8,75 @@ TextureImporter:
   - first:
       213: -3915039470393639136
     second: Env_Web_02
+  - first:
+      213: -6992663022216289954
+    second: Env_Ember_01
+  - first:
+      213: -7513919189135700380
+    second: Env_Ember_02
+  - first:
+      213: -6683448872128771399
+    second: Env_Ember_03
+  - first:
+      213: 7869590707087543074
+    second: Env_BookStack_01
+  - first:
+      213: -5646253328180648556
+    second: Env_BookStack_02
+  - first:
+      213: 739340447324915214
+    second: Env_BookStack_03
+  - first:
+      213: -2335298254681958902
+    second: Env_OpenBook_Red_01
+  - first:
+      213: 8314816720326175289
+    second: Env_OpenBook_Blue_01
+  - first:
+      213: -2584964373557488381
+    second: Env_Letter_01
+  - first:
+      213: 3803145564655875638
+    second: Env_Letter_02
+  - first:
+      213: 6802047168219873237
+    second: Env_TableClutter_01
+  - first:
+      213: 5784502266423631333
+    second: Env_TableClutter_02
+  - first:
+      213: -8878459768552309715
+    second: Env_BoneFragment_01
+  - first:
+      213: 8014261746031541410
+    second: Env_BoneFragment_02
+  - first:
+      213: 540584779514729484
+    second: Env_Sword_01
+  - first:
+      213: 4206039771327888235
+    second: Env_Sword_02
+  - first:
+      213: 2921046678229423985
+    second: Env_unlit_torch_01
+  - first:
+      213: -1594290522971542195
+    second: Env_quill_01
+  - first:
+      213: 7606839399717165327
+    second: Env_unlit_candles
+  - first:
+      213: -592817689880104303
+    second: Env_used_candle
+  - first:
+      213: 6582443588611728415
+    second: Env_bow_01
+  - first:
+      213: -5634546230502415619
+    second: Env_TableClutter_03
+  - first:
+      213: 2417278246124044392
+    second: Env_TableClutter_04
   externalObjects: {}
   serializedVersion: 11
   mipmaps:
@@ -133,11 +202,11 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 552
-        y: 153
+        y: 157
         width: 16
-        height: 16
+        height: 9
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -154,11 +223,11 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 544
-        y: 112
+        y: 119
         width: 32
-        height: 32
+        height: 22
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -166,6 +235,489 @@ TextureImporter:
       bones: []
       spriteID: 02fbd8d285cfaa9c0800000000000000
       internalID: -3915039470393639136
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Ember_01
+      rect:
+        serializedVersion: 2
+        x: 11
+        y: 203
+        width: 9
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e51e9cea70215fe90800000000000000
+      internalID: -6992663022216289954
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Ember_02
+      rect:
+        serializedVersion: 2
+        x: 67
+        y: 173
+        width: 10
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 46e4394de4239b790800000000000000
+      internalID: -7513919189135700380
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Ember_03
+      rect:
+        serializedVersion: 2
+        x: 77
+        y: 204
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9ba874649ae9f33a0800000000000000
+      internalID: -6683448872128771399
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_BookStack_01
+      rect:
+        serializedVersion: 2
+        x: 2
+        y: 122
+        width: 12
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 22b0baf9d07663d60800000000000000
+      internalID: 7869590707087543074
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_BookStack_02
+      rect:
+        serializedVersion: 2
+        x: 2
+        y: 106
+        width: 12
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 495eced538a74a1b0800000000000000
+      internalID: -5646253328180648556
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_BookStack_03
+      rect:
+        serializedVersion: 2
+        x: 2
+        y: 90
+        width: 12
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e0641ea383aa24a00800000000000000
+      internalID: 739340447324915214
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_OpenBook_Red_01
+      rect:
+        serializedVersion: 2
+        x: 275
+        y: 94
+        width: 11
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a06971d3c9a579fd0800000000000000
+      internalID: -2335298254681958902
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_OpenBook_Blue_01
+      rect:
+        serializedVersion: 2
+        x: 307
+        y: 92
+        width: 11
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 93a258bd0c9246370800000000000000
+      internalID: 8314816720326175289
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Letter_01
+      rect:
+        serializedVersion: 2
+        x: 435
+        y: 211
+        width: 8
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 305d015199c502cd0800000000000000
+      internalID: -2584964373557488381
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Letter_02
+      rect:
+        serializedVersion: 2
+        x: 415
+        y: 59
+        width: 11
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6367a6abdbc77c430800000000000000
+      internalID: 3803145564655875638
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_TableClutter_01
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 94
+        width: 9
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5df72375cd9b56e50800000000000000
+      internalID: 6802047168219873237
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_TableClutter_02
+      rect:
+        serializedVersion: 2
+        x: 163
+        y: 72
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5ed5f98e92ea64050800000000000000
+      internalID: 5784502266423631333
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_BoneFragment_01
+      rect:
+        serializedVersion: 2
+        x: 507
+        y: 67
+        width: 5
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2cb7de61ef59c480800000000000000
+      internalID: -8878459768552309715
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_BoneFragment_02
+      rect:
+        serializedVersion: 2
+        x: 506
+        y: 91
+        width: 11
+        height: 4
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2ac363db890683f60800000000000000
+      internalID: 8014261746031541410
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Sword_01
+      rect:
+        serializedVersion: 2
+        x: 514
+        y: 206
+        width: 10
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c0455f92efa808700800000000000000
+      internalID: 540584779514729484
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_Sword_02
+      rect:
+        serializedVersion: 2
+        x: 563
+        y: 195
+        width: 11
+        height: 3
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b6bf92133eade5a30800000000000000
+      internalID: 4206039771327888235
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_unlit_torch_01
+      rect:
+        serializedVersion: 2
+        x: 566
+        y: 76
+        width: 4
+        height: 8
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 177133c3a74a98820800000000000000
+      internalID: 2921046678229423985
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_quill_01
+      rect:
+        serializedVersion: 2
+        x: 359
+        y: 133
+        width: 6
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d4d628d5731ffd9e0800000000000000
+      internalID: -1594290522971542195
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_unlit_candles
+      rect:
+        serializedVersion: 2
+        x: 210
+        y: 96
+        width: 8
+        height: 9
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f09569b912ce09960800000000000000
+      internalID: 7606839399717165327
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_used_candle
+      rect:
+        serializedVersion: 2
+        x: 213
+        y: 33
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 192f022b373e5c7f0800000000000000
+      internalID: -592817689880104303
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_bow_01
+      rect:
+        serializedVersion: 2
+        x: 354
+        y: 1
+        width: 8
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f14ef3d8199895b50800000000000000
+      internalID: 6582443588611728415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_TableClutter_03
+      rect:
+        serializedVersion: 2
+        x: 161
+        y: 32
+        width: 9
+        height: 7
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: df223647e021ec1b0800000000000000
+      internalID: -5634546230502415619
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Env_TableClutter_04
+      rect:
+        serializedVersion: 2
+        x: 132
+        y: 150
+        width: 5
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 860c08fe1c5eb8120800000000000000
+      internalID: 2417278246124044392
       vertices: []
       indices: 
       edges: []

@@ -647,6 +647,9 @@ public class DungeonTerrainModifier : MonoBehaviour
         int totalDynamicCellsAdded =
             0;
 
+        int environmentalPropsDestroyed =
+            0;
+
 
         UnityEngine.Debug.Log(
             "SHAPER GROWTH STARTED - " +
@@ -674,11 +677,31 @@ public class DungeonTerrainModifier : MonoBehaviour
              i < growthPlan.Count;
              i++)
         {
+            bool firstStep =
+                i == 0;
+
+            bool finalStep =
+                i ==
+                growthPlan.Count - 1;
+
+            /*
+             * The tunnel can cut through environmental clutter as well as
+             * terrain. Exact growth cells are always cleared. At the entrance
+             * and destination we also clear directly neighbouring solid props
+             * so a table, sack cluster or crate cannot cap the new opening.
+             */
+            environmentalPropsDestroyed +=
+                ClearEnvironmentalPropsForGrowthStep(
+                    growthPlan[i],
+                    guideCells,
+                    firstStep,
+                    finalStep
+                );
+
             int addedThisStep =
                 grid.AddDynamicFloorCells(
                     growthPlan[i]
                 );
-
 
             totalDynamicCellsAdded +=
                 addedThisStep;
@@ -691,11 +714,6 @@ public class DungeonTerrainModifier : MonoBehaviour
              * A visual refresh is performed periodically and always on the
              * final growth step.
              */
-            bool finalStep =
-                i ==
-                growthPlan.Count - 1;
-
-
             bool scheduledRefresh =
                 (i + 1) %
                 safeRenderInterval ==
@@ -728,6 +746,7 @@ public class DungeonTerrainModifier : MonoBehaviour
             "========== SHAPER GROWTH COMPLETE ==========\n" +
             $"Guide cells: {guideCells.Count}\n" +
             $"Dynamic cells added: {totalDynamicCellsAdded}\n" +
+            $"Environmental props cleared: {environmentalPropsDestroyed}\n" +
             $"Total dynamic floor cells: {grid.DynamicFloorCellCount}\n" +
             "============================================"
         );
@@ -736,6 +755,135 @@ public class DungeonTerrainModifier : MonoBehaviour
         if (onComplete != null)
         {
             onComplete();
+        }
+    }
+
+
+    /// <summary>
+    /// Removes solid environmental props touched by one Shaper growth step.
+    ///
+    /// The first and final opening steps also clear the eight neighbouring
+    /// cells. The guide direction then extends that clearance two cells into
+    /// the source/destination floor so furniture cannot cap the new opening.
+    /// </summary>
+    private int ClearEnvironmentalPropsForGrowthStep(
+        IReadOnlyList<Vector2Int> growthCells,
+        IReadOnlyList<Vector2Int> guideCells,
+        bool firstStep,
+        bool finalStep)
+    {
+        if (growthCells == null ||
+            growthCells.Count == 0 ||
+            dungeonGenerator == null ||
+            dungeonGenerator.EnvironmentGenerator == null)
+        {
+            return 0;
+        }
+
+        HashSet<Vector2Int> cellsToClear =
+            new HashSet<Vector2Int>();
+
+        bool clearNeighbouringCells =
+            firstStep || finalStep;
+
+        for (int i = 0;
+             i < growthCells.Count;
+             i++)
+        {
+            Vector2Int cell =
+                growthCells[i];
+
+            cellsToClear.Add(cell);
+
+            if (!clearNeighbouringCells)
+                continue;
+
+            for (int x = -1;
+                 x <= 1;
+                 x++)
+            {
+                for (int y = -1;
+                     y <= 1;
+                     y++)
+                {
+                    if (x == 0 &&
+                        y == 0)
+                    {
+                        continue;
+                    }
+
+                    cellsToClear.Add(
+                        new Vector2Int(
+                            cell.x + x,
+                            cell.y + y
+                        )
+                    );
+                }
+            }
+        }
+
+        if (guideCells != null &&
+            guideCells.Count >= 2)
+        {
+            if (firstStep)
+            {
+                Vector2Int sourceDirection =
+                    guideCells[0] -
+                    guideCells[1];
+
+                AddOpeningClearanceCells(
+                    cellsToClear,
+                    guideCells[0],
+                    sourceDirection
+                );
+            }
+
+            if (finalStep)
+            {
+                int last =
+                    guideCells.Count - 1;
+
+                Vector2Int destinationDirection =
+                    guideCells[last] -
+                    guideCells[last - 1];
+
+                AddOpeningClearanceCells(
+                    cellsToClear,
+                    guideCells[last],
+                    destinationDirection
+                );
+            }
+        }
+
+        return dungeonGenerator
+            .EnvironmentGenerator
+            .DestroySolidPropsAtCells(
+                cellsToClear
+            );
+    }
+
+
+    private void AddOpeningClearanceCells(
+        HashSet<Vector2Int> cellsToClear,
+        Vector2Int wallCell,
+        Vector2Int outwardDirection)
+    {
+        if (cellsToClear == null ||
+            Mathf.Abs(outwardDirection.x) +
+            Mathf.Abs(outwardDirection.y) != 1)
+        {
+            return;
+        }
+
+        for (int distance = 1;
+             distance <= 2;
+             distance++)
+        {
+            cellsToClear.Add(
+                wallCell +
+                outwardDirection *
+                distance
+            );
         }
     }
 
