@@ -1,11 +1,11 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// A collectible gameplay-resource pickup.
+/// Collectible tactical resource used to replenish Pulse or Shaper charges.
 ///
-/// Resource pickups are intentionally separate from treasure/items
-/// because they directly replenish one of the player's limited
-/// tactical abilities.
+/// Gameplay collection remains grid based. Visual presentation is handled
+/// separately through a child SpriteRenderer and CollectibleVisualAnimator so
+/// bobbing never changes the authoritative gameplay cell.
 /// </summary>
 public class ResourcePickup : MonoBehaviour
 {
@@ -15,26 +15,56 @@ public class ResourcePickup : MonoBehaviour
         Shaper
     }
 
-
     private ResourceType resourceType;
-
     private Vector2Int gridCell;
-
     private int amount;
 
-
     private PlayerController playerController;
-
     private PlayerPulseController pulseController;
-
     private PlayerShaperController shaperController;
 
-
-    private Material pickupMaterial;
-
+    private GameObject visualObject;
     private bool collected;
 
+    /// <summary>
+    /// New sprite-based initialiser used by procedural resource generation and
+    /// Resonance puzzle rewards.
+    /// </summary>
+    public void Initialise(
+        ResourceType type,
+        Vector2Int cell,
+        int pickupAmount,
+        PlayerController player,
+        PlayerPulseController pulse,
+        PlayerShaperController shaper,
+        Sprite pickupSprite,
+        float visualScale)
+    {
+        resourceType = type;
+        gridCell = cell;
+        amount = Mathf.Max(1, pickupAmount);
 
+        playerController = player;
+        pulseController = pulse;
+        shaperController = shaper;
+
+        transform.position =
+            new Vector3(
+                cell.x + 0.5f,
+                cell.y + 0.5f,
+                -2.15f
+            );
+
+        CreateSpriteVisual(
+            pickupSprite,
+            Mathf.Max(0.05f, visualScale)
+        );
+    }
+
+    /// <summary>
+    /// Backwards-compatible overload. This keeps any older caller compiling
+    /// while the remaining project systems migrate to sprite visuals.
+    /// </summary>
     public void Initialise(
         ResourceType type,
         Vector2Int cell,
@@ -44,30 +74,13 @@ public class ResourcePickup : MonoBehaviour
         PlayerShaperController shaper,
         Color colour)
     {
-        resourceType =
-            type;
+        resourceType = type;
+        gridCell = cell;
+        amount = Mathf.Max(1, pickupAmount);
 
-
-        gridCell =
-            cell;
-
-
-        amount =
-            Mathf.Max(
-                1,
-                pickupAmount
-            );
-
-
-        playerController =
-            player;
-
-        pulseController =
-            pulse;
-
-        shaperController =
-            shaper;
-
+        playerController = player;
+        pulseController = pulse;
+        shaperController = shaper;
 
         transform.position =
             new Vector3(
@@ -76,88 +89,161 @@ public class ResourcePickup : MonoBehaviour
                 -2.15f
             );
 
+        CreateFallbackVisual(colour);
+    }
 
-        /*
-         * Pulse cells are rotated to produce a diamond-like marker.
-         * Shaper ammunition remains square, helping distinguish them
-         * even before final artwork exists.
-         */
-        if (resourceType ==
-            ResourceType.Pulse)
-        {
-            transform.rotation =
-                Quaternion.Euler(
-                    0f,
-                    0f,
-                    45f
-                );
-        }
+    private void CreateSpriteVisual(
+        Sprite pickupSprite,
+        float visualScale)
+    {
+        ClearExistingVisual();
 
+        visualObject =
+            new GameObject("Resource Pickup Visual");
 
-        transform.localScale =
-            resourceType ==
-            ResourceType.Pulse
-                ? new Vector3(
-                    0.30f,
-                    0.30f,
-                    1f
-                )
-                : new Vector3(
-                    0.34f,
-                    0.34f,
-                    1f
-                );
+        visualObject.transform.SetParent(
+            transform,
+            false
+        );
 
+        visualObject.transform.localPosition =
+            Vector3.zero;
 
-        Collider pickupCollider =
-            GetComponent<Collider>();
-
-
-        if (pickupCollider != null)
-        {
-            Destroy(
-                pickupCollider
+        visualObject.transform.localScale =
+            new Vector3(
+                visualScale,
+                visualScale,
+                1f
             );
+
+        SpriteRenderer renderer =
+            visualObject.AddComponent<SpriteRenderer>();
+
+        renderer.sprite = pickupSprite;
+        renderer.color = Color.white;
+
+        CollectibleVisualAnimator animator =
+            gameObject.GetComponent<CollectibleVisualAnimator>();
+
+        if (animator == null)
+        {
+            animator =
+                gameObject.AddComponent<CollectibleVisualAnimator>();
         }
 
+        animator.SetVisualTarget(
+            visualObject.transform
+        );
+
+        animator.ConfigureAsPickup();
+    }
+
+    private void CreateFallbackVisual(
+        Color colour)
+    {
+        ClearExistingVisual();
+
+        visualObject =
+            GameObject.CreatePrimitive(
+                PrimitiveType.Quad
+            );
+
+        visualObject.name =
+            "Resource Pickup Fallback Visual";
+
+        visualObject.transform.SetParent(
+            transform,
+            false
+        );
+
+        visualObject.transform.localPosition =
+            Vector3.zero;
+
+        visualObject.transform.localScale =
+            resourceType == ResourceType.Pulse
+                ? new Vector3(0.30f, 0.30f, 1f)
+                : new Vector3(0.34f, 0.34f, 1f);
+
+        if (resourceType == ResourceType.Pulse)
+        {
+            visualObject.transform.localRotation =
+                Quaternion.Euler(0f, 0f, 45f);
+        }
+
+        Collider collider =
+            visualObject.GetComponent<Collider>();
+
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
 
         Renderer renderer =
-            GetComponent<Renderer>();
-
+            visualObject.GetComponent<Renderer>();
 
         Shader shader =
-            Shader.Find(
-                "Unlit/Color"
-            );
-
+            Shader.Find("Sprites/Default");
 
         if (shader == null)
         {
             shader =
-                Shader.Find(
-                    "Sprites/Default"
-                );
+                Shader.Find("Unlit/Color");
         }
 
-
-        if (renderer != null &&
-            shader != null)
+        if (renderer != null && shader != null)
         {
-            pickupMaterial =
-                new Material(
-                    shader
-                );
+            Material material =
+                new Material(shader);
 
-
-            pickupMaterial.color =
-                colour;
-
-
-            renderer.sharedMaterial =
-                pickupMaterial;
+            material.color = colour;
+            renderer.material = material;
         }
+
+        CollectibleVisualAnimator animator =
+            gameObject.GetComponent<CollectibleVisualAnimator>();
+
+        if (animator == null)
+        {
+            animator =
+                gameObject.AddComponent<CollectibleVisualAnimator>();
+        }
+
+        animator.SetVisualTarget(
+            visualObject.transform
+        );
+
+        animator.ConfigureAsPickup();
     }
 
+    private void ClearExistingVisual()
+    {
+        if (visualObject != null)
+        {
+            Destroy(visualObject);
+            visualObject = null;
+        }
+
+        /*
+         * Defensive compatibility: an older caller may still create a Quad
+         * before adding ResourcePickup. Hide/remove its collider and renderer
+         * so the new sprite becomes the only visible collectible.
+         */
+        Collider rootCollider =
+            GetComponent<Collider>();
+
+        if (rootCollider != null)
+        {
+            Destroy(rootCollider);
+        }
+
+        Renderer rootRenderer =
+            GetComponent<Renderer>();
+
+        if (rootRenderer != null)
+        {
+            rootRenderer.enabled = false;
+        }
+    }
 
     private void Update()
     {
@@ -168,33 +254,25 @@ public class ResourcePickup : MonoBehaviour
             return;
         }
 
-
         if (playerController.GridPosition !=
             gridCell)
         {
             return;
         }
 
-
         TryCollect();
     }
 
-
     private void TryCollect()
     {
-        int actuallyAdded =
-            0;
+        int actuallyAdded = 0;
 
-
-        if (resourceType ==
-            ResourceType.Pulse)
+        if (resourceType == ResourceType.Pulse)
         {
             if (pulseController != null)
             {
                 actuallyAdded =
-                    pulseController.AddCharges(
-                        amount
-                    );
+                    pulseController.AddCharges(amount);
             }
         }
         else
@@ -202,46 +280,26 @@ public class ResourcePickup : MonoBehaviour
             if (shaperController != null)
             {
                 actuallyAdded =
-                    shaperController.AddCharges(
-                        amount
-                    );
+                    shaperController.AddCharges(amount);
             }
         }
 
-
         /*
-         * If the relevant inventory is already full, leave the pickup
-         * on the floor. The player can return after spending a charge.
+         * If the relevant inventory is full, leave the pickup in place so the
+         * player can return after spending a charge.
          */
         if (actuallyAdded <= 0)
         {
             return;
         }
 
-
-        collected =
-            true;
-
+        collected = true;
 
         UnityEngine.Debug.Log(
             $"RESOURCE PICKUP COLLECTED - " +
             $"{resourceType} +{actuallyAdded} at {gridCell}"
         );
 
-
-        Destroy(
-            gameObject
-        );
-    }
-
-
-    private void OnDestroy()
-    {
-        if (pickupMaterial != null)
-        {
-            Destroy(
-                pickupMaterial
-            );
-        }
+        Destroy(gameObject);
     }
 }

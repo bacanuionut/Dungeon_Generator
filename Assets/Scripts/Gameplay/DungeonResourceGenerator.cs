@@ -2,12 +2,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Generates limited tactical-resource pickups for each procedural
-/// floor.
+/// Generates limited tactical-resource pickups for each procedural floor.
 ///
-/// The system watches DungeonGenerator.GenerationVersion so every new
-/// floor receives a fresh deterministic supply layout without changing
-/// the dungeon-generation pipeline itself.
+/// The system watches DungeonGenerator.GenerationVersion so every new floor
+/// receives a fresh deterministic supply layout without changing the dungeon
+/// generation pipeline itself.
 /// </summary>
 public class DungeonResourceGenerator : MonoBehaviour
 {
@@ -41,31 +40,26 @@ public class DungeonResourceGenerator : MonoBehaviour
     private int shaperChargesPerPickup = 1;
 
 
-    [Header("Appearance")]
+    [Header("Pickup Sprites")]
 
+    [Tooltip("Assign Collectibles_Pulse_01.")]
     [SerializeField]
-    private Color pulsePickupColour =
-        new Color(
-            0.20f,
-            0.75f,
-            1f,
-            1f
-        );
+    private Sprite pulsePickupSprite;
 
+    [Tooltip("Assign Collectibles_Digger_01.")]
     [SerializeField]
-    private Color shaperPickupColour =
-        new Color(
-            1f,
-            0.35f,
-            0.85f,
-            1f
-        );
+    private Sprite shaperPickupSprite;
+
+    [Range(0.25f, 1.5f)]
+    [SerializeField]
+    private float pulsePickupScale = 0.80f;
+
+    [Range(0.25f, 1.5f)]
+    [SerializeField]
+    private float shaperPickupScale = 0.85f;
 
 
-    private int observedGenerationVersion =
-        -1;
-
-
+    private int observedGenerationVersion = -1;
     private GameObject pickupParent;
 
 
@@ -78,17 +72,14 @@ public class DungeonResourceGenerator : MonoBehaviour
             return;
         }
 
-
         if (observedGenerationVersion ==
             dungeonGenerator.GenerationVersion)
         {
             return;
         }
 
-
         observedGenerationVersion =
             dungeonGenerator.GenerationVersion;
-
 
         GenerateResources();
     }
@@ -98,34 +89,24 @@ public class DungeonResourceGenerator : MonoBehaviour
     {
         ClearResources();
 
-
         pickupParent =
-            new GameObject(
-                "Generated Resource Pickups"
-            );
-
+            new GameObject("Generated Resource Pickups");
 
         HashSet<Vector2Int> occupiedCells =
             BuildOccupiedCells();
 
-
         System.Random random =
             new System.Random(
                 unchecked(
-                    dungeonGenerator.CurrentSeed *
-                        1879 +
+                    dungeonGenerator.CurrentSeed * 1879 +
                     86028121
                 )
             );
 
-
         HashSet<Room> usedRooms =
             new HashSet<Room>();
 
-
-        int pulsePlaced =
-            0;
-
+        int pulsePlaced = 0;
 
         for (int i = 0;
              i < pulsePickupsPerFloor;
@@ -134,7 +115,6 @@ public class DungeonResourceGenerator : MonoBehaviour
             if (TrySpawnResource(
                     ResourcePickup.ResourceType.Pulse,
                     pulseChargesPerPickup,
-                    pulsePickupColour,
                     random,
                     occupiedCells,
                     usedRooms))
@@ -143,10 +123,7 @@ public class DungeonResourceGenerator : MonoBehaviour
             }
         }
 
-
-        int shaperPlaced =
-            0;
-
+        int shaperPlaced = 0;
 
         for (int i = 0;
              i < shaperPickupsPerFloor;
@@ -155,7 +132,6 @@ public class DungeonResourceGenerator : MonoBehaviour
             if (TrySpawnResource(
                     ResourcePickup.ResourceType.Shaper,
                     shaperChargesPerPickup,
-                    shaperPickupColour,
                     random,
                     occupiedCells,
                     usedRooms))
@@ -163,7 +139,6 @@ public class DungeonResourceGenerator : MonoBehaviour
                 shaperPlaced++;
             }
         }
-
 
         UnityEngine.Debug.Log(
             "========== FLOOR RESOURCE SUPPLIES ==========\n" +
@@ -180,69 +155,37 @@ public class DungeonResourceGenerator : MonoBehaviour
         HashSet<Vector2Int> occupied =
             new HashSet<Vector2Int>();
 
-
         occupied.Add(
-            dungeonGenerator
-                .GetPlayerSpawnPosition()
+            dungeonGenerator.GetPlayerSpawnPosition()
         );
 
-
         occupied.Add(
-            dungeonGenerator
-                .GetExitPosition()
+            dungeonGenerator.GetExitPosition()
         );
 
-
-        /*
-         * Anchor Sigils were generated before ordinary gameplay
-         * content, so their cells must remain reserved.
-         */
-        if (dungeonGenerator.ObjectiveManager !=
-            null)
+        if (dungeonGenerator.ObjectiveManager != null)
         {
             foreach (Vector2Int objectiveCell in
-                     dungeonGenerator.ObjectiveManager
-                         .ObjectiveCells)
+                     dungeonGenerator.ObjectiveManager.ObjectiveCells)
             {
-                occupied.Add(
-                    objectiveCell
-                );
+                occupied.Add(objectiveCell);
             }
         }
 
-
-        /*
-         * Also reserve existing procedural content.
-         *
-         * DungeonContentGenerator already exposes the generated enemy
-         * and item objects, so resources can avoid being placed
-         * directly on top of them.
-         */
-        if (dungeonGenerator.ContentGenerator !=
-            null)
+        if (dungeonGenerator.ContentGenerator != null)
         {
             foreach (GameObject enemy in
-                     dungeonGenerator.ContentGenerator
-                         .EnemyObjects)
+                     dungeonGenerator.ContentGenerator.EnemyObjects)
             {
-                AddObjectCell(
-                    occupied,
-                    enemy
-                );
+                AddObjectCell(occupied, enemy);
             }
-
 
             foreach (GameObject item in
-                     dungeonGenerator.ContentGenerator
-                         .ItemObjects)
+                     dungeonGenerator.ContentGenerator.ItemObjects)
             {
-                AddObjectCell(
-                    occupied,
-                    item
-                );
+                AddObjectCell(occupied, item);
             }
         }
-
 
         return occupied;
     }
@@ -255,44 +198,29 @@ public class DungeonResourceGenerator : MonoBehaviour
         if (target == null)
             return;
 
-
         Vector2Int cell =
             new Vector2Int(
-                Mathf.FloorToInt(
-                    target.transform.position.x
-                ),
-                Mathf.FloorToInt(
-                    target.transform.position.y
-                )
+                Mathf.FloorToInt(target.transform.position.x),
+                Mathf.FloorToInt(target.transform.position.y)
             );
 
-
-        occupied.Add(
-            cell
-        );
+        occupied.Add(cell);
     }
 
 
     private bool TrySpawnResource(
         ResourcePickup.ResourceType type,
         int amount,
-        Color colour,
         System.Random random,
         HashSet<Vector2Int> occupiedCells,
         HashSet<Room> usedRooms)
     {
         List<Room> candidates =
-            BuildCandidateRooms(
-                usedRooms,
-                random
-            );
+            BuildCandidateRooms(usedRooms, random);
 
-
-        foreach (Room room in
-                 candidates)
+        foreach (Room room in candidates)
         {
             Vector2Int cell;
-
 
             if (!TryChooseCell(
                     room,
@@ -303,46 +231,19 @@ public class DungeonResourceGenerator : MonoBehaviour
                 continue;
             }
 
+            SpawnResource(type, cell, amount);
 
-            SpawnResource(
-                type,
-                cell,
-                amount,
-                colour
-            );
-
-
-            occupiedCells.Add(
-                cell
-            );
-
-
-            usedRooms.Add(
-                room
-            );
-
-
+            occupiedCells.Add(cell);
+            usedRooms.Add(room);
             return true;
         }
 
-
-        /*
-         * If every suitable unused room failed, allow another resource
-         * to use a previously selected room rather than losing the
-         * pickup completely.
-         */
         candidates =
-            BuildCandidateRooms(
-                null,
-                random
-            );
+            BuildCandidateRooms(null, random);
 
-
-        foreach (Room room in
-                 candidates)
+        foreach (Room room in candidates)
         {
             Vector2Int cell;
-
 
             if (!TryChooseCell(
                     room,
@@ -353,28 +254,14 @@ public class DungeonResourceGenerator : MonoBehaviour
                 continue;
             }
 
-
-            SpawnResource(
-                type,
-                cell,
-                amount,
-                colour
-            );
-
-
-            occupiedCells.Add(
-                cell
-            );
-
-
+            SpawnResource(type, cell, amount);
+            occupiedCells.Add(cell);
             return true;
         }
-
 
         UnityEngine.Debug.LogWarning(
             $"Could not place {type} resource pickup."
         );
-
 
         return false;
     }
@@ -387,65 +274,33 @@ public class DungeonResourceGenerator : MonoBehaviour
         List<Room> rooms =
             new List<Room>();
 
-
-        foreach (Room room in
-                 dungeonGenerator.Rooms)
+        foreach (Room room in dungeonGenerator.Rooms)
         {
             if (room == null ||
-                room ==
-                    dungeonGenerator.StartRoom ||
-                room ==
-                    dungeonGenerator.ExitRoom ||
-                room.Role ==
-                    RoomRole.Puzzle)
+                room == dungeonGenerator.StartRoom ||
+                room == dungeonGenerator.ExitRoom ||
+                room.Role == RoomRole.Puzzle)
             {
                 continue;
             }
-
 
             if (excludedRooms != null &&
-                excludedRooms.Contains(
-                    room))
+                excludedRooms.Contains(room))
             {
                 continue;
             }
 
-
-            rooms.Add(
-                room
-            );
+            rooms.Add(room);
         }
 
-
-        /*
-         * Prefer gameplay spaces where finding resources makes sense.
-         *
-         * Reward and Rest rooms come first. Deeper rooms are then
-         * slightly preferred so ammunition still requires exploration.
-         */
         rooms.Sort(
             (a, b) =>
             {
-                int scoreA =
-                    GetRoomScore(
-                        a,
-                        random
-                    );
-
-
-                int scoreB =
-                    GetRoomScore(
-                        b,
-                        random
-                    );
-
-
-                return scoreB.CompareTo(
-                    scoreA
-                );
+                int scoreA = GetRoomScore(a, random);
+                int scoreB = GetRoomScore(b, random);
+                return scoreB.CompareTo(scoreA);
             }
         );
-
 
         return rooms;
     }
@@ -456,37 +311,22 @@ public class DungeonResourceGenerator : MonoBehaviour
         System.Random random)
     {
         int score =
-            room.GraphDistanceFromStart *
-            10;
+            room.GraphDistanceFromStart * 10;
 
-
-        if (room.Role ==
-            RoomRole.Reward)
+        if (room.Role == RoomRole.Reward)
         {
-            score +=
-                100;
+            score += 100;
         }
-        else if (room.Role ==
-                 RoomRole.Rest)
+        else if (room.Role == RoomRole.Rest)
         {
-            score +=
-                70;
+            score += 70;
         }
-        else if (room.Role ==
-                 RoomRole.Elite)
+        else if (room.Role == RoomRole.Elite)
         {
-            score +=
-                35;
+            score += 35;
         }
 
-
-        score +=
-            random.Next(
-                0,
-                10
-            );
-
-
+        score += random.Next(0, 10);
         return score;
     }
 
@@ -497,13 +337,8 @@ public class DungeonResourceGenerator : MonoBehaviour
         HashSet<Vector2Int> occupiedCells,
         out Vector2Int selectedCell)
     {
-        selectedCell =
-            Vector2Int.zero;
-
-
-        const int attempts =
-            40;
-
+        selectedCell = Vector2Int.zero;
+        const int attempts = 40;
 
         for (int attempt = 0;
              attempt < attempts;
@@ -515,42 +350,28 @@ public class DungeonResourceGenerator : MonoBehaviour
                     room.Bounds.xMax
                 );
 
-
             int y =
                 random.Next(
                     room.Bounds.yMin,
                     room.Bounds.yMax
                 );
 
-
             Vector2Int candidate =
-                new Vector2Int(
-                    x,
-                    y
-                );
+                new Vector2Int(x, y);
 
-
-            if (!dungeonGenerator.Grid.IsWalkable(
-                    candidate))
+            if (!dungeonGenerator.Grid.IsNavigable(candidate))
             {
                 continue;
             }
 
-
-            if (occupiedCells.Contains(
-                    candidate))
+            if (occupiedCells.Contains(candidate))
             {
                 continue;
             }
 
-
-            selectedCell =
-                candidate;
-
-
+            selectedCell = candidate;
             return true;
         }
-
 
         return false;
     }
@@ -559,30 +380,39 @@ public class DungeonResourceGenerator : MonoBehaviour
     private void SpawnResource(
         ResourcePickup.ResourceType type,
         Vector2Int cell,
-        int amount,
-        Color colour)
+        int amount)
     {
         GameObject pickup =
-            GameObject.CreatePrimitive(
-                PrimitiveType.Quad
+            new GameObject(
+                type == ResourcePickup.ResourceType.Pulse
+                    ? $"Pulse Ammo ({cell.x}, {cell.y})"
+                    : $"Shaper Ammo ({cell.x}, {cell.y})"
             );
-
-
-        pickup.name =
-            type ==
-                ResourcePickup.ResourceType.Pulse
-                ? $"Pulse Ammo ({cell.x}, {cell.y})"
-                : $"Shaper Ammo ({cell.x}, {cell.y})";
-
 
         pickup.transform.SetParent(
             pickupParent.transform
         );
 
-
         ResourcePickup resourcePickup =
             pickup.AddComponent<ResourcePickup>();
 
+        Sprite sprite =
+            type == ResourcePickup.ResourceType.Pulse
+                ? pulsePickupSprite
+                : shaperPickupSprite;
+
+        float scale =
+            type == ResourcePickup.ResourceType.Pulse
+                ? pulsePickupScale
+                : shaperPickupScale;
+
+        if (sprite == null)
+        {
+            UnityEngine.Debug.LogWarning(
+                $"{type} resource sprite is not assigned in " +
+                "DungeonResourceGenerator."
+            );
+        }
 
         resourcePickup.Initialise(
             type,
@@ -591,7 +421,8 @@ public class DungeonResourceGenerator : MonoBehaviour
             playerController,
             pulseController,
             shaperController,
-            colour
+            sprite,
+            scale
         );
     }
 
@@ -600,13 +431,8 @@ public class DungeonResourceGenerator : MonoBehaviour
     {
         if (pickupParent != null)
         {
-            Destroy(
-                pickupParent
-            );
-
-
-            pickupParent =
-                null;
+            Destroy(pickupParent);
+            pickupParent = null;
         }
     }
 }

@@ -158,8 +158,12 @@ MonoBehaviour:
   shaperPickupsPerFloor: 1
   pulseChargesPerPickup: 1
   shaperChargesPerPickup: 1
-  pulsePickupColour: {r: 0.2, g: 0.75, b: 1, a: 1}
-  shaperPickupColour: {r: 1, g: 0.35, b: 0.85, a: 1}
+  pulsePickupSprite: {fileID: 8454045272387863276, guid: 31174ffbf862f9947ab34e30d1ce4b92,
+    type: 3}
+  shaperPickupSprite: {fileID: 728750991078519116, guid: 31174ffbf862f9947ab34e30d1ce4b92,
+    type: 3}
+  pulsePickupScale: 0.8
+  shaperPickupScale: 0.85
 --- !u!4 &122087861
 Transform:
   m_ObjectHideFlags: 0
@@ -315,6 +319,12 @@ MonoBehaviour:
   torchFlameVerticalOffset: 0.5
   pulseReward: 1
   shaperReward: 1
+  pulseRewardSprite: {fileID: 8454045272387863276, guid: 31174ffbf862f9947ab34e30d1ce4b92,
+    type: 3}
+  shaperRewardSprite: {fileID: 728750991078519116, guid: 31174ffbf862f9947ab34e30d1ce4b92,
+    type: 3}
+  pulseRewardScale: 0.8
+  shaperRewardScale: 0.85
 --- !u!4 &438204754
 Transform:
   m_ObjectHideFlags: 0
@@ -500,6 +510,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerController: {fileID: 2142187895}
+  runStatsManager: {fileID: 2142493819}
   unlitMaterial: {fileID: 2100000, guid: 3728c06bb33f1d54ead0c964af138c5c, type: 2}
   baseCombatThreat: 2
   threatPerGraphStep: 1
@@ -507,10 +518,11 @@ MonoBehaviour:
   basicEnemyThreatCost: 2
   maximumEnemiesPerRoom: 3
   itemChance: 0.3
+  coinSprite: {fileID: -4765436259334159882, guid: 31174ffbf862f9947ab34e30d1ce4b92,
+    type: 3}
+  coinScale: 0.75
   enemyColour: {r: 1, g: 0, b: 0, a: 1}
-  itemColour: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   enemyScale: 0.55
-  itemScale: 0.35
 --- !u!4 &655920710
 Transform:
   m_ObjectHideFlags: 0
@@ -809,7 +821,7 @@ MonoBehaviour:
     pixelsPerUnit: 16
     sideFramesFaceRight: 0
     visualScale: 0.75
-    visualOffset: {x: 0, y: 0}
+    visualOffset: {x: 0, y: -0.2}
   enemy1SpriteSet:
     setName: Enemy1
     spriteSheet: {fileID: 2800000, guid: 2956bdc0e1fc5704e9b7634b5d14765b, type: 3}
@@ -836,8 +848,8 @@ MonoBehaviour:
     spriteSheet: {fileID: 2800000, guid: cb2c5b86332a4ff4aa11959f9ffc2da9, type: 3}
     pixelsPerUnit: 16
     sideFramesFaceRight: 0
-    visualScale: 1
-    visualOffset: {x: 0, y: 0}
+    visualScale: 1.5
+    visualOffset: {x: 0, y: -0.8}
   discoveryInterval: 0.2
 --- !u!4 &808587833
 Transform:
@@ -1437,6 +1449,9 @@ MonoBehaviour:
   requiredSigils: 3
   sigilScale: 0.45
   sigilColour: {r: 0, g: 1, b: 1, a: 1}
+  keySprite: {fileID: 1126344992095758660, guid: 31174ffbf862f9947ab34e30d1ce4b92,
+    type: 3}
+  keyScale: 0.85
   exitObject: {fileID: 2144170878}
 --- !u!4 &1429068667
 Transform:
@@ -1975,9 +1990,58 @@ MonoBehaviour:
   movementAnimationHold: 0.6
   visualStepDuration: 0.55
   maximumAnimatedStepDistance: 1.1
-  visualZOffset: -10
+  visualZOffset: -3
   feetAnchorYOffset: -0.5
   stunnedTint: {r: 0.45, g: 0.72, b: 1, a: 1}
+--- !u!1 &2142493818
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2142493820}
+  - component: {fileID: 2142493819}
+  m_Layer: 0
+  m_Name: Run Stats Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2142493819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2142493818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d10087b000700cb4ea8d7bce7730006b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  currentMode: 0
+  currentDifficulty: 1
+  baseSeed: 12345
+  targetFloors: 5
+  autoBeginDebugRun: 1
+  dungeonGenerator: {fileID: 1044558306}
+--- !u!4 &2142493820
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2142493818}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 17.90527, y: 24.333939, z: -216.87737}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 19
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2144170878
 GameObject:
   m_ObjectHideFlags: 0

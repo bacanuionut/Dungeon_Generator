@@ -147,6 +147,24 @@ public class ResonancePuzzleManager : MonoBehaviour
     [SerializeField]
     private int shaperReward = 1;
 
+    [Header("Reward Sprites")]
+
+    [Tooltip("Assign Collectibles_Pulse_01.")]
+    [SerializeField]
+    private Sprite pulseRewardSprite;
+
+    [Tooltip("Assign Collectibles_Digger_01.")]
+    [SerializeField]
+    private Sprite shaperRewardSprite;
+
+    [Range(0.25f, 1.5f)]
+    [SerializeField]
+    private float pulseRewardScale = 0.80f;
+
+    [Range(0.25f, 1.5f)]
+    [SerializeField]
+    private float shaperRewardScale = 0.85f;
+
 
     private sealed class PuzzleLever
     {
@@ -1954,29 +1972,62 @@ public class ResonancePuzzleManager : MonoBehaviour
         Color colour)
     {
         GameObject reward =
-            GameObject.CreatePrimitive(PrimitiveType.Quad);
-
-        reward.name =
-            type == ResourcePickup.ResourceType.Pulse
-            ? "Puzzle Reward - Pulse"
-            : "Puzzle Reward - Shaper";
+            new GameObject(
+                type == ResourcePickup.ResourceType.Pulse
+                    ? "Puzzle Reward - Pulse"
+                    : "Puzzle Reward - Shaper"
+            );
 
         reward.transform.SetParent(
             puzzleParent.transform
         );
 
+        Sprite rewardSprite =
+            type == ResourcePickup.ResourceType.Pulse
+                ? pulseRewardSprite
+                : shaperRewardSprite;
+
+        float rewardScale =
+            type == ResourcePickup.ResourceType.Pulse
+                ? pulseRewardScale
+                : shaperRewardScale;
+
+        if (rewardSprite == null)
+        {
+            UnityEngine.Debug.LogWarning(
+                $"{type} puzzle reward sprite is not assigned. " +
+                "The legacy coloured fallback will be used."
+            );
+        }
+
         ResourcePickup pickup =
             reward.AddComponent<ResourcePickup>();
 
-        pickup.Initialise(
-            type,
-            cell,
-            amount,
-            playerController,
-            pulseController,
-            shaperController,
-            colour
-        );
+        if (rewardSprite != null)
+        {
+            pickup.Initialise(
+                type,
+                cell,
+                amount,
+                playerController,
+                pulseController,
+                shaperController,
+                rewardSprite,
+                rewardScale
+            );
+        }
+        else
+        {
+            pickup.Initialise(
+                type,
+                cell,
+                amount,
+                playerController,
+                pulseController,
+                shaperController,
+                colour
+            );
+        }
     }
 
 

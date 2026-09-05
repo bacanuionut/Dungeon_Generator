@@ -27,6 +27,13 @@ public class FloorObjectiveManager : MonoBehaviour
     [SerializeField]
     private Color sigilColour = Color.cyan;
 
+    [Header("Key Visual")]
+
+    [SerializeField]
+    private Sprite keySprite;
+
+    [SerializeField]
+    private float keyScale = 0.85f;
 
     [Header("References")]
 
@@ -347,15 +354,12 @@ public class FloorObjectiveManager : MonoBehaviour
 
 
     private void CreateSigil(
-        Vector2Int gridPosition)
+    Vector2Int gridPosition)
     {
         GameObject sigil =
-            GameObject.CreatePrimitive(
-                PrimitiveType.Quad
+            new GameObject(
+                $"Key ({gridPosition.x}, {gridPosition.y})"
             );
-
-        sigil.name =
-            $"Anchor Sigil ({gridPosition.x}, {gridPosition.y})";
 
         sigil.transform.SetParent(
             objectiveParent.transform
@@ -370,29 +374,31 @@ public class FloorObjectiveManager : MonoBehaviour
 
         sigil.transform.localScale =
             new Vector3(
-                sigilScale,
-                sigilScale,
+                keyScale,
+                keyScale,
                 1f
             );
 
-        Collider sigilCollider =
-            sigil.GetComponent<Collider>();
 
-        if (sigilCollider != null)
-        {
-            Destroy(sigilCollider);
-        }
+        SpriteRenderer renderer =
+            sigil.AddComponent<SpriteRenderer>();
 
-        Renderer renderer =
-            sigil.GetComponent<Renderer>();
+        renderer.sprite =
+            keySprite;
 
-        if (renderer != null)
-        {
-            renderer.material.color =
-                sigilColour;
-        }
+        renderer.color =
+            Color.white;
 
-        sigilsByCell[gridPosition] =
+
+        CollectibleVisualAnimator animator =
+            sigil.AddComponent<CollectibleVisualAnimator>();
+
+        animator.ConfigureAsKey();
+
+
+        sigilsByCell[
+            gridPosition
+        ] =
             sigil;
 
         objectiveCells.Add(
@@ -432,7 +438,7 @@ public class FloorObjectiveManager : MonoBehaviour
         collectedSigils++;
 
         UnityEngine.Debug.Log(
-            "ANCHOR SIGIL COLLECTED - " +
+            "KEY COLLECTED - " +
             $"{collectedSigils}/{activeRequiredSigils}"
         );
 
@@ -443,7 +449,7 @@ public class FloorObjectiveManager : MonoBehaviour
             UnityEngine.Debug.Log(
                 "====================================\n" +
                 "     DESCENT REQUIREMENT COMPLETE\n" +
-                "All Anchor Sigils have been collected.\n" +
+                "All keys have been collected.\n" +
                 "The hatch remains closed until the player approaches it.\n" +
                 "===================================="
             );

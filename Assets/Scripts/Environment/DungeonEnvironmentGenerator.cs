@@ -583,11 +583,11 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
                 roomRandom
             );
 
-            GenerateWalkOverDetailsForRoom(
-                room,
-                theme,
-                currentRoomDetailRandom
-            );
+            //GenerateWalkOverDetailsForRoom(
+            //    room,
+            //    theme,
+            //    currentRoomDetailRandom
+            //);
 
             GenerateWallTorchesForRoom(
                 room,
@@ -626,10 +626,10 @@ public class DungeonEnvironmentGenerator : MonoBehaviour
             }
         }
 
-        GenerateCorridorDetails(
-            theme,
-            new System.Random(unchecked(environmentSeed ^ 982451653))
-        );
+        //GenerateCorridorDetails(
+        //    theme,
+        //    new System.Random(unchecked(environmentSeed ^ 982451653))
+        //);
 
         activeGrid.AddNavigationBlockers(solidPropCells);
         activeGrid.AddCollectibleExclusions(detailCells);

@@ -16,6 +16,9 @@ public class DungeonContentGenerator : MonoBehaviour
     [SerializeField]
     private PlayerController playerController;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
+
     [Header("Rendering")]
 
     [Tooltip("Shared unlit material used for generated dungeon content.")]
@@ -45,27 +48,31 @@ public class DungeonContentGenerator : MonoBehaviour
     private int maximumEnemiesPerRoom = 3;
 
 
-    [Header("Item Placement")]
+    [Header("Coin Placement")]
 
-    [Tooltip("Chance that an eligible room contains an item.")]
+    [Tooltip("Chance that an eligible Combat room contains a coin.")]
     [Range(0f, 1f)]
     [SerializeField]
     private float itemChance = 0.30f;
 
 
-    [Header("Display")]
+    [Header("Coin Visual")]
+
+    [Tooltip("Assign Collectibles_Coin_01 from items_sheet.png.")]
+    [SerializeField]
+    private Sprite coinSprite;
+
+    [SerializeField]
+    private float coinScale = 0.75f;
+
+
+    [Header("Enemy Placeholder Display")]
 
     [SerializeField]
     private Color enemyColour = Color.red;
 
     [SerializeField]
-    private Color itemColour = Color.yellow;
-
-    [SerializeField]
     private float enemyScale = 0.55f;
-
-    [SerializeField]
-    private float itemScale = 0.35f;
 
 
     private int totalThreatBudget;
@@ -97,7 +104,10 @@ public class DungeonContentGenerator : MonoBehaviour
 
     public int EnemyCount => enemyObjects.Count;
 
+    // Kept for compatibility with existing content-generation counters.
     public int ItemCount => itemObjects.Count;
+
+    public int CoinCount => itemObjects.Count;
 
 
     /// <summary>
@@ -118,7 +128,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
     /// <summary>
-    /// Generates enemies and items after the dungeon itself has
+    /// Generates enemies and coins after the dungeon itself has
     /// passed validation.
     /// </summary>
     public void GenerateContent(DungeonGenerator generator)
@@ -157,6 +167,22 @@ public class DungeonContentGenerator : MonoBehaviour
 
         contentParent =
             new GameObject("Generated Content");
+
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+
+        if (coinSprite == null)
+        {
+            UnityEngine.Debug.LogWarning(
+                "COIN VISUAL - Collectibles_Coin_01 has not been assigned. " +
+                "Coins will use a temporary yellow marker until the sprite is assigned."
+            );
+        }
 
 
         // Use a different deterministic sequence from the main dungeon
@@ -282,9 +308,9 @@ public class DungeonContentGenerator : MonoBehaviour
             $"Combat enemies: {combatEnemiesGenerated}\n" +
             $"Elite enemies: {eliteEnemiesGenerated}\n" +
             $"Total enemies: {EnemyCount}\n" +
-            $"Reward-room items: {rewardItemsGenerated}\n" +
-            $"Other items: {randomItemsGenerated}\n" +
-            $"Total items: {ItemCount}\n" +
+            $"Reward-room coins: {rewardItemsGenerated}\n" +
+            $"Other coins: {randomItemsGenerated}\n" +
+            $"Total coins spawned: {CoinCount}\n" +
             "Start room enemy-free: YES\n" +
             "Rest rooms enemy-free: YES\n" +
             "Puzzle rooms reserved: YES\n" +
@@ -307,11 +333,9 @@ public class DungeonContentGenerator : MonoBehaviour
         Vector2Int cell;
 
         if (!TryFindFreeRoomCell(
-                generator.Grid,
                 room,
                 random,
                 occupiedCells,
-                false,
                 out cell))
         {
             return;
@@ -360,10 +384,12 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
     /// <summary>
-    /// Creates an item marker on a free room cell.
+    /// Creates one collectible coin on a free room cell.
+    ///
+    /// Coins deliberately use animated sprite presentation so they are
+    /// visually distinct from static environmental decoration.
     /// </summary>
     private void SpawnItem(
-        DungeonGenerator generator,
         Room room,
         System.Random random,
         HashSet<Vector2Int> occupiedCells)
@@ -371,23 +397,68 @@ public class DungeonContentGenerator : MonoBehaviour
         Vector2Int cell;
 
         if (!TryFindFreeRoomCell(
-                generator.Grid,
                 room,
                 random,
                 occupiedCells,
-                true,
                 out cell))
         {
             return;
         }
 
-        GameObject item =
-            CreateMarker(
-                "Item",
-                cell,
-                itemScale,
-                itemColour
+
+        GameObject item;
+
+        if (coinSprite != null)
+        {
+            item =
+                new GameObject(
+                    $"Coin ({cell.x}, {cell.y})"
+                );
+
+            item.transform.SetParent(
+                contentParent.transform
             );
+
+            item.transform.position =
+                new Vector3(
+                    cell.x + 0.5f,
+                    cell.y + 0.5f,
+                    -2.05f
+                );
+
+            item.transform.localScale =
+                new Vector3(
+                    coinScale,
+                    coinScale,
+                    1f
+                );
+
+            SpriteRenderer renderer =
+                item.AddComponent<SpriteRenderer>();
+
+            renderer.sprite =
+                coinSprite;
+
+            renderer.color =
+                Color.white;
+
+            CollectibleVisualAnimator animator =
+                item.AddComponent<CollectibleVisualAnimator>();
+
+            animator.ConfigureAsCoin();
+        }
+        else
+        {
+            // Safe fallback while the Inspector sprite is being assigned.
+            item =
+                CreateMarker(
+                    "Coin",
+                    cell,
+                    0.35f,
+                    Color.yellow
+                );
+        }
+
 
         itemObjects.Add(item);
         occupiedCells.Add(cell);
@@ -400,23 +471,12 @@ public class DungeonContentGenerator : MonoBehaviour
     /// returns the first cell that has not already been occupied.
     /// </summary>
     private bool TryFindFreeRoomCell(
-        DungeonGrid grid,
         Room room,
         System.Random random,
         HashSet<Vector2Int> occupiedCells,
-        bool requireCollectibleClearance,
         out Vector2Int selectedCell)
     {
-        const int maximumAttempts = 40;
-
-        if (grid == null ||
-            room == null)
-        {
-            selectedCell =
-                Vector2Int.zero;
-
-            return false;
-        }
+        const int maximumAttempts = 30;
 
         for (int attempt = 0;
              attempt < maximumAttempts;
@@ -435,45 +495,16 @@ public class DungeonContentGenerator : MonoBehaviour
                 );
 
             Vector2Int candidate =
-                new Vector2Int(
-                    x,
-                    y
-                );
+                new Vector2Int(x, y);
 
-            if (occupiedCells.Contains(
-                    candidate))
+            if (!occupiedCells.Contains(candidate))
             {
-                continue;
+                selectedCell = candidate;
+                return true;
             }
-
-            // All actors and items must be placed on real floor that is not
-            // occupied by a solid environmental prop.
-            if (!grid.IsNavigable(
-                    candidate))
-            {
-                continue;
-            }
-
-            // Collectibles keep one extra cell of visual clearance from solid
-            // props so overhanging pixel art cannot make the pickup look as if
-            // it was generated inside a crate, table or rubble pile.
-            if (requireCollectibleClearance &&
-                !grid.IsClearForCollectible(
-                    candidate,
-                    1))
-            {
-                continue;
-            }
-
-            selectedCell =
-                candidate;
-
-            return true;
         }
 
-        selectedCell =
-            Vector2Int.zero;
-
+        selectedCell = Vector2Int.zero;
         return false;
     }
 
@@ -556,9 +587,11 @@ public class DungeonContentGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Attempts to collect an item from the supplied dungeon-grid cell.
+    /// Attempts to collect a coin from the supplied dungeon-grid cell.
     ///
-    /// Returns true only when an item was actually present.
+    /// The coin is still discovered through the existing authoritative grid
+    /// lookup rather than physics collision. RunStatsManager keeps the total
+    /// across floor transitions.
     /// </summary>
     public bool TryCollectItem(Vector2Int gridPosition)
     {
@@ -587,13 +620,28 @@ public class DungeonContentGenerator : MonoBehaviour
         }
 
 
-        UnityEngine.Debug.Log(
-            $"ITEM COLLECTED at " +
-            $"({gridPosition.x}, {gridPosition.y})"
-        );
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+
+        if (runStatsManager != null)
+        {
+            runStatsManager.RecordCoinCollected(1);
+        }
+        else
+        {
+            UnityEngine.Debug.Log(
+                $"COIN COLLECTED at ({gridPosition.x}, {gridPosition.y}). " +
+                "RunStatsManager was not present, so the run total was not stored."
+            );
+        }
 
         return true;
     }
+
 
     /// <summary>
     /// Calculates how much enemy threat a generated room should contain.
@@ -713,7 +761,7 @@ public class DungeonContentGenerator : MonoBehaviour
                 enemiesActuallyGenerated;
         }
 
-        // Combat encounters can occasionally contain ordinary treasure,
+        // Combat encounters can occasionally contain coins,
         // but dedicated Reward rooms remain much more valuable.
         if (!isEliteRoom &&
             random.NextDouble() < itemChance)
@@ -723,7 +771,6 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
             SpawnItem(
-                generator,
                 room,
                 random,
                 occupiedCells
@@ -746,7 +793,7 @@ public class DungeonContentGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Places guaranteed treasure in optional Reward rooms.
+    /// Places guaranteed coins in optional Reward rooms.
     ///
     /// Reward rooms are intentionally safe at this stage so choosing to
     /// explore a side branch has a clear benefit.
@@ -769,7 +816,6 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
             SpawnItem(
-                generator,
                 room,
                 random,
                 occupiedCells
@@ -786,7 +832,7 @@ public class DungeonContentGenerator : MonoBehaviour
         UnityEngine.Debug.Log(
             $"REWARD ROOM CONTENT - " +
             $"Room {room.Centre}. " +
-            $"Items generated: {guaranteedItems}"
+            $"Coins generated: {guaranteedItems}"
         );
     }
 }

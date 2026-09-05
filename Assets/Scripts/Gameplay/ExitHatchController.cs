@@ -67,7 +67,7 @@ public class ExitHatchController : MonoBehaviour
     [TextArea(2, 4)]
     [SerializeField]
     private string lockedMessage =
-        "The descent hatch is sealed. Collect all Anchor Sigils to open it.";
+        "The descent hatch is sealed. Collect all keys to open it.";
 
 
     private SpriteRenderer shaftRenderer;
