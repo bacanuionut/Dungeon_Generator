@@ -32,6 +32,55 @@ public static class DynamicShaperPathfinder
         int maximumSideDeviation,
         out ShaperPathResult result)
     {
+        return TryFindPathInternal(
+            generator,
+            originCell,
+            facingDirection,
+            minimumSolidCells,
+            maximumSolidCells,
+            maximumSideDeviation,
+            false,
+            out result
+        );
+    }
+
+
+    /// <summary>
+    /// Searches for a Digger route that ends in a different room rather
+    /// than terminating at a corridor cell.
+    /// </summary>
+    public static bool TryFindRoomPath(
+        DungeonGenerator generator,
+        Vector2Int originCell,
+        Vector2Int facingDirection,
+        int minimumSolidCells,
+        int maximumSolidCells,
+        int maximumSideDeviation,
+        out ShaperPathResult result)
+    {
+        return TryFindPathInternal(
+            generator,
+            originCell,
+            facingDirection,
+            minimumSolidCells,
+            maximumSolidCells,
+            maximumSideDeviation,
+            true,
+            out result
+        );
+    }
+
+
+    private static bool TryFindPathInternal(
+        DungeonGenerator generator,
+        Vector2Int originCell,
+        Vector2Int facingDirection,
+        int minimumSolidCells,
+        int maximumSolidCells,
+        int maximumSideDeviation,
+        bool roomDestinationOnly,
+        out ShaperPathResult result)
+    {
         result = null;
 
 
@@ -279,7 +328,8 @@ public static class DynamicShaperPathfinder
                     if (!IsValidDestination(
                             grid,
                             possibleTarget,
-                            sourceRegion))
+                            sourceRegion,
+                            roomDestinationOnly))
                     {
                         continue;
                     }
@@ -505,16 +555,9 @@ public static class DynamicShaperPathfinder
 
 
         /*
-         * IMPORTANT:
-         *
-         * We cannot rely only on Room.Contains(originCell).
-         *
-         * Room.Contains() represents the original rectangular BSP room,
-         * while cellular-automata shaping can extend the playable room
-         * outside those original bounds.
-         *
-         * Therefore we construct each room's complete physical region and
-         * check whether the player is standing anywhere inside it.
+         * Room.Contains() covers the original BSP rectangle only. Organic
+         * room cells are included so the source region matches the playable
+         * shape after cellular-automata processing.
          */
         foreach (Room room in
                  generator.Rooms)
@@ -538,12 +581,8 @@ public static class DynamicShaperPathfinder
 
 
             /*
-             * This is the player's actual room.
-             *
-             * Exclude ONLY this room from the target search.
-             *
-             * Other rooms remain valid destinations even if the dungeon
-             * graph already contains a normal corridor between them.
+             * Exclude the complete source room. Other rooms remain valid
+             * destinations even when a normal corridor already connects them.
              */
             source.UnionWith(
                 roomRegion
@@ -611,9 +650,7 @@ public static class DynamicShaperPathfinder
         }
 
 
-        /*
-         * Fallback for dynamically-created Shaper terrain.
-         */
+        // A dynamic Digger cell is treated as its own source region.
         source.Add(
             originCell
         );
@@ -655,9 +692,7 @@ public static class DynamicShaperPathfinder
             new Queue<Vector2Int>();
 
 
-        // ------------------------------------------------------------
-        // ORIGINAL BSP ROOM
-        // ------------------------------------------------------------
+        // Original BSP room cells.
 
         for (int x = room.Bounds.xMin;
              x < room.Bounds.xMax;
@@ -692,9 +727,7 @@ public static class DynamicShaperPathfinder
         }
 
 
-        // ------------------------------------------------------------
-        // CA-GROWN EXTENSIONS
-        // ------------------------------------------------------------
+        // Organic room cells connected to the original room.
 
         while (frontier.Count > 0)
         {
@@ -979,7 +1012,8 @@ public static class DynamicShaperPathfinder
     private static bool IsValidDestination(
         DungeonGrid grid,
         Vector2Int cell,
-        HashSet<Vector2Int> sourceRegion)
+        HashSet<Vector2Int> sourceRegion,
+        bool roomDestinationOnly)
     {
         if (sourceRegion.Contains(
                 cell))
@@ -988,12 +1022,15 @@ public static class DynamicShaperPathfinder
         }
 
 
-        /*
-         * Destination must be part of existing generated topology.
-         *
-         * We currently do not target another dynamic Shaper tunnel
-         * because the intended interaction is room/corridor discovery.
-         */
+        if (roomDestinationOnly)
+        {
+            return
+                grid.IsRoomCell(cell) ||
+                grid.IsOrganicRoomCell(cell);
+        }
+
+
+        // Dynamic Digger tunnels are not treated as destinations.
         return
             grid.IsRoomCell(cell) ||
             grid.IsCorridorCell(cell) ||

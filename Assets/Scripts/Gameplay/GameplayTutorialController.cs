@@ -61,7 +61,7 @@ public class GameplayTutorialController : MonoBehaviour
     [Min(0.02f)]
     [SerializeField]
     private float diggerGhostCellDuration =
-        0.10f;
+        0.16f;
 
     [Tooltip(
         "How long the complete ghost tunnel remains visible."
@@ -69,7 +69,7 @@ public class GameplayTutorialController : MonoBehaviour
     [Min(0f)]
     [SerializeField]
     private float diggerGhostHoldDuration =
-        0.55f;
+        0.85f;
 
     [Range(0.2f, 1f)]
     [SerializeField]

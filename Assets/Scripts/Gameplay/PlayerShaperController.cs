@@ -626,8 +626,8 @@ public class PlayerShaperController : MonoBehaviour
 
 
     /// <summary>
-    /// Finds the nearest reachable position where a valid Digger connection
-    /// can be demonstrated without changing the dungeon grid.
+    /// Finds the nearest reachable room position where the Digger can
+    /// create a connection to a different room.
     /// </summary>
     public bool TryFindTutorialTarget(
         int searchRadius,
@@ -680,7 +680,9 @@ public class PlayerShaperController : MonoBehaviour
             int distance =
                 distances[originCell];
 
-            if (TryFindTutorialTargetFromOrigin(
+            if (IsRoomCell(
+                    originCell) &&
+                TryFindTutorialTargetFromOrigin(
                     originCell,
                     directions,
                     out target))
@@ -732,12 +734,6 @@ public class PlayerShaperController : MonoBehaviour
     {
         target = null;
 
-        if (!dungeonGenerator.Grid.IsNavigable(
-                originCell))
-        {
-            return false;
-        }
-
         foreach (Vector2Int direction in
                  directions)
         {
@@ -753,7 +749,7 @@ public class PlayerShaperController : MonoBehaviour
                 continue;
             }
 
-            if (DynamicShaperPathfinder.TryFindPath(
+            if (DynamicShaperPathfinder.TryFindRoomPath(
                     dungeonGenerator,
                     originCell,
                     direction,
@@ -766,7 +762,21 @@ public class PlayerShaperController : MonoBehaviour
             }
         }
 
+        target =
+            null;
+
         return false;
+    }
+
+
+    private bool IsRoomCell(
+        Vector2Int cell)
+    {
+        return
+            dungeonGenerator.Grid.IsRoomCell(
+                cell) ||
+            dungeonGenerator.Grid.IsOrganicRoomCell(
+                cell);
     }
 
 
