@@ -6,6 +6,7 @@ public class DungeonRunManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private DungeonGenerator dungeonGenerator;
     [SerializeField] private RunStatsManager runStatsManager;
+    [SerializeField] private GameplayTutorialController gameplayTutorialController;
 
     [Header("Floor Transition")]
     [Min(0f)]
@@ -79,6 +80,8 @@ public class DungeonRunManager : MonoBehaviour
 
         if (dungeonGenerator == null || runStatsManager == null)
             return;
+
+        gameplayTutorialController?.ResetTutorialsForNewRun();
 
         currentFloor = 1;
         transitioning = false;
@@ -233,6 +236,12 @@ public class DungeonRunManager : MonoBehaviour
         {
             dungeonGenerator =
                 FindObjectOfType<DungeonGenerator>();
+        }
+
+        if (gameplayTutorialController == null)
+        {
+            gameplayTutorialController =
+                FindObjectOfType<GameplayTutorialController>();
         }
     }
 }

@@ -2,11 +2,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Coordinates lightweight gameplay tutorials which can point at
-/// procedurally generated world objects and temporarily focus the camera.
-///
-/// The first implemented tutorial is the Resonance replay-panel explanation.
-/// Later Digger, Pulse and opening-run demonstrations can reuse this controller.
+/// Handles gameplay tutorial prompts and temporary camera focus.
 /// </summary>
 public class GameplayTutorialController : MonoBehaviour
 {
@@ -94,13 +90,13 @@ public class GameplayTutorialController : MonoBehaviour
     {
         ResolveReferences();
 
-        DetectFloorOrRunChange();
+        DetectFloorChange();
 
         UpdatePuzzleReplayTutorial();
     }
 
 
-    private void DetectFloorOrRunChange()
+    private void DetectFloorChange()
     {
         if (dungeonGenerator == null)
         {
@@ -125,13 +121,6 @@ public class GameplayTutorialController : MonoBehaviour
             false;
 
         ClearPrompt();
-
-
-        /*
-         * Do not infer a new-run boundary from floor depth here.
-         * DungeonRunManager will call ResetTutorialsForNewRun()
-         * explicitly once we wire that small step after this first test.
-         */
     }
 
 
@@ -144,11 +133,7 @@ public class GameplayTutorialController : MonoBehaviour
         }
 
 
-        /*
-         * The replay tutorial is no longer needed on this floor if the
-         * puzzle has already been solved. It is not marked learned here,
-         * so a later puzzle room can still teach the mechanic if needed.
-         */
+        // A solved puzzle does not need the replay-panel prompt on this floor.
         if (resonancePuzzleManager.PuzzleSolved)
         {
             ClearPrompt();
@@ -156,10 +141,7 @@ public class GameplayTutorialController : MonoBehaviour
         }
 
 
-        /*
-         * Actually stepping onto the replay panel completes this tutorial
-         * for the rest of the run.
-         */
+        // Using the replay panel completes this tutorial for the current run.
         if (resonancePuzzleManager
                 .ReplayPanelActivatedThisFloor)
         {
@@ -184,17 +166,8 @@ public class GameplayTutorialController : MonoBehaviour
         }
 
 
-        /*
-         * The tutorial only STARTS after the player has genuinely entered
-         * the Puzzle room and watched the automatic clue sequence.
-         *
-         * Once started, it stays active for the rest of this floor until
-         * the replay panel is actually stepped on. This is deliberate:
-         * CA-shaped / organic room cells can extend beyond the original
-         * rectangular Room bounds, so using Room.Contains every frame could
-         * make the prompt disappear while the player is still visually in
-         * the same puzzle space.
-         */
+        // Room.Contains() uses the base room bounds, so the prompt stays active
+        // after it starts even if the player moves onto connected organic cells.
         if (!puzzleReplayTutorialStartedThisFloor)
         {
             if (!resonancePuzzleManager
@@ -214,7 +187,7 @@ public class GameplayTutorialController : MonoBehaviour
 
             UnityEngine.Debug.Log(
                 "PUZZLE TUTORIAL STARTED - " +
-                "Replay panel guidance is now persistent until activation."
+                "Replay panel guidance active."
             );
         }
 
@@ -245,11 +218,7 @@ public class GameplayTutorialController : MonoBehaviour
 
     private IEnumerator PlayPuzzleReplayCameraIntroduction()
     {
-        /*
-         * The prompt is already active before the pan begins.
-         * If the panel is off-screen the HUD clamps the prompt to the edge.
-         * As the camera moves, the prompt follows the real panel position.
-         */
+        // Allow the prompt to render before moving the camera.
         yield return null;
 
 
@@ -367,7 +336,7 @@ public class GameplayTutorialController : MonoBehaviour
 
 
     /// <summary>
-    /// Can later be called explicitly by the run manager
+    /// Resets tutorial state at the start of a run.
     /// </summary>
     public void ResetTutorialsForNewRun()
     {
@@ -392,6 +361,9 @@ public class GameplayTutorialController : MonoBehaviour
             );
         }
 
+
+        observedGenerationVersion =
+            -1;
 
         puzzleReplayTutorialLearned =
             false;
