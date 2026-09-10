@@ -16,7 +16,7 @@ public class WardenController : MonoBehaviour
     [Header("Movement")]
 
     [SerializeField]
-    private float movementDelay = 0.42f;
+    private float movementDelay = 0.50f;
 
 
     [Header("Pathfinding")]
@@ -67,9 +67,13 @@ public class WardenController : MonoBehaviour
 
     private float difficultyMultiplier = 1f;
 
+    private float difficultyBaseMovementDelay = 0.50f;
+
     private DungeonGenerator dungeonGenerator;
 
     private PlayerController playerController;
+
+    private RunStatsManager runStatsManager;
 
     private DungeonTerrainModifier terrainModifier;
 
@@ -123,6 +127,17 @@ public class WardenController : MonoBehaviour
 
         playerController =
             player;
+
+        runStatsManager =
+            FindObjectOfType<RunStatsManager>();
+
+        difficultyBaseMovementDelay =
+            runStatsManager != null
+                ? runStatsManager.WardenMovementDelay
+                : movementDelay;
+
+        movementDelay =
+            difficultyBaseMovementDelay;
 
         terrainModifier =
             modifier;
@@ -582,11 +597,8 @@ public class WardenController : MonoBehaviour
     }
 
     /// <summary>
-    /// Applies the current run difficulty to the physical Warden.
-    ///
-    /// The adjustment is intentionally modest. Pursuit speed changes more
-    /// strongly than attack frequency so adaptive difficulty does not
-    /// suddenly make combat disproportionately lethal.
+    /// Applies the adaptive multiplier to the Warden movement and attack
+    /// cadence after the selected run difficulty has set its baseline.
     /// </summary>
     public void ApplyDifficultyMultiplier(
         float multiplier)
@@ -606,9 +618,13 @@ public class WardenController : MonoBehaviour
         movementDelay =
             Mathf.Max(
                 0.18f,
-                movementDelay /
+                difficultyBaseMovementDelay /
                 difficultyMultiplier
             );
+
+        nextActionTime =
+            Time.time +
+            movementDelay;
 
 
         /*
@@ -633,7 +649,8 @@ public class WardenController : MonoBehaviour
 
         UnityEngine.Debug.Log(
             $"WARDEN DIFFICULTY APPLIED - " +
-            $"{difficultyMultiplier:0.00}x, " +
+            $"{(runStatsManager != null ? runStatsManager.CurrentDifficulty.ToString() : "Fallback")}, " +
+            $"adaptive {difficultyMultiplier:0.00}x, " +
             $"movement delay {movementDelay:0.00}s, " +
             $"attack cooldown {attackCooldown:0.00}s"
         );

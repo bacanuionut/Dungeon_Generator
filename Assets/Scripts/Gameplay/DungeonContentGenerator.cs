@@ -249,14 +249,12 @@ public class DungeonContentGenerator : MonoBehaviour
                 case RoomRole.Rest:
 
                     // Rest rooms deliberately contain no normal enemies.
-                    // A healing/resource mechanic will be added later.
                     break;
 
 
                 case RoomRole.Puzzle:
 
-                    // Reserved for the procedural environmental puzzle
-                    // system. Avoid normal content for now.
+                    // Puzzle rooms contain puzzle-specific gameplay content.
                     break;
 
 
@@ -320,9 +318,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
     /// <summary>
-    /// Creates a temporary enemy marker.
-    ///
-    /// Enemy behaviour will be added in the next stage.
+    /// Creates a procedurally placed enemy on a valid navigable room cell.
     /// </summary>
     private void SpawnEnemy(
         DungeonGenerator generator,
@@ -333,9 +329,11 @@ public class DungeonContentGenerator : MonoBehaviour
         Vector2Int cell;
 
         if (!TryFindFreeRoomCell(
+                generator.Grid,
                 room,
                 random,
                 occupiedCells,
+                false,
                 out cell))
         {
             return;
@@ -390,6 +388,7 @@ public class DungeonContentGenerator : MonoBehaviour
     /// visually distinct from static environmental decoration.
     /// </summary>
     private void SpawnItem(
+        DungeonGenerator generator,
         Room room,
         System.Random random,
         HashSet<Vector2Int> occupiedCells)
@@ -397,9 +396,11 @@ public class DungeonContentGenerator : MonoBehaviour
         Vector2Int cell;
 
         if (!TryFindFreeRoomCell(
+                generator.Grid,
                 room,
                 random,
                 occupiedCells,
+                true,
                 out cell))
         {
             return;
@@ -471,12 +472,23 @@ public class DungeonContentGenerator : MonoBehaviour
     /// returns the first cell that has not already been occupied.
     /// </summary>
     private bool TryFindFreeRoomCell(
+        DungeonGrid grid,
         Room room,
         System.Random random,
         HashSet<Vector2Int> occupiedCells,
+        bool requireCollectibleClearance,
         out Vector2Int selectedCell)
     {
-        const int maximumAttempts = 30;
+        const int maximumAttempts = 40;
+
+        if (grid == null ||
+            room == null)
+        {
+            selectedCell =
+                Vector2Int.zero;
+
+            return false;
+        }
 
         for (int attempt = 0;
              attempt < maximumAttempts;
@@ -495,16 +507,43 @@ public class DungeonContentGenerator : MonoBehaviour
                 );
 
             Vector2Int candidate =
-                new Vector2Int(x, y);
+                new Vector2Int(
+                    x,
+                    y
+                );
 
-            if (!occupiedCells.Contains(candidate))
+            if (occupiedCells.Contains(
+                    candidate))
             {
-                selectedCell = candidate;
-                return true;
+                continue;
             }
+
+            // Generated actors and pickups must remain on usable floor cells.
+            if (!grid.IsNavigable(
+                    candidate))
+            {
+                continue;
+            }
+
+            // Pickups keep a small clearance from decoration whose artwork can
+            // extend beyond its blocked grid cell.
+            if (requireCollectibleClearance &&
+                !grid.IsClearForCollectible(
+                    candidate,
+                    1))
+            {
+                continue;
+            }
+
+            selectedCell =
+                candidate;
+
+            return true;
         }
 
-        selectedCell = Vector2Int.zero;
+        selectedCell =
+            Vector2Int.zero;
+
         return false;
     }
 
@@ -685,9 +724,6 @@ public class DungeonContentGenerator : MonoBehaviour
 
     /// <summary>
     /// Converts a room's threat budget into procedural enemy placement.
-    ///
-    /// The same budget system can later choose between enemy archetypes
-    /// with different threat costs.
     /// </summary>
     private void GenerateThreatRoomContent(
         DungeonGenerator generator,
@@ -771,6 +807,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
             SpawnItem(
+                generator,
                 room,
                 random,
                 occupiedCells
@@ -816,6 +853,7 @@ public class DungeonContentGenerator : MonoBehaviour
 
 
             SpawnItem(
+                generator,
                 room,
                 random,
                 occupiedCells

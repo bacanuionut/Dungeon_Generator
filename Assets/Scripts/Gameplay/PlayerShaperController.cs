@@ -116,22 +116,38 @@ public class PlayerShaperController : MonoBehaviour
 
     private void Start()
     {
-
-        if (runStatsManager == null)
-        {
-            runStatsManager =
-                FindObjectOfType<RunStatsManager>();
-        }
-
         if (gameplayTutorialController == null)
         {
             gameplayTutorialController =
                 FindObjectOfType<GameplayTutorialController>();
         }
 
+        ResetInventoryForNewRun();
+
+        CreateWallHighlight();
+
+        targetStateRecorded =
+            false;
+    }
+
+
+    public void ResetInventoryForNewRun()
+    {
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        int targetStartingCharges =
+            runStatsManager != null &&
+            runStatsManager.RunActive
+                ? runStatsManager.StartingDiggerCharges
+                : startingCharges;
+
         remainingCharges =
             Mathf.Clamp(
-                startingCharges,
+                targetStartingCharges,
                 0,
                 Mathf.Max(
                     0,
@@ -139,7 +155,9 @@ public class PlayerShaperController : MonoBehaviour
                 )
             );
 
-        CreateWallHighlight();
+        ChargesChanged?.Invoke(
+            remainingCharges
+        );
 
         targetStateRecorded =
             false;
@@ -626,8 +644,8 @@ public class PlayerShaperController : MonoBehaviour
 
 
     /// <summary>
-    /// Finds the nearest reachable room position where the Digger can
-    /// create a connection to a different room.
+    /// Finds the nearest reachable position where a valid Digger connection
+    /// can be demonstrated without changing the dungeon grid.
     /// </summary>
     public bool TryFindTutorialTarget(
         int searchRadius,
@@ -680,9 +698,7 @@ public class PlayerShaperController : MonoBehaviour
             int distance =
                 distances[originCell];
 
-            if (IsRoomCell(
-                    originCell) &&
-                TryFindTutorialTargetFromOrigin(
+            if (TryFindTutorialTargetFromOrigin(
                     originCell,
                     directions,
                     out target))
@@ -734,6 +750,12 @@ public class PlayerShaperController : MonoBehaviour
     {
         target = null;
 
+        if (!dungeonGenerator.Grid.IsNavigable(
+                originCell))
+        {
+            return false;
+        }
+
         foreach (Vector2Int direction in
                  directions)
         {
@@ -749,7 +771,7 @@ public class PlayerShaperController : MonoBehaviour
                 continue;
             }
 
-            if (DynamicShaperPathfinder.TryFindRoomPath(
+            if (DynamicShaperPathfinder.TryFindPath(
                     dungeonGenerator,
                     originCell,
                     direction,
@@ -762,21 +784,7 @@ public class PlayerShaperController : MonoBehaviour
             }
         }
 
-        target =
-            null;
-
         return false;
-    }
-
-
-    private bool IsRoomCell(
-        Vector2Int cell)
-    {
-        return
-            dungeonGenerator.Grid.IsRoomCell(
-                cell) ||
-            dungeonGenerator.Grid.IsOrganicRoomCell(
-                cell);
     }
 
 

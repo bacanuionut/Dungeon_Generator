@@ -13,7 +13,42 @@ public class RunStatsManager : MonoBehaviour
     [SerializeField] private int targetFloors = 5;
 
     [Header("Temporary Debug Start")]
-    [SerializeField] private bool autoBeginDebugRun = true;
+    [SerializeField] private bool autoBeginDebugRun = false;
+
+    [Header("Starting Resources")]
+    [SerializeField] private int easyStartingPulseCharges = 3;
+    [SerializeField] private int normalStartingPulseCharges = 1;
+    [SerializeField] private int hardStartingPulseCharges = 0;
+    [SerializeField] private int easyStartingDiggerCharges = 3;
+    [SerializeField] private int normalStartingDiggerCharges = 1;
+    [SerializeField] private int hardStartingDiggerCharges = 0;
+
+    [Header("Enemy Difficulty")]
+    [Tooltip("Delay between normal-enemy grid steps on Easy.")]
+    [SerializeField] private float easyEnemyMovementDelay = 0.60f;
+    [Tooltip("Delay between normal-enemy grid steps on Normal.")]
+    [SerializeField] private float normalEnemyMovementDelay = 0.42f;
+    [Tooltip("Delay between normal-enemy grid steps on Hard.")]
+    [SerializeField] private float hardEnemyMovementDelay = 0.35f;
+
+    [Header("Pulse Difficulty")]
+    [Tooltip("Multiplier applied to normal-enemy Pulse stun duration on Easy.")]
+    [SerializeField] private float easyNormalEnemyStunMultiplier = 1.20f;
+
+    [Header("Warden Difficulty")]
+    [Tooltip("Delay between physical Warden grid steps on Easy before adaptive adjustment.")]
+    [SerializeField] private float easyWardenMovementDelay = 0.62f;
+    [Tooltip("Delay between physical Warden grid steps on Normal before adaptive adjustment.")]
+    [SerializeField] private float normalWardenMovementDelay = 0.50f;
+    [Tooltip("Delay between physical Warden grid steps on Hard before adaptive adjustment.")]
+    [SerializeField] private float hardWardenMovementDelay = 0.42f;
+
+    [Tooltip("Base cross-floor Warden pursuit multiplier on Easy.")]
+    [SerializeField] private float easyWardenPursuitMultiplier = 0.80f;
+    [Tooltip("Base cross-floor Warden pursuit multiplier on Normal.")]
+    [SerializeField] private float normalWardenPursuitMultiplier = 1.00f;
+    [Tooltip("Base cross-floor Warden pursuit multiplier on Hard.")]
+    [SerializeField] private float hardWardenPursuitMultiplier = 1.10f;
 
     [Header("Live Run Statistics - Debug")]
     [SerializeField] private bool runActive;
@@ -47,6 +82,104 @@ public class RunStatsManager : MonoBehaviour
     public int PuzzlesCompleted => puzzlesCompleted;
     public float ElapsedSeconds =>
         runActive ? Time.realtimeSinceStartup - runStartRealtime : finalElapsedSeconds;
+
+    public int StartingPulseCharges
+    {
+        get
+        {
+            switch (currentDifficulty)
+            {
+                case RunDifficulty.Easy:
+                    return Mathf.Max(0, easyStartingPulseCharges);
+
+                case RunDifficulty.Hard:
+                    return Mathf.Max(0, hardStartingPulseCharges);
+
+                default:
+                    return Mathf.Max(0, normalStartingPulseCharges);
+            }
+        }
+    }
+
+    public int StartingDiggerCharges
+    {
+        get
+        {
+            switch (currentDifficulty)
+            {
+                case RunDifficulty.Easy:
+                    return Mathf.Max(0, easyStartingDiggerCharges);
+
+                case RunDifficulty.Hard:
+                    return Mathf.Max(0, hardStartingDiggerCharges);
+
+                default:
+                    return Mathf.Max(0, normalStartingDiggerCharges);
+            }
+        }
+    }
+
+    public float EnemyMovementDelay
+    {
+        get
+        {
+            switch (currentDifficulty)
+            {
+                case RunDifficulty.Easy:
+                    return Mathf.Max(0.05f, easyEnemyMovementDelay);
+
+                case RunDifficulty.Hard:
+                    return Mathf.Max(0.05f, hardEnemyMovementDelay);
+
+                default:
+                    return Mathf.Max(0.05f, normalEnemyMovementDelay);
+            }
+        }
+    }
+
+    public bool EnemyUsesFullInvestigationScan =>
+        currentDifficulty != RunDifficulty.Easy;
+
+    public float NormalEnemyStunDurationMultiplier =>
+        currentDifficulty == RunDifficulty.Easy
+            ? Mathf.Max(1f, easyNormalEnemyStunMultiplier)
+            : 1f;
+
+    public float WardenMovementDelay
+    {
+        get
+        {
+            switch (currentDifficulty)
+            {
+                case RunDifficulty.Easy:
+                    return Mathf.Max(0.05f, easyWardenMovementDelay);
+
+                case RunDifficulty.Hard:
+                    return Mathf.Max(0.05f, hardWardenMovementDelay);
+
+                default:
+                    return Mathf.Max(0.05f, normalWardenMovementDelay);
+            }
+        }
+    }
+
+    public float WardenPursuitBaseMultiplier
+    {
+        get
+        {
+            switch (currentDifficulty)
+            {
+                case RunDifficulty.Easy:
+                    return Mathf.Max(0.1f, easyWardenPursuitMultiplier);
+
+                case RunDifficulty.Hard:
+                    return Mathf.Max(0.1f, hardWardenPursuitMultiplier);
+
+                default:
+                    return Mathf.Max(0.1f, normalWardenPursuitMultiplier);
+            }
+        }
+    }
 
     private void Awake()
     {
@@ -87,6 +220,10 @@ public class RunStatsManager : MonoBehaviour
             (currentMode == GameMode.Standard
                 ? $"Target floors: {targetFloors}\n"
                 : "Target floors: Unlimited\n") +
+            $"Starting Pulse: {StartingPulseCharges}\n" +
+            $"Starting Digger: {StartingDiggerCharges}\n" +
+            $"Enemy step delay: {EnemyMovementDelay:0.00}s\n" +
+            $"Warden step delay: {WardenMovementDelay:0.00}s\n" +
             "================================="
         );
     }

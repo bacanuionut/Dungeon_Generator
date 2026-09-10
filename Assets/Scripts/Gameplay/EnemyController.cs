@@ -30,7 +30,7 @@ public class EnemyController : MonoBehaviour
 
     [Tooltip("Delay between enemy grid movements.")]
     [SerializeField]
-    private float movementDelay = 0.35f;
+    private float movementDelay = 0.45f;
 
 
     [Header("Perception")]
@@ -90,6 +90,8 @@ public class EnemyController : MonoBehaviour
 
     private PlayerController playerController;
 
+    private RunStatsManager runStatsManager;
+
     private Room patrolRoom;
 
 
@@ -106,6 +108,8 @@ public class EnemyController : MonoBehaviour
     private bool hasLastKnownPlayerPosition;
 
     private bool waitingAtLastKnownPosition;
+
+    private bool useFullInvestigationScan = true;
 
 
     private System.Random random;
@@ -173,6 +177,11 @@ public class EnemyController : MonoBehaviour
 
         playerController = player;
 
+        runStatsManager =
+            FindObjectOfType<RunStatsManager>();
+
+        ApplySelectedDifficulty();
+
         patrolRoom = room;
 
         gridPosition = startingPosition;
@@ -223,6 +232,32 @@ public class EnemyController : MonoBehaviour
 
         initialised =
             true;
+    }
+
+
+    private void ApplySelectedDifficulty()
+    {
+        if (runStatsManager == null)
+        {
+            useFullInvestigationScan =
+                true;
+
+            return;
+        }
+
+        movementDelay =
+            runStatsManager.EnemyMovementDelay;
+
+        useFullInvestigationScan =
+            runStatsManager
+                .EnemyUsesFullInvestigationScan;
+
+        UnityEngine.Debug.Log(
+            $"{name} DIFFICULTY - " +
+            $"{runStatsManager.CurrentDifficulty}, " +
+            $"movement delay {movementDelay:0.00}s, " +
+            $"full search {useFullInvestigationScan}"
+        );
     }
 
 
@@ -364,7 +399,8 @@ public class EnemyController : MonoBehaviour
         }
 
 
-        if (currentState == EnemyState.Investigate &&
+        if (useFullInvestigationScan &&
+            currentState == EnemyState.Investigate &&
             waitingAtLastKnownPosition)
         {
             UpdateInvestigationFacing();
@@ -640,11 +676,14 @@ public class EnemyController : MonoBehaviour
             waitingAtLastKnownPosition =
                 true;
 
-            investigationLookIndex =
-                GetNextInvestigationDirectionIndex();
+            if (useFullInvestigationScan)
+            {
+                investigationLookIndex =
+                    GetNextInvestigationDirectionIndex();
 
-            nextInvestigationLookTime =
-                Time.time;
+                nextInvestigationLookTime =
+                    Time.time;
+            }
 
 
             investigationEndTime =

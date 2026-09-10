@@ -31,6 +31,9 @@ public class GameplayTutorialController : MonoBehaviour
     [SerializeField]
     private PlayerVisionController playerVisionController;
 
+    [SerializeField]
+    private WardenManager wardenManager;
+
 
     [Header("Run Introduction")]
 
@@ -203,6 +206,22 @@ public class GameplayTutorialController : MonoBehaviour
     private Coroutine activeTutorialCoroutine;
 
     private bool restorePlayerControllerAfterTutorial;
+
+    private readonly List<EnemyController> frozenEnemyControllers =
+        new List<EnemyController>();
+
+    private readonly List<bool> frozenEnemyControllerStates =
+        new List<bool>();
+
+    private readonly List<WardenController> frozenWardenControllers =
+        new List<WardenController>();
+
+    private readonly List<bool> frozenWardenControllerStates =
+        new List<bool>();
+
+    private bool restoreWardenManagerAfterTutorial;
+
+    private bool hostileActorsFrozen;
 
     private GameObject diggerPreviewRoot;
 
@@ -676,9 +695,9 @@ public class GameplayTutorialController : MonoBehaviour
 
     private IEnumerator PlayPuzzleReplayCameraIntroduction()
     {
-        yield return null;
-
         LockPlayerMovement();
+
+        yield return null;
 
         if (cameraController != null &&
             resonancePuzzleManager != null &&
@@ -788,6 +807,8 @@ public class GameplayTutorialController : MonoBehaviour
                 diggerGhostZ
             );
 
+        LockPlayerMovement();
+
         ShowPrompt(
             "USE DIGGER\nTO CARVE THROUGH WALLS",
             true,
@@ -797,8 +818,6 @@ public class GameplayTutorialController : MonoBehaviour
         );
 
         yield return null;
-
-        LockPlayerMovement();
 
         float previewDuration =
             target.GuideCells.Count *
@@ -1224,6 +1243,8 @@ public class GameplayTutorialController : MonoBehaviour
                 ? pulseController.DeployKey.ToString()
                 : "Q";
 
+        LockPlayerMovement();
+
         ShowPrompt(
             "USE PULSE\nTO STUN NEARBY ENEMIES",
             true,
@@ -1233,8 +1254,6 @@ public class GameplayTutorialController : MonoBehaviour
         );
 
         yield return null;
-
-        LockPlayerMovement();
 
         PreparePulseTutorialEnemy(
             target
@@ -1672,6 +1691,8 @@ public class GameplayTutorialController : MonoBehaviour
 
     private void LockPlayerMovement()
     {
+        FreezeHostileActors();
+
         if (playerController == null)
         {
             return;
@@ -1698,6 +1719,154 @@ public class GameplayTutorialController : MonoBehaviour
         }
 
         restorePlayerControllerAfterTutorial =
+            false;
+
+        RestoreHostileActors();
+    }
+
+
+    private void FreezeHostileActors()
+    {
+        if (hostileActorsFrozen)
+        {
+            return;
+        }
+
+        hostileActorsFrozen =
+            true;
+
+        frozenEnemyControllers.Clear();
+        frozenEnemyControllerStates.Clear();
+
+        EnemyController[] enemies =
+            FindObjectsOfType<EnemyController>();
+
+        for (int i = 0;
+             i < enemies.Length;
+             i++)
+        {
+            EnemyController enemy =
+                enemies[i];
+
+            if (enemy == null)
+            {
+                continue;
+            }
+
+            frozenEnemyControllers.Add(
+                enemy
+            );
+
+            frozenEnemyControllerStates.Add(
+                enemy.enabled
+            );
+
+            enemy.enabled =
+                false;
+        }
+
+        frozenWardenControllers.Clear();
+        frozenWardenControllerStates.Clear();
+
+        WardenController[] wardens =
+            FindObjectsOfType<WardenController>();
+
+        for (int i = 0;
+             i < wardens.Length;
+             i++)
+        {
+            WardenController warden =
+                wardens[i];
+
+            if (warden == null)
+            {
+                continue;
+            }
+
+            frozenWardenControllers.Add(
+                warden
+            );
+
+            frozenWardenControllerStates.Add(
+                warden.enabled
+            );
+
+            warden.enabled =
+                false;
+        }
+
+        if (wardenManager == null)
+        {
+            wardenManager =
+                FindObjectOfType<WardenManager>();
+        }
+
+        restoreWardenManagerAfterTutorial =
+            wardenManager != null &&
+            wardenManager.enabled;
+
+        if (restoreWardenManagerAfterTutorial)
+        {
+            wardenManager.enabled =
+                false;
+        }
+    }
+
+
+    private void RestoreHostileActors()
+    {
+        if (!hostileActorsFrozen)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < frozenEnemyControllers.Count &&
+             i < frozenEnemyControllerStates.Count;
+             i++)
+        {
+            EnemyController enemy =
+                frozenEnemyControllers[i];
+
+            if (enemy != null)
+            {
+                enemy.enabled =
+                    frozenEnemyControllerStates[i];
+            }
+        }
+
+        frozenEnemyControllers.Clear();
+        frozenEnemyControllerStates.Clear();
+
+        for (int i = 0;
+             i < frozenWardenControllers.Count &&
+             i < frozenWardenControllerStates.Count;
+             i++)
+        {
+            WardenController warden =
+                frozenWardenControllers[i];
+
+            if (warden != null)
+            {
+                warden.enabled =
+                    frozenWardenControllerStates[i];
+            }
+        }
+
+        frozenWardenControllers.Clear();
+        frozenWardenControllerStates.Clear();
+
+        if (wardenManager != null &&
+            restoreWardenManagerAfterTutorial)
+        {
+            wardenManager.enabled =
+                true;
+        }
+
+        restoreWardenManagerAfterTutorial =
+            false;
+
+        hostileActorsFrozen =
             false;
     }
 
@@ -1872,6 +2041,12 @@ public class GameplayTutorialController : MonoBehaviour
         {
             playerVisionController =
                 FindObjectOfType<PlayerVisionController>();
+        }
+
+        if (wardenManager == null)
+        {
+            wardenManager =
+                FindObjectOfType<WardenManager>();
         }
     }
 }

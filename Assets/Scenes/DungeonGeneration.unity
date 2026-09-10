@@ -4379,11 +4379,11 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 14
+    m_Font: {fileID: 12800000, guid: 84e6e746fc77f204880d617cbfacf7c9, type: 3}
+    m_FontSize: 40
     m_FontStyle: 0
     m_BestFit: 0
-    m_MinSize: 10
+    m_MinSize: 4
     m_MaxSize: 40
     m_Alignment: 3
     m_AlignByGeometry: 0
@@ -5243,6 +5243,9 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   runStatsManager: {fileID: 2142493819}
   gameplayTutorialController: {fileID: 1035674919}
+  playerPulseController: {fileID: 0}
+  playerShaperController: {fileID: 0}
+  adaptiveDifficultyDirector: {fileID: 0}
   floorTransitionDelay: 0.75
   currentFloor: 1
   transitioning: 0
@@ -5873,6 +5876,7 @@ MonoBehaviour:
   shaperController: {fileID: 2142187900}
   pulseController: {fileID: 0}
   playerVisionController: {fileID: 0}
+  wardenManager: {fileID: 0}
   runIntroductionStartDelay: 0.45
   runIntroductionSigilHoldDuration: 2
   runIntroductionHatchHoldDuration: 2
@@ -11872,6 +11876,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   runManager: {fileID: 872445781}
+  runStatsManager: {fileID: 0}
   fastFloorThreshold: 70
   slowFloorThreshold: 120
   adjustmentStep: 0.08
@@ -12074,9 +12079,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1306f6fd6ec370e42b58bb2da1a0406c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  idleFramesPerSecond: 3
   walkFramesPerSecond: 6.67
-  movementAnimationHold: 0.6
-  visualStepDuration: 0.55
+  movementVisualHold: 0.18
+  attackFramesPerSecond: 10
+  hurtFramesPerSecond: 10
+  stunFramesPerSecond: 6
+  playerInitialStepDuration: 0.1
+  enemyInitialStepDuration: 0.28
+  otherInitialStepDuration: 0.2
+  stepCadenceFraction: 0.88
+  minimumVisualStepDuration: 0.06
+  maximumVisualStepDuration: 0.32
+  cadenceResetDelay: 0.75
   maximumAnimatedStepDistance: 1.1
   visualZOffset: -3
   feetAnchorYOffset: -0.5
@@ -12115,6 +12130,22 @@ MonoBehaviour:
   baseSeed: 12345
   targetFloors: 2
   autoBeginDebugRun: 0
+  easyStartingPulseCharges: 3
+  normalStartingPulseCharges: 1
+  hardStartingPulseCharges: 0
+  easyStartingDiggerCharges: 3
+  normalStartingDiggerCharges: 1
+  hardStartingDiggerCharges: 0
+  easyEnemyMovementDelay: 0.6
+  normalEnemyMovementDelay: 0.41
+  hardEnemyMovementDelay: 0.35
+  easyNormalEnemyStunMultiplier: 1.2
+  easyWardenMovementDelay: 0.62
+  normalWardenMovementDelay: 0.5
+  hardWardenMovementDelay: 0.42
+  easyWardenPursuitMultiplier: 0.8
+  normalWardenPursuitMultiplier: 1
+  hardWardenPursuitMultiplier: 1.1
   runActive: 0
   runFinished: 0
   runCompletedSuccessfully: 0

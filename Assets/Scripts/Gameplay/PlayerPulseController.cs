@@ -26,7 +26,7 @@ public class PlayerPulseController : MonoBehaviour
 
     [Tooltip("Pulse Charges available at the start of a run.")]
     [SerializeField]
-    private int startingCharges = 2;
+    private int startingCharges = 1;
 
     [Tooltip("Maximum number of Pulse Charges the player may carry.")]
     [SerializeField]
@@ -83,16 +83,27 @@ public class PlayerPulseController : MonoBehaviour
 
     private void Start()
     {
+        ResetInventoryForNewRun();
+    }
 
+
+    public void ResetInventoryForNewRun()
+    {
         if (runStatsManager == null)
         {
             runStatsManager =
                 FindObjectOfType<RunStatsManager>();
         }
 
+        int targetStartingCharges =
+            runStatsManager != null &&
+            runStatsManager.RunActive
+                ? runStatsManager.StartingPulseCharges
+                : startingCharges;
+
         remainingCharges =
             Mathf.Clamp(
-                startingCharges,
+                targetStartingCharges,
                 0,
                 Mathf.Max(
                     0,
@@ -100,10 +111,8 @@ public class PlayerPulseController : MonoBehaviour
                 )
             );
 
-
         initialised =
             true;
-
 
         UnityEngine.Debug.Log(
             $"PULSE CHARGES: {remainingCharges}"
@@ -246,11 +255,21 @@ public class PlayerPulseController : MonoBehaviour
             charge.AddComponent<PulseCharge>();
 
 
+        float effectiveNormalEnemyStunDuration =
+            normalEnemyStunDuration;
+
+        if (runStatsManager != null)
+        {
+            effectiveNormalEnemyStunDuration *=
+                runStatsManager
+                    .NormalEnemyStunDurationMultiplier;
+        }
+
         pulseCharge.Initialise(
             dungeonGenerator,
             fuseDuration,
             blastRadius,
-            normalEnemyStunDuration,
+            effectiveNormalEnemyStunDuration,
             wardenStunDuration
         );
 

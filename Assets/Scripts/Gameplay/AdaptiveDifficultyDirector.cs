@@ -24,6 +24,9 @@ public class AdaptiveDifficultyDirector : MonoBehaviour
     [SerializeField]
     private DungeonRunManager runManager;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
+
 
     [Header("Performance Thresholds")]
 
@@ -97,6 +100,7 @@ public class AdaptiveDifficultyDirector : MonoBehaviour
     /// 0.9 = 10% slower
     /// </summary>
     public float WardenPursuitMultiplier =>
+        GetSelectedWardenPursuitMultiplier() *
         currentDifficultyMultiplier;
 
 
@@ -106,6 +110,8 @@ public class AdaptiveDifficultyDirector : MonoBehaviour
 
     private void Update()
     {
+        ResolveReferences();
+
         if (runManager == null)
         {
             return;
@@ -179,9 +185,45 @@ public class AdaptiveDifficultyDirector : MonoBehaviour
     }
 
 
+    public void ResetForNewRun()
+    {
+        ResetDirector();
+    }
+
+
+    private float GetSelectedWardenPursuitMultiplier()
+    {
+        if (runStatsManager == null)
+        {
+            return 1f;
+        }
+
+        return runStatsManager.WardenPursuitBaseMultiplier;
+    }
+
+
+    private void ResolveReferences()
+    {
+        if (runManager == null)
+        {
+            runManager =
+                FindObjectOfType<DungeonRunManager>();
+        }
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+    }
+
+
     private void TryInitialise()
     {
-        if (runManager.CurrentFloor <= 0)
+        ResolveReferences();
+
+        if (runManager == null ||
+            runManager.CurrentFloor <= 0)
         {
             return;
         }
@@ -213,7 +255,10 @@ public class AdaptiveDifficultyDirector : MonoBehaviour
 
         UnityEngine.Debug.Log(
             "========== ADAPTIVE DIFFICULTY INITIALISED ==========\n" +
-            $"Starting multiplier: " +
+            $"Selected difficulty: " +
+            $"{(runStatsManager != null ? runStatsManager.CurrentDifficulty.ToString() : "Unknown")}\n" +
+            $"Selected Warden pursuit: {GetSelectedWardenPursuitMultiplier():0.00}x\n" +
+            $"Adaptive multiplier: " +
             $"{currentDifficultyMultiplier:0.00}x\n" +
             $"Fast threshold: {fastFloorThreshold:0}s\n" +
             $"Slow threshold: {slowFloorThreshold:0}s\n" +

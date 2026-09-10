@@ -7,6 +7,9 @@ public class DungeonRunManager : MonoBehaviour
     [SerializeField] private DungeonGenerator dungeonGenerator;
     [SerializeField] private RunStatsManager runStatsManager;
     [SerializeField] private GameplayTutorialController gameplayTutorialController;
+    [SerializeField] private PlayerPulseController playerPulseController;
+    [SerializeField] private PlayerShaperController playerShaperController;
+    [SerializeField] private AdaptiveDifficultyDirector adaptiveDifficultyDirector;
 
     [Header("Floor Transition")]
     [Min(0f)]
@@ -91,6 +94,10 @@ public class DungeonRunManager : MonoBehaviour
 
         currentFloor = 1;
         transitioning = false;
+
+        adaptiveDifficultyDirector?.ResetForNewRun();
+        playerPulseController?.ResetInventoryForNewRun();
+        playerShaperController?.ResetInventoryForNewRun();
 
         int firstFloorSeed =
             CalculateFloorSeed(currentFloor);
@@ -248,6 +255,24 @@ public class DungeonRunManager : MonoBehaviour
         {
             gameplayTutorialController =
                 FindObjectOfType<GameplayTutorialController>();
+        }
+
+        if (playerPulseController == null)
+        {
+            playerPulseController =
+                FindObjectOfType<PlayerPulseController>();
+        }
+
+        if (playerShaperController == null)
+        {
+            playerShaperController =
+                FindObjectOfType<PlayerShaperController>();
+        }
+
+        if (adaptiveDifficultyDirector == null)
+        {
+            adaptiveDifficultyDirector =
+                FindObjectOfType<AdaptiveDifficultyDirector>();
         }
     }
 }
