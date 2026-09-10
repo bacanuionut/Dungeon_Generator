@@ -5870,7 +5870,15 @@ MonoBehaviour:
   resonancePuzzleManager: {fileID: 438204753}
   cameraController: {fileID: 1728126703}
   playerController: {fileID: 2142187895}
+  shaperController: {fileID: 2142187900}
   puzzleReplayFocusHoldDuration: 1.1
+  diggerTargetSearchRadius: 8
+  diggerTargetRetryDelay: 0.4
+  diggerGhostCellDuration: 0.1
+  diggerGhostHoldDuration: 1.2
+  diggerGhostCellScale: 0.84
+  diggerGhostZ: -2.6
+  diggerGhostColour: {r: 0.8, g: 0.35, b: 1, a: 0.38}
 --- !u!4 &1035674920
 Transform:
   m_ObjectHideFlags: 0
@@ -5991,7 +5999,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1044558307}
   - component: {fileID: 1044558306}
-  - component: {fileID: 1044558308}
   - component: {fileID: 1044558309}
   m_Layer: 0
   m_Name: Dungeon Generator
@@ -6050,30 +6057,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1044558308
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1044558305}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 41f3a8f2f3459a44c89f1a442b0db13a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dungeonGenerator: {fileID: 1044558306}
-  playerController: {fileID: 2142187895}
-  terrainModifier: {fileID: 1983990455}
-  runStatsManager: {fileID: 0}
-  startingCharges: 1
-  maximumCharges: 3
-  shaperKey: 102
-  minimumSolidCells: 2
-  maximumSolidCells: 16
-  maximumSideDeviation: 5
-  validWallColour: {r: 0.45, g: 0.75, b: 1, a: 0.45}
-  highlightScale: 0.94
 --- !u!114 &1044558309
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12058,7 +12041,8 @@ MonoBehaviour:
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
   runStatsManager: {fileID: 2142493819}
-  startingCharges: 3
+  gameplayTutorialController: {fileID: 0}
+  startingCharges: 1
   maximumCharges: 3
   shaperKey: 102
   minimumSolidCells: 2

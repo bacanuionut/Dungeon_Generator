@@ -25,10 +25,10 @@ public class ResourcePickup : MonoBehaviour
 
     private GameObject visualObject;
     private bool collected;
+    private bool playerWasOnPickupCell;
 
     /// <summary>
-    /// New sprite-based initialiser used by procedural resource generation and
-    /// Resonance puzzle rewards.
+    /// Initialises a sprite-based resource pickup at the supplied grid cell.
     /// </summary>
     public void Initialise(
         ResourceType type,
@@ -62,8 +62,7 @@ public class ResourcePickup : MonoBehaviour
     }
 
     /// <summary>
-    /// Backwards-compatible overload. This keeps any older caller compiling
-    /// while the remaining project systems migrate to sprite visuals.
+    /// Initialises a fallback-colour resource pickup when no sprite is supplied.
     /// </summary>
     public void Initialise(
         ResourceType type,
@@ -224,9 +223,8 @@ public class ResourcePickup : MonoBehaviour
         }
 
         /*
-         * Defensive compatibility: an older caller may still create a Quad
-         * before adding ResourcePickup. Hide/remove its collider and renderer
-         * so the new sprite becomes the only visible collectible.
+         * Remove any root collider or renderer so the child pickup visual is
+         * the only visible and interactive representation.
          */
         Collider rootCollider =
             GetComponent<Collider>();
@@ -254,13 +252,18 @@ public class ResourcePickup : MonoBehaviour
             return;
         }
 
-        if (playerController.GridPosition !=
-            gridCell)
+        bool playerOnPickupCell =
+            playerController.GridPosition ==
+            gridCell;
+
+        if (playerOnPickupCell &&
+            !playerWasOnPickupCell)
         {
-            return;
+            TryCollect();
         }
 
-        TryCollect();
+        playerWasOnPickupCell =
+            playerOnPickupCell;
     }
 
     private void TryCollect()
@@ -285,8 +288,8 @@ public class ResourcePickup : MonoBehaviour
         }
 
         /*
-         * If the relevant inventory is full, leave the pickup in place so the
-         * player can return after spending a charge.
+         * A full inventory leaves the pickup in place. Collection is tried
+         * again after the player leaves and re-enters the pickup cell.
          */
         if (actuallyAdded <= 0)
         {

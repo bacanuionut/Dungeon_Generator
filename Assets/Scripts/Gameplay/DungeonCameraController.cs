@@ -75,6 +75,9 @@ public class DungeonCameraController : MonoBehaviour
     public bool TutorialFocusActive =>
         tutorialFocusActive;
 
+    public float TutorialPanDuration =>
+        tutorialPanDuration;
+
 
     private void Awake()
     {

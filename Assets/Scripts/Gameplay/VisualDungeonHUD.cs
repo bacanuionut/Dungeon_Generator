@@ -223,6 +223,8 @@ public class VisualDungeonHUD : MonoBehaviour
     {
         ResolveReferences();
 
+        SubscribeToResourceEvents();
+
         ResolvePromptUiReferences();
 
         RecordDefaultPromptPosition();
@@ -1507,6 +1509,35 @@ public class VisualDungeonHUD : MonoBehaviour
                             : $"{floorsBehind} FLOORS BEHIND";
                 }
             }
+        }
+    }
+
+
+    private void SubscribeToResourceEvents()
+    {
+        if (shaperController != null)
+        {
+            shaperController.ChargesChanged -= HandleDiggerChargesChanged;
+            shaperController.ChargesChanged += HandleDiggerChargesChanged;
+        }
+    }
+
+
+    private void HandleDiggerChargesChanged(int charges)
+    {
+        if (diggerCountText != null)
+        {
+            diggerCountText.text =
+                charges.ToString();
+        }
+    }
+
+
+    private void OnDestroy()
+    {
+        if (shaperController != null)
+        {
+            shaperController.ChargesChanged -= HandleDiggerChargesChanged;
         }
     }
 

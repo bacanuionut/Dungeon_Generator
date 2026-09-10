@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// Controls dynamic player-directed Shaper use.
@@ -22,6 +23,9 @@ public class PlayerShaperController : MonoBehaviour
 
     [SerializeField]
     private RunStatsManager runStatsManager;
+
+    [SerializeField]
+    private GameplayTutorialController gameplayTutorialController;
 
     [Header("Inventory")]
 
@@ -103,6 +107,8 @@ public class PlayerShaperController : MonoBehaviour
     public int RemainingCharges =>
         remainingCharges;
 
+    public event System.Action<int> ChargesChanged;
+
 
     public bool HasValidTarget =>
         currentTarget != null;
@@ -115,6 +121,12 @@ public class PlayerShaperController : MonoBehaviour
         {
             runStatsManager =
                 FindObjectOfType<RunStatsManager>();
+        }
+
+        if (gameplayTutorialController == null)
+        {
+            gameplayTutorialController =
+                FindObjectOfType<GameplayTutorialController>();
         }
 
         remainingCharges =
@@ -238,8 +250,8 @@ public class PlayerShaperController : MonoBehaviour
          * A solid environmental prop is different. Props such as tables,
          * sacks, crates and rubble occupy an underlying walkable floor cell,
          * but the navigation layer marks that cell as blocked. In that case
-         * we allow the dynamic pathfinder to look through the breakable prop
-         * and find the real wall behind it.
+         * the dynamic pathfinder can look through the breakable prop and
+         * find the real wall behind it.
          */
         if (dungeonGenerator.Grid.IsWalkable(
                 frontCell) &&
@@ -338,6 +350,17 @@ public class PlayerShaperController : MonoBehaviour
             );
 
 
+        int chargesBeforeUse =
+            remainingCharges;
+
+        remainingCharges =
+            Mathf.Max(
+                0,
+                remainingCharges - 1
+            );
+
+        ChargesChanged?.Invoke(remainingCharges);
+
         bool started =
             terrainModifier.TryCarvePath(
                 selectedTarget.GuideCells,
@@ -358,6 +381,11 @@ public class PlayerShaperController : MonoBehaviour
 
         if (!started)
         {
+            remainingCharges =
+                chargesBeforeUse;
+
+            ChargesChanged?.Invoke(remainingCharges);
+
             UnityEngine.Debug.Log(
                 "SHAPER COULD NOT START TERRAIN MODIFICATION"
             );
@@ -365,8 +393,6 @@ public class PlayerShaperController : MonoBehaviour
             return;
         }
 
-
-        remainingCharges--;
 
         if (runStatsManager != null)
         {
@@ -575,14 +601,172 @@ public class PlayerShaperController : MonoBehaviour
 
         if (added > 0)
         {
+            ChargesChanged?.Invoke(remainingCharges);
+
             UnityEngine.Debug.Log(
                 $"SHAPER AMMO COLLECTED +{added}. " +
                 $"Current charges: {remainingCharges}/{maximumCharges}"
             );
+
+            if (gameplayTutorialController == null)
+            {
+                gameplayTutorialController =
+                    FindObjectOfType<GameplayTutorialController>();
+            }
+
+            if (gameplayTutorialController != null)
+            {
+                gameplayTutorialController.NotifyDiggerCollected();
+            }
         }
 
 
         return added;
+    }
+
+
+    /// <summary>
+    /// Finds the nearest reachable position where a valid Digger connection
+    /// can be demonstrated without changing the dungeon grid.
+    /// </summary>
+    public bool TryFindTutorialTarget(
+        int searchRadius,
+        out ShaperPathResult target)
+    {
+        target = null;
+
+        if (dungeonGenerator == null ||
+            dungeonGenerator.Grid == null ||
+            playerController == null)
+        {
+            return false;
+        }
+
+        int radius =
+            Mathf.Max(
+                0,
+                searchRadius
+            );
+
+        Vector2Int startCell =
+            playerController.GridPosition;
+
+        Vector2Int[] directions =
+        {
+            Vector2Int.up,
+            Vector2Int.right,
+            Vector2Int.down,
+            Vector2Int.left
+        };
+
+        Queue<Vector2Int> frontier =
+            new Queue<Vector2Int>();
+
+        Dictionary<Vector2Int, int> distances =
+            new Dictionary<Vector2Int, int>();
+
+        frontier.Enqueue(
+            startCell
+        );
+
+        distances[startCell] =
+            0;
+
+        while (frontier.Count > 0)
+        {
+            Vector2Int originCell =
+                frontier.Dequeue();
+
+            int distance =
+                distances[originCell];
+
+            if (TryFindTutorialTargetFromOrigin(
+                    originCell,
+                    directions,
+                    out target))
+            {
+                return true;
+            }
+
+            if (distance >= radius)
+            {
+                continue;
+            }
+
+            foreach (Vector2Int direction in
+                     directions)
+            {
+                Vector2Int neighbour =
+                    originCell +
+                    direction;
+
+                if (distances.ContainsKey(
+                        neighbour))
+                {
+                    continue;
+                }
+
+                if (!dungeonGenerator.Grid.IsNavigable(
+                        neighbour))
+                {
+                    continue;
+                }
+
+                distances[neighbour] =
+                    distance + 1;
+
+                frontier.Enqueue(
+                    neighbour
+                );
+            }
+        }
+
+        return false;
+    }
+
+
+    private bool TryFindTutorialTargetFromOrigin(
+        Vector2Int originCell,
+        Vector2Int[] directions,
+        out ShaperPathResult target)
+    {
+        target = null;
+
+        if (!dungeonGenerator.Grid.IsNavigable(
+                originCell))
+        {
+            return false;
+        }
+
+        foreach (Vector2Int direction in
+                 directions)
+        {
+            Vector2Int frontCell =
+                originCell +
+                direction;
+
+            if (dungeonGenerator.Grid.IsWalkable(
+                    frontCell) &&
+                !dungeonGenerator.Grid.IsNavigationBlocked(
+                    frontCell))
+            {
+                continue;
+            }
+
+            if (DynamicShaperPathfinder.TryFindPath(
+                    dungeonGenerator,
+                    originCell,
+                    direction,
+                    minimumSolidCells,
+                    maximumSolidCells,
+                    maximumSideDeviation,
+                    out target))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 
