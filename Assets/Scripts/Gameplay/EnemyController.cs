@@ -54,6 +54,11 @@ public class EnemyController : MonoBehaviour
     [SerializeField]
     private float investigationWaitTime = 1.25f;
 
+    [Tooltip("Delay between facing changes while searching the last known player position.")]
+    [Min(0.05f)]
+    [SerializeField]
+    private float investigationLookInterval = 0.25f;
+
 
     [Header("Combat")]
 
@@ -112,6 +117,18 @@ public class EnemyController : MonoBehaviour
 
     private float investigationEndTime;
 
+    private float nextInvestigationLookTime;
+
+    private int investigationLookIndex;
+
+    private static readonly Vector2Int[] investigationDirections =
+    {
+        Vector2Int.up,
+        Vector2Int.right,
+        Vector2Int.down,
+        Vector2Int.left
+    };
+
 
     private bool initialised;
 
@@ -127,6 +144,8 @@ public class EnemyController : MonoBehaviour
 
     public EnemyState CurrentState =>
         currentState;
+
+    public event System.Action AttackPerformed;
 
     public float VisionRange =>
         visionRange;
@@ -170,6 +189,10 @@ public class EnemyController : MonoBehaviour
         waitingAtLastKnownPosition = false;
 
         investigationEndTime = 0f;
+
+        nextInvestigationLookTime = 0f;
+
+        investigationLookIndex = 0;
 
         enemyRenderer = GetComponent<Renderer>();
 
@@ -291,12 +314,6 @@ public class EnemyController : MonoBehaviour
             playerController.GridPosition;
 
 
-        bool playerVisible =
-            IsCellVisible(
-                playerPosition
-            );
-
-
         int distanceToPlayer =
             ManhattanDistance(
                 gridPosition,
@@ -308,11 +325,60 @@ public class EnemyController : MonoBehaviour
             currentState;
 
 
+        /*
+         * Once an enemy has already engaged the player, cardinal adjacency is
+         * sufficient for melee. There is no intervening grid cell at distance
+         * one, so another cone or line-of-sight test can only make the enemy
+         * lose an engagement it has already established.
+         */
+        bool engagedAtMeleeRange =
+            distanceToPlayer == 1 &&
+            (currentState == EnemyState.Chase ||
+             currentState == EnemyState.Attack ||
+             currentState == EnemyState.Investigate);
+
+
+        if (engagedAtMeleeRange)
+        {
+            UpdateFacingTowards(
+                playerPosition
+            );
+
+            lastKnownPlayerPosition =
+                playerPosition;
+
+            hasLastKnownPlayerPosition =
+                true;
+
+            waitingAtLastKnownPosition =
+                false;
+
+            currentState =
+                EnemyState.Attack;
+
+            LogStateChange(
+                previousState
+            );
+
+            return;
+        }
+
+
+        if (currentState == EnemyState.Investigate &&
+            waitingAtLastKnownPosition)
+        {
+            UpdateInvestigationFacing();
+        }
+
+
+        bool playerVisible =
+            IsCellVisible(
+                playerPosition
+            );
+
+
         if (playerVisible)
         {
-            // Only visible player positions are remembered.
-            // Once visibility is lost the enemy receives no further
-            // information about where the player went.
             lastKnownPlayerPosition =
                 playerPosition;
 
@@ -325,6 +391,10 @@ public class EnemyController : MonoBehaviour
 
             if (distanceToPlayer <= 1)
             {
+                UpdateFacingTowards(
+                    playerPosition
+                );
+
                 currentState =
                     EnemyState.Attack;
             }
@@ -358,9 +428,6 @@ public class EnemyController : MonoBehaviour
 
 
                 case EnemyState.Investigate:
-
-                    // UpdateInvestigate handles movement to the
-                    // remembered player location.
                     break;
 
 
@@ -377,40 +444,78 @@ public class EnemyController : MonoBehaviour
 
 
                 case EnemyState.Patrol:
-
-                    // Continue normal patrol.
                     break;
             }
         }
 
 
-        if (previousState !=
+        LogStateChange(
+            previousState
+        );
+    }
+
+
+    private void LogStateChange(
+        EnemyState previousState)
+    {
+        if (previousState ==
             currentState)
         {
-            UnityEngine.Debug.Log(
-                $"{name} changed AI state: " +
-                $"{previousState} -> {currentState}"
-            );
-
-
-            if (currentState ==
-                EnemyState.Investigate &&
-                hasLastKnownPlayerPosition)
-            {
-                UnityEngine.Debug.Log(
-                    $"{name} investigating last known position " +
-                    $"({lastKnownPlayerPosition.x}, " +
-                    $"{lastKnownPlayerPosition.y})"
-                );
-            }
-
-
-            if (currentState ==
-                EnemyState.Patrol)
-            {
-                ChooseNewPatrolTarget();
-            }
+            return;
         }
+
+
+        UnityEngine.Debug.Log(
+            $"{name} changed AI state: " +
+            $"{previousState} -> {currentState}"
+        );
+
+
+        if (currentState ==
+            EnemyState.Investigate &&
+            hasLastKnownPlayerPosition)
+        {
+            UnityEngine.Debug.Log(
+                $"{name} investigating last known position " +
+                $"({lastKnownPlayerPosition.x}, " +
+                $"{lastKnownPlayerPosition.y})"
+            );
+        }
+
+
+        if (currentState ==
+            EnemyState.Patrol)
+        {
+            ChooseNewPatrolTarget();
+        }
+    }
+
+
+    private void UpdateInvestigationFacing()
+    {
+        if (Time.time <
+            nextInvestigationLookTime)
+        {
+            return;
+        }
+
+
+        facingDirection =
+            investigationDirections[
+                investigationLookIndex %
+                investigationDirections.Length
+            ];
+
+        investigationLookIndex =
+            (investigationLookIndex + 1) %
+            investigationDirections.Length;
+
+        nextInvestigationLookTime =
+            Time.time +
+            Mathf.Max(
+                0.05f,
+                investigationLookInterval
+            );
     }
 
 
@@ -535,6 +640,12 @@ public class EnemyController : MonoBehaviour
             waitingAtLastKnownPosition =
                 true;
 
+            investigationLookIndex =
+                GetNextInvestigationDirectionIndex();
+
+            nextInvestigationLookTime =
+                Time.time;
+
 
             investigationEndTime =
                 Time.time +
@@ -580,6 +691,26 @@ public class EnemyController : MonoBehaviour
     }
 
 
+    private int GetNextInvestigationDirectionIndex()
+    {
+        for (int i = 0;
+             i < investigationDirections.Length;
+             i++)
+        {
+            if (investigationDirections[i] ==
+                facingDirection)
+            {
+                return
+                    (i + 1) %
+                    investigationDirections.Length;
+            }
+        }
+
+
+        return 0;
+    }
+
+
     /// <summary>
     /// Returns to the enemy's original room after losing the player.
     /// </summary>
@@ -619,20 +750,21 @@ public class EnemyController : MonoBehaviour
             return;
 
 
-        // Attack requires the player to remain genuinely visible.
-        if (!IsCellVisible(
-                playerController.GridPosition))
-        {
-            return;
-        }
+        Vector2Int playerPosition =
+            playerController.GridPosition;
 
 
         if (ManhattanDistance(
                 gridPosition,
-                playerController.GridPosition) > 1)
+                playerPosition) != 1)
         {
             return;
         }
+
+
+        UpdateFacingTowards(
+            playerPosition
+        );
 
 
         if (Time.time <
@@ -650,6 +782,9 @@ public class EnemyController : MonoBehaviour
         playerController.TakeDamage(
             attackDamage
         );
+
+
+        AttackPerformed?.Invoke();
 
 
         UnityEngine.Debug.Log(
@@ -690,8 +825,7 @@ public class EnemyController : MonoBehaviour
     /// Returns the walkable grid cells currently visible to this
     /// enemy.
     ///
-    /// Used to render the torch cone and later useful for debugging
-    /// perception behaviour.
+    /// Used by the vision-cone renderer and perception diagnostics.
     /// </summary>
     public List<Vector2Int> GetVisibleCells()
     {

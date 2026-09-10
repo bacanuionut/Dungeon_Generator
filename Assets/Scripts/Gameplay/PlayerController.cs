@@ -34,6 +34,8 @@ public class PlayerController : MonoBehaviour
 
     public bool IsAlive => currentHealth > 0;
 
+    public event System.Action<int> Damaged;
+
     [Header("Movement")]
 
     [Tooltip("Minimum delay between grid movement steps.")]
@@ -132,7 +134,7 @@ public class PlayerController : MonoBehaviour
         movementCount = 0;
         treasuresCollected = 0;
 
-        
+
         if (dungeonGenerator == null)
         {
             UnityEngine.Debug.LogError(
@@ -246,7 +248,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        gridPosition = targetPosition;        
+        gridPosition = targetPosition;
 
         UpdateWorldPosition();
 
@@ -369,6 +371,13 @@ public class PlayerController : MonoBehaviour
             healthActuallyLost > 0)
         {
             runStatsManager.RecordHeartLost(
+                healthActuallyLost
+            );
+        }
+
+        if (healthActuallyLost > 0)
+        {
+            Damaged?.Invoke(
                 healthActuallyLost
             );
         }

@@ -6,9 +6,9 @@ using UnityEngine;
 /// Handles visual sprite animation for grid-based actors without changing
 /// their gameplay movement, AI, collision or pathfinding.
 ///
-/// CraftPix actor sheets are read as 32x32 frames. The first three rows
-/// provide down, up and side walking animations; left and right share the
-/// side row and use SpriteRenderer.flipX.
+/// CraftPix actor sheets are read as 32x32 frames. Directional idle and
+/// walking sequences are selected separately; left and right share the side
+/// rows and use SpriteRenderer.flipX.
 /// </summary>
 [DisallowMultipleComponent]
 public class ActorSpriteAnimator : MonoBehaviour
@@ -20,8 +20,7 @@ public class ActorSpriteAnimator : MonoBehaviour
         public string setName = "Actor";
 
         [Tooltip(
-            "Full CraftPix character/enemy PNG. " +
-            "The animator extracts the first three 32x32 movement rows."
+            "Full CraftPix character/enemy PNG used for idle, movement and action animation."
         )]
         public Texture2D spriteSheet;
 
@@ -50,9 +49,29 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     private sealed class RuntimeFrames
     {
-        public Sprite[] Down;
-        public Sprite[] Side;
-        public Sprite[] Up;
+        public Sprite[] IdleDown;
+        public Sprite[] IdleSide;
+        public Sprite[] IdleUp;
+
+        public Sprite[] WalkDown;
+        public Sprite[] WalkSide;
+        public Sprite[] WalkUp;
+
+        public Sprite[] ImpactDown;
+        public Sprite[] ImpactSide;
+        public Sprite[] ImpactUp;
+
+        public Sprite[] AttackDown;
+        public Sprite[] AttackSide;
+        public Sprite[] AttackUp;
+    }
+
+
+    private enum OneShotVisualAction
+    {
+        None,
+        Hurt,
+        Attack
     }
 
 
@@ -61,6 +80,11 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
     [Header("Animation")]
+
+    [Tooltip("Idle animation speed in frames per second.")]
+    [Min(1f)]
+    [SerializeField]
+    private float idleFramesPerSecond = 3f;
 
     [Tooltip("Walking animation speed in frames per second.")]
     [Min(1f)]
@@ -74,6 +98,24 @@ public class ActorSpriteAnimator : MonoBehaviour
     [Min(0.05f)]
     [SerializeField]
     private float movementVisualHold = 0.18f;
+
+
+    [Header("Action Animation")]
+
+    [Tooltip("Playback speed for the enemy attack frames.")]
+    [Min(1f)]
+    [SerializeField]
+    private float attackFramesPerSecond = 10f;
+
+    [Tooltip("Playback speed for the player hurt frames.")]
+    [Min(1f)]
+    [SerializeField]
+    private float hurtFramesPerSecond = 10f;
+
+    [Tooltip("Playback speed for the enemy stun fall animation.")]
+    [Min(1f)]
+    [SerializeField]
+    private float stunFramesPerSecond = 6f;
 
 
     [Header("Visual Movement")]
@@ -173,6 +215,8 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     private EnemyController enemyController;
 
+    private WardenController wardenController;
+
 
     private Vector3 previousWorldPosition;
 
@@ -203,6 +247,27 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     private bool wasMovingLastFrame;
 
+    private OneShotVisualAction oneShotAction =
+        OneShotVisualAction.None;
+
+    private float actionFrameDuration;
+
+    private float actionEndTime;
+
+    private float nextActionFrameTime;
+
+    private int actionFrame;
+
+    private bool stunAnimationActive;
+
+    private float nextStunFrameTime;
+
+    private int stunFrame;
+
+    private bool tutorialStunPreviewActive;
+
+    private bool controllerEventsSubscribed;
+
     private bool configured;
 
 
@@ -223,8 +288,116 @@ public class ActorSpriteAnimator : MonoBehaviour
         enemyController =
             GetComponent<EnemyController>();
 
+        wardenController =
+            GetComponent<WardenController>();
+
         oldRootRenderer =
             GetComponent<Renderer>();
+    }
+
+
+    private void OnEnable()
+    {
+        SubscribeControllerEvents();
+    }
+
+
+    private void OnDisable()
+    {
+        UnsubscribeControllerEvents();
+    }
+
+
+    private void SubscribeControllerEvents()
+    {
+        if (controllerEventsSubscribed)
+            return;
+
+        if (playerController != null)
+        {
+            playerController.Damaged +=
+                HandlePlayerDamaged;
+        }
+
+        if (enemyController != null)
+        {
+            enemyController.AttackPerformed +=
+                HandleEnemyAttackPerformed;
+        }
+
+        if (wardenController != null)
+        {
+            wardenController.AttackPerformed +=
+                HandleWardenAttackPerformed;
+        }
+
+        controllerEventsSubscribed =
+            true;
+    }
+
+
+    private void UnsubscribeControllerEvents()
+    {
+        if (!controllerEventsSubscribed)
+            return;
+
+        if (playerController != null)
+        {
+            playerController.Damaged -=
+                HandlePlayerDamaged;
+        }
+
+        if (enemyController != null)
+        {
+            enemyController.AttackPerformed -=
+                HandleEnemyAttackPerformed;
+        }
+
+        if (wardenController != null)
+        {
+            wardenController.AttackPerformed -=
+                HandleWardenAttackPerformed;
+        }
+
+        controllerEventsSubscribed =
+            false;
+    }
+
+
+    private void HandlePlayerDamaged(
+        int damage)
+    {
+        if (!configured || damage <= 0)
+            return;
+
+        StartOneShotAction(
+            OneShotVisualAction.Hurt,
+            hurtFramesPerSecond
+        );
+    }
+
+
+    private void HandleEnemyAttackPerformed()
+    {
+        if (!configured)
+            return;
+
+        StartOneShotAction(
+            OneShotVisualAction.Attack,
+            attackFramesPerSecond
+        );
+    }
+
+
+    private void HandleWardenAttackPerformed()
+    {
+        if (!configured)
+            return;
+
+        StartOneShotAction(
+            OneShotVisualAction.Attack,
+            attackFramesPerSecond
+        );
     }
 
 
@@ -330,6 +503,38 @@ public class ActorSpriteAnimator : MonoBehaviour
             false;
 
 
+        oneShotAction =
+            OneShotVisualAction.None;
+
+
+        actionFrame =
+            0;
+
+
+        actionEndTime =
+            0f;
+
+
+        nextActionFrameTime =
+            0f;
+
+
+        stunAnimationActive =
+            false;
+
+
+        stunFrame =
+            0;
+
+
+        nextStunFrameTime =
+            0f;
+
+
+        tutorialStunPreviewActive =
+            false;
+
+
         visualObject.transform.position =
             renderedWorldPosition;
 
@@ -377,6 +582,44 @@ public class ActorSpriteAnimator : MonoBehaviour
     }
 
 
+    /// <summary>
+    /// Starts the visual stun sequence without changing the enemy AI state.
+    /// </summary>
+    public void BeginTutorialStunPreview()
+    {
+        if (!configured)
+            return;
+
+        tutorialStunPreviewActive =
+            true;
+
+        ResetStunAnimation();
+
+        SetFacingFromExistingController();
+    }
+
+
+    /// <summary>
+    /// Ends a tutorial-only stun sequence and restores normal animation.
+    /// </summary>
+    public void EndTutorialStunPreview()
+    {
+        if (!tutorialStunPreviewActive)
+            return;
+
+        tutorialStunPreviewActive =
+            false;
+
+        ResetStunAnimation();
+
+        ApplyCurrentSprite(
+            false
+        );
+
+        UpdateStateTint();
+    }
+
+
     private void Update()
     {
         if (!configured ||
@@ -411,6 +654,15 @@ public class ActorSpriteAnimator : MonoBehaviour
             SetFacing(
                 enemyController.FacingDirection
             );
+
+            return;
+        }
+
+        if (wardenController != null)
+        {
+            SetFacing(
+                wardenController.FacingDirection
+            );
         }
     }
 
@@ -443,10 +695,40 @@ public class ActorSpriteAnimator : MonoBehaviour
             movingUntilTime;
 
 
-        UpdateAnimationFrame(
-            moving,
-            now
-        );
+        bool enemyStunned =
+            tutorialStunPreviewActive ||
+            (enemyController != null &&
+             enemyController.CurrentState ==
+                EnemyController.EnemyState.Stunned) ||
+            (wardenController != null &&
+             wardenController.IsStunned);
+
+
+        if (enemyStunned)
+        {
+            UpdateStunAnimation(
+                now
+            );
+        }
+        else
+        {
+            ResetStunAnimation();
+
+            if (IsOneShotActionActive(
+                    now))
+            {
+                UpdateOneShotAction(
+                    now
+                );
+            }
+            else
+            {
+                UpdateAnimationFrame(
+                    moving,
+                    now
+                );
+            }
+        }
 
 
         UpdateStateTint();
@@ -609,7 +891,9 @@ public class ActorSpriteAnimator : MonoBehaviour
 
             nextFrameTime =
                 now +
-                GetAnimationFrameDuration();
+                GetAnimationFrameDuration(
+                    true
+                );
         }
 
 
@@ -669,7 +953,8 @@ public class ActorSpriteAnimator : MonoBehaviour
             duration =
                 playerInitialStepDuration;
         }
-        else if (enemyController != null)
+        else if (enemyController != null ||
+                 wardenController != null)
         {
             duration =
                 enemyInitialStepDuration;
@@ -742,30 +1027,289 @@ public class ActorSpriteAnimator : MonoBehaviour
     }
 
 
-    private void UpdateAnimationFrame(
-        bool moving,
+    private void StartOneShotAction(
+        OneShotVisualAction action,
+        float framesPerSecond)
+    {
+        Sprite[] actionFrames =
+            GetFramesForAction(
+                action
+            );
+
+        if (actionFrames == null ||
+            actionFrames.Length == 0)
+        {
+            return;
+        }
+
+        SetFacingFromExistingController();
+
+        oneShotAction =
+            action;
+
+        actionFrame =
+            0;
+
+        actionFrameDuration =
+            1f /
+            Mathf.Max(
+                1f,
+                framesPerSecond
+            );
+
+        float now =
+            Time.time;
+
+        actionEndTime =
+            now +
+            actionFrameDuration *
+            actionFrames.Length;
+
+        nextActionFrameTime =
+            now +
+            actionFrameDuration;
+
+        ApplyActionSprite(
+            actionFrames,
+            actionFrame
+        );
+    }
+
+
+    private bool IsOneShotActionActive(
         float now)
     {
-        if (!moving)
+        if (oneShotAction ==
+            OneShotVisualAction.None)
         {
-            animationFrame =
-                0;
+            return false;
+        }
+
+        if (now < actionEndTime)
+        {
+            return true;
+        }
+
+        oneShotAction =
+            OneShotVisualAction.None;
+
+        actionFrame =
+            0;
+
+        nextActionFrameTime =
+            0f;
+
+        return false;
+    }
 
 
-            nextFrameTime =
-                0f;
-
-
-            ApplyCurrentSprite(
-                false
+    private void UpdateOneShotAction(
+        float now)
+    {
+        Sprite[] actionFrames =
+            GetFramesForAction(
+                oneShotAction
             );
+
+        if (actionFrames == null ||
+            actionFrames.Length == 0)
+        {
+            oneShotAction =
+                OneShotVisualAction.None;
 
             return;
         }
 
+        while (now >=
+               nextActionFrameTime &&
+               actionFrame <
+                   actionFrames.Length - 1)
+        {
+            actionFrame++;
+
+            nextActionFrameTime +=
+                actionFrameDuration;
+        }
+
+        ApplyActionSprite(
+            actionFrames,
+            actionFrame
+        );
+    }
+
+
+    private void UpdateStunAnimation(
+        float now)
+    {
+        Sprite[] stunFrames =
+            GetImpactFramesForFacing();
+
+        if (stunFrames == null ||
+            stunFrames.Length == 0)
+        {
+            return;
+        }
+
+        float frameDuration =
+            1f /
+            Mathf.Max(
+                1f,
+                stunFramesPerSecond
+            );
+
+        if (!stunAnimationActive)
+        {
+            stunAnimationActive =
+                true;
+
+            stunFrame =
+                0;
+
+            nextStunFrameTime =
+                now +
+                frameDuration;
+        }
+
+        while (now >=
+               nextStunFrameTime &&
+               stunFrame <
+                   stunFrames.Length - 1)
+        {
+            stunFrame++;
+
+            nextStunFrameTime +=
+                frameDuration;
+        }
+
+        ApplyActionSprite(
+            stunFrames,
+            stunFrame
+        );
+    }
+
+
+    private void ResetStunAnimation()
+    {
+        if (!stunAnimationActive)
+            return;
+
+        stunAnimationActive =
+            false;
+
+        stunFrame =
+            0;
+
+        nextStunFrameTime =
+            0f;
+    }
+
+
+    private Sprite[] GetFramesForAction(
+        OneShotVisualAction action)
+    {
+        if (action ==
+            OneShotVisualAction.Hurt)
+        {
+            return GetImpactFramesForFacing();
+        }
+
+        if (action ==
+            OneShotVisualAction.Attack)
+        {
+            return GetAttackFramesForFacing();
+        }
+
+        return null;
+    }
+
+
+    private Sprite[] GetImpactFramesForFacing()
+    {
+        if (facingDirection ==
+            Vector2Int.up)
+        {
+            return frames.ImpactUp;
+        }
+
+        if (facingDirection ==
+                Vector2Int.left ||
+            facingDirection ==
+                Vector2Int.right)
+        {
+            return frames.ImpactSide;
+        }
+
+        return frames.ImpactDown;
+    }
+
+
+    private Sprite[] GetAttackFramesForFacing()
+    {
+        if (facingDirection ==
+            Vector2Int.up)
+        {
+            return frames.AttackUp;
+        }
+
+        if (facingDirection ==
+                Vector2Int.left ||
+            facingDirection ==
+                Vector2Int.right)
+        {
+            return frames.AttackSide;
+        }
+
+        return frames.AttackDown;
+    }
+
+
+    private void ApplyActionSprite(
+        Sprite[] actionFrames,
+        int frameIndex)
+    {
+        if (actionFrames == null ||
+            actionFrames.Length == 0 ||
+            spriteRenderer == null)
+        {
+            return;
+        }
+
+        int index =
+            Mathf.Clamp(
+                frameIndex,
+                0,
+                actionFrames.Length - 1
+            );
+
+        if (actionFrames[index] != null)
+        {
+            spriteRenderer.sprite =
+                actionFrames[index];
+        }
+
+        ApplyHorizontalFlip();
+    }
+
+
+    private void UpdateAnimationFrame(
+        bool moving,
+        float now)
+    {
+        if (moving !=
+            wasMovingLastFrame)
+        {
+            animationFrame =
+                0;
+
+            nextFrameTime =
+                0f;
+        }
+
 
         Sprite[] activeFrames =
-            GetFramesForFacing();
+            moving
+                ? GetWalkFramesForFacing()
+                : GetIdleFramesForFacing();
 
 
         int frameCount =
@@ -781,7 +1325,9 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
         float frameDuration =
-            GetAnimationFrameDuration();
+            GetAnimationFrameDuration(
+                moving
+            );
 
 
         if (nextFrameTime <= 0f)
@@ -806,18 +1352,25 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
         ApplyCurrentSprite(
-            true
+            moving
         );
     }
 
 
-    private float GetAnimationFrameDuration()
+    private float GetAnimationFrameDuration(
+        bool moving)
     {
+        float framesPerSecond =
+            moving
+                ? walkFramesPerSecond
+                : idleFramesPerSecond;
+
+
         return
             1f /
             Mathf.Max(
                 1f,
-                walkFramesPerSecond
+                framesPerSecond
             );
     }
 
@@ -826,7 +1379,9 @@ public class ActorSpriteAnimator : MonoBehaviour
         bool moving)
     {
         Sprite[] activeFrames =
-            GetFramesForFacing();
+            moving
+                ? GetWalkFramesForFacing()
+                : GetIdleFramesForFacing();
 
 
         if (activeFrames == null ||
@@ -837,13 +1392,11 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
         int index =
-            moving
-                ? Mathf.Clamp(
-                    animationFrame,
-                    0,
-                    activeFrames.Length - 1
-                )
-                : 0;
+            Mathf.Clamp(
+                animationFrame,
+                0,
+                activeFrames.Length - 1
+            );
 
 
         if (activeFrames[index] != null)
@@ -853,22 +1406,25 @@ public class ActorSpriteAnimator : MonoBehaviour
         }
 
 
+        ApplyHorizontalFlip();
+    }
+
+
+    private void ApplyHorizontalFlip()
+    {
         bool facingLeft =
             facingDirection ==
             Vector2Int.left;
 
-
         bool facingRight =
             facingDirection ==
             Vector2Int.right;
-
 
         if (facingLeft ||
             facingRight)
         {
             bool sourceFacesRight =
                 activeSet.sideFramesFaceRight;
-
 
             spriteRenderer.flipX =
                 sourceFacesRight
@@ -883,12 +1439,12 @@ public class ActorSpriteAnimator : MonoBehaviour
     }
 
 
-    private Sprite[] GetFramesForFacing()
+    private Sprite[] GetIdleFramesForFacing()
     {
         if (facingDirection ==
             Vector2Int.up)
         {
-            return frames.Up;
+            return frames.IdleUp;
         }
 
 
@@ -897,19 +1453,44 @@ public class ActorSpriteAnimator : MonoBehaviour
             facingDirection ==
                 Vector2Int.right)
         {
-            return frames.Side;
+            return frames.IdleSide;
         }
 
 
-        return frames.Down;
+        return frames.IdleDown;
+    }
+
+
+    private Sprite[] GetWalkFramesForFacing()
+    {
+        if (facingDirection ==
+            Vector2Int.up)
+        {
+            return frames.WalkUp;
+        }
+
+
+        if (facingDirection ==
+                Vector2Int.left ||
+            facingDirection ==
+                Vector2Int.right)
+        {
+            return frames.WalkSide;
+        }
+
+
+        return frames.WalkDown;
     }
 
 
     private void UpdateStateTint()
     {
-        if (enemyController != null &&
-            enemyController.CurrentState ==
-                EnemyController.EnemyState.Stunned)
+        if (tutorialStunPreviewActive ||
+            (enemyController != null &&
+             enemyController.CurrentState ==
+                EnemyController.EnemyState.Stunned) ||
+            (wardenController != null &&
+             wardenController.IsStunned))
         {
             spriteRenderer.color =
                 stunnedTint;
@@ -1031,7 +1612,8 @@ public class ActorSpriteAnimator : MonoBehaviour
         string cacheKey =
             spriteSet.spriteSheet.GetInstanceID() +
             "|" +
-            spriteSet.pixelsPerUnit;
+            spriteSet.pixelsPerUnit +
+            "|idle-walk-layout-v2";
 
 
         RuntimeFrames cached;
@@ -1049,28 +1631,104 @@ public class ActorSpriteAnimator : MonoBehaviour
             new RuntimeFrames();
 
 
-        created.Down =
-            CreateMovementRow(
+        // Rows are counted from the top of the CraftPix sheet.
+        created.IdleDown =
+            CreateAnimationRow(
                 spriteSet,
                 0,
-                "Down"
+                4,
+                "IdleDown"
             );
 
-
-        // CraftPix row order: 0 = down/front, 1 = up/back, 2 = side.
-        created.Up =
-            CreateMovementRow(
+        created.IdleUp =
+            CreateAnimationRow(
                 spriteSet,
                 1,
-                "Up"
+                4,
+                "IdleUp"
+            );
+
+        created.IdleSide =
+            CreateAnimationRow(
+                spriteSet,
+                2,
+                4,
+                "IdleSide"
             );
 
 
-        created.Side =
-            CreateMovementRow(
+        created.WalkDown =
+            CreateAnimationRow(
                 spriteSet,
-                2,
-                "Side"
+                6,
+                6,
+                "WalkDown"
+            );
+
+        created.WalkUp =
+            CreateAnimationRow(
+                spriteSet,
+                7,
+                6,
+                "WalkUp"
+            );
+
+        created.WalkSide =
+            CreateAnimationRow(
+                spriteSet,
+                8,
+                6,
+                "WalkSide"
+            );
+
+
+        created.ImpactDown =
+            CreateAnimationRow(
+                spriteSet,
+                9,
+                4,
+                "ImpactDown"
+            );
+
+        created.ImpactUp =
+            CreateAnimationRow(
+                spriteSet,
+                10,
+                4,
+                "ImpactUp"
+            );
+
+        created.ImpactSide =
+            CreateAnimationRow(
+                spriteSet,
+                11,
+                4,
+                "ImpactSide"
+            );
+
+
+        created.AttackDown =
+            CreateAnimationRow(
+                spriteSet,
+                12,
+                4,
+                "AttackDown"
+            );
+
+        created.AttackUp =
+            CreateAnimationRow(
+                spriteSet,
+                13,
+                4,
+                "AttackUp"
+            );
+
+        created.AttackSide =
+            CreateAnimationRow(
+                spriteSet,
+                14,
+                4,
+                "AttackSide"
             );
 
 
@@ -1083,14 +1741,14 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
     /// <summary>
-    /// Extracts the four useful movement frames from one 32-pixel row.
-    ///
-    /// Sprite.Create uses bottom-left texture coordinates, while the source
-    /// sheet is described visually from top to bottom, so Y is inverted here.
+    /// Extracts a sequence of 32x32 frames from one animation row.
+    /// Sprite.Create uses bottom-left texture coordinates, so the source row
+    /// number is inverted when calculating its texture Y coordinate.
     /// </summary>
-    private static Sprite[] CreateMovementRow(
+    private static Sprite[] CreateAnimationRow(
         ActorSpriteSet spriteSet,
         int rowFromTop,
+        int frameCount,
         string directionName)
     {
         const int frameWidth =
@@ -1099,10 +1757,6 @@ public class ActorSpriteAnimator : MonoBehaviour
 
         const int frameHeight =
             32;
-
-
-        const int frameCount =
-            4;
 
 
         Sprite[] result =

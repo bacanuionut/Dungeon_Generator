@@ -220,8 +220,6 @@ public class GameplayTutorialController : MonoBehaviour
 
     private ActorSpriteAnimator pulseEnemyAnimator;
 
-    private bool pulseEnemyAnimatorWasEnabled;
-
     private SpriteRenderer pulseEnemySpriteRenderer;
 
     private Color pulseEnemyOriginalColour =
@@ -1401,9 +1399,18 @@ public class GameplayTutorialController : MonoBehaviour
                 );
         }
 
-        SetPulseTutorialEnemyTint(
-            true
-        );
+        if (pulseEnemyAnimator != null &&
+            pulseEnemyAnimator.isActiveAndEnabled)
+        {
+            pulseEnemyAnimator
+                .BeginTutorialStunPreview();
+        }
+        else
+        {
+            SetPulseTutorialEnemyTint(
+                true
+            );
+        }
 
         if (pulsePreviewObject != null)
         {
@@ -1423,9 +1430,18 @@ public class GameplayTutorialController : MonoBehaviour
                 );
         }
 
-        SetPulseTutorialEnemyTint(
-            false
-        );
+        if (pulseEnemyAnimator != null &&
+            pulseEnemyAnimator.isActiveAndEnabled)
+        {
+            pulseEnemyAnimator
+                .EndTutorialStunPreview();
+        }
+        else
+        {
+            SetPulseTutorialEnemyTint(
+                false
+            );
+        }
     }
 
 
@@ -1450,15 +1466,6 @@ public class GameplayTutorialController : MonoBehaviour
 
         pulseEnemyAnimator =
             pulseTutorialEnemy.GetComponent<ActorSpriteAnimator>();
-
-        if (pulseEnemyAnimator != null)
-        {
-            pulseEnemyAnimatorWasEnabled =
-                pulseEnemyAnimator.enabled;
-
-            pulseEnemyAnimator.enabled =
-                false;
-        }
 
         pulseEnemySpriteRenderer =
             pulseTutorialEnemy.GetComponentInChildren<SpriteRenderer>(
@@ -1513,8 +1520,8 @@ public class GameplayTutorialController : MonoBehaviour
 
         if (pulseEnemyAnimator != null)
         {
-            pulseEnemyAnimator.enabled =
-                pulseEnemyAnimatorWasEnabled;
+            pulseEnemyAnimator
+                .EndTutorialStunPreview();
         }
 
         if (pulseTutorialEnemy != null)
@@ -1531,9 +1538,6 @@ public class GameplayTutorialController : MonoBehaviour
 
         pulseEnemyAnimator =
             null;
-
-        pulseEnemyAnimatorWasEnabled =
-            false;
 
         pulseEnemySpriteRenderer =
             null;

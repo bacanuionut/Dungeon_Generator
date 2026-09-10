@@ -2,7 +2,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Persistent-style dungeon pursuer prototype.
+/// Controls the physical Warden after it reaches the player's floor.
 ///
 /// The Warden uses weighted A* to chase the player. Existing floor is
 /// cheap to traverse while solid terrain is expensive but possible.
@@ -76,6 +76,9 @@ public class WardenController : MonoBehaviour
 
     private Vector2Int gridPosition;
 
+    private Vector2Int facingDirection =
+        Vector2Int.down;
+
 
     private float nextActionTime;
 
@@ -100,9 +103,13 @@ public class WardenController : MonoBehaviour
     public Vector2Int GridPosition =>
         gridPosition;
 
+    public Vector2Int FacingDirection =>
+        facingDirection;
 
     public bool IsStunned =>
         stunned;
+
+    public event System.Action AttackPerformed;
 
 
     public void Initialise(
@@ -128,6 +135,10 @@ public class WardenController : MonoBehaviour
             CellToWorld(
                 gridPosition
             );
+
+        UpdateFacingTowards(
+            playerController.GridPosition
+        );
 
 
         InitialiseVisual();
@@ -256,6 +267,10 @@ public class WardenController : MonoBehaviour
     private void TryExcavate(
         Vector2Int targetCell)
     {
+        UpdateFacingTowards(
+            targetCell
+        );
+
         if (terrainModifier == null ||
             terrainModifier.IsModifyingTerrain)
         {
@@ -328,6 +343,10 @@ public class WardenController : MonoBehaviour
     private void MoveTo(
         Vector2Int cell)
     {
+        UpdateFacingTowards(
+            cell
+        );
+
         gridPosition =
             cell;
 
@@ -336,6 +355,34 @@ public class WardenController : MonoBehaviour
             CellToWorld(
                 gridPosition
             );
+    }
+
+
+    private void UpdateFacingTowards(
+        Vector2Int targetCell)
+    {
+        Vector2Int difference =
+            targetCell -
+            gridPosition;
+
+        if (difference == Vector2Int.zero)
+            return;
+
+        if (Mathf.Abs(difference.x) >
+            Mathf.Abs(difference.y))
+        {
+            facingDirection =
+                difference.x > 0
+                    ? Vector2Int.right
+                    : Vector2Int.left;
+        }
+        else
+        {
+            facingDirection =
+                difference.y > 0
+                    ? Vector2Int.up
+                    : Vector2Int.down;
+        }
     }
 
 
@@ -362,6 +409,10 @@ public class WardenController : MonoBehaviour
 
     private void TryAttackPlayer()
     {
+        UpdateFacingTowards(
+            playerController.GridPosition
+        );
+
         if (Time.time <
             nextAttackTime)
         {
@@ -372,6 +423,8 @@ public class WardenController : MonoBehaviour
         playerController.TakeDamage(
             attackDamage
         );
+
+        AttackPerformed?.Invoke();
 
 
         nextAttackTime =
