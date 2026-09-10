@@ -296,6 +296,131 @@ public class DungeonCameraController : MonoBehaviour
 
 
     /// <summary>
+    /// Gives a multi-target tutorial sequence control of the camera.
+    /// </summary>
+    public void BeginTutorialSequence()
+    {
+        if (targetCamera == null ||
+            playerController == null)
+        {
+            return;
+        }
+
+        if (tutorialFocusCoroutine != null)
+        {
+            StopCoroutine(
+                tutorialFocusCoroutine
+            );
+
+            tutorialFocusCoroutine =
+                null;
+        }
+
+        tutorialFocusActive =
+            true;
+
+        overviewMode =
+            false;
+    }
+
+
+    /// <summary>
+    /// Pans directly to one world-space target while a tutorial sequence
+    /// owns the camera.
+    /// </summary>
+    public IEnumerator PanTutorialSequenceTo(
+        Vector3 worldPosition)
+    {
+        if (targetCamera == null)
+        {
+            yield break;
+        }
+
+        tutorialFocusActive =
+            true;
+
+        overviewMode =
+            false;
+
+        Vector3 startPosition =
+            transform.position;
+
+        Vector3 targetPosition =
+            new Vector3(
+                worldPosition.x,
+                worldPosition.y,
+                transform.position.z
+            );
+
+        float startCameraSize =
+            targetCamera.orthographicSize;
+
+        float elapsed =
+            0f;
+
+        while (elapsed <
+               tutorialPanDuration)
+        {
+            elapsed +=
+                Time.unscaledDeltaTime;
+
+            float progress =
+                tutorialPanDuration > 0f
+                    ? Mathf.Clamp01(
+                        elapsed /
+                        tutorialPanDuration
+                    )
+                    : 1f;
+
+            progress =
+                Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    progress
+                );
+
+            transform.position =
+                Vector3.Lerp(
+                    startPosition,
+                    targetPosition,
+                    progress
+                );
+
+            targetCamera.orthographicSize =
+                Mathf.Lerp(
+                    startCameraSize,
+                    gameplayCameraSize,
+                    progress
+                );
+
+            yield return null;
+        }
+
+        transform.position =
+            targetPosition;
+
+        targetCamera.orthographicSize =
+            gameplayCameraSize;
+    }
+
+
+    /// <summary>
+    /// Releases the camera after a multi-target tutorial sequence.
+    /// </summary>
+    public void EndTutorialSequence(
+        bool snapToPlayer)
+    {
+        if (snapToPlayer)
+        {
+            PlaceCameraOnPlayer();
+        }
+
+        tutorialFocusActive =
+            false;
+    }
+
+
+    /// <summary>
     /// Starts a short tutorial camera focus.
     ///
     /// The camera pans to the supplied generated world position,

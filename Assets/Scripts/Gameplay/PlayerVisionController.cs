@@ -68,7 +68,10 @@ public class PlayerVisionController : MonoBehaviour
         new HashSet<Vector2Int>();
 
     private readonly HashSet<Vector2Int> currentRegionDisplayCells =
-    new HashSet<Vector2Int>();
+        new HashSet<Vector2Int>();
+
+    private readonly HashSet<Vector2Int> tutorialVisibleDisplayCells =
+        new HashSet<Vector2Int>();
 
 
     private static readonly Vector2Int[] cardinalDirections =
@@ -144,6 +147,8 @@ public class PlayerVisionController : MonoBehaviour
         exploredDisplayCells.Clear();
 
         currentRegionDisplayCells.Clear();
+
+        tutorialVisibleDisplayCells.Clear();
 
 
         if (environmentGenerator == null &&
@@ -260,6 +265,11 @@ public class PlayerVisionController : MonoBehaviour
 
         exploredDisplayCells.UnionWith(
             currentRegionDisplayCells
+        );
+
+
+        visibleDisplayCells.UnionWith(
+            tutorialVisibleDisplayCells
         );
 
 
@@ -988,6 +998,66 @@ public class PlayerVisionController : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// Temporarily clears fog around a tutorial target without adding those
+    /// cells to the player's explored map.
+    /// </summary>
+    public void SetTutorialFocusVisibility(
+        Vector2Int centre,
+        int radius)
+    {
+        tutorialVisibleDisplayCells.Clear();
+
+        int safeRadius =
+            Mathf.Max(
+                0,
+                radius
+            );
+
+        for (int x = -safeRadius;
+             x <= safeRadius;
+             x++)
+        {
+            for (int y = -safeRadius;
+                 y <= safeRadius;
+                 y++)
+            {
+                if (Mathf.Abs(x) +
+                    Mathf.Abs(y) >
+                    safeRadius)
+                {
+                    continue;
+                }
+
+                tutorialVisibleDisplayCells.Add(
+                    new Vector2Int(
+                        centre.x + x,
+                        centre.y + y
+                    )
+                );
+            }
+        }
+
+        ForceRefreshVisibility();
+    }
+
+
+    /// <summary>
+    /// Removes the temporary visibility used by a tutorial camera focus.
+    /// </summary>
+    public void ClearTutorialFocusVisibility()
+    {
+        if (tutorialVisibleDisplayCells.Count == 0)
+        {
+            return;
+        }
+
+        tutorialVisibleDisplayCells.Clear();
+
+        ForceRefreshVisibility();
+    }
+
 
     /// <summary>
     /// Forces player visibility to be recalculated on the next frame.

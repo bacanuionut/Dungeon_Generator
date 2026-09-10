@@ -218,7 +218,8 @@ public class RunEndMenu : MonoBehaviour
             mode,
             seed,
             difficulty,
-            targetFloors
+            targetFloors,
+            false
         );
     }
 

@@ -28,6 +28,44 @@ public class GameplayTutorialController : MonoBehaviour
     [SerializeField]
     private PlayerPulseController pulseController;
 
+    [SerializeField]
+    private PlayerVisionController playerVisionController;
+
+
+    [Header("Run Introduction")]
+
+    [Tooltip(
+        "Delay after the first floor is ready before the objective introduction begins."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float runIntroductionStartDelay =
+        0.45f;
+
+    [Tooltip(
+        "How long the first Sigil remains framed before moving to the hatch."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float runIntroductionSigilHoldDuration =
+        1.25f;
+
+    [Tooltip(
+        "How long the hatch remains framed before returning to the player."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float runIntroductionHatchHoldDuration =
+        1.25f;
+
+    [Tooltip(
+        "Temporary fog reveal radius around each objective shown by the introduction."
+    )]
+    [Min(0)]
+    [SerializeField]
+    private int runIntroductionRevealRadius =
+        2;
+
 
     [Header("Puzzle Replay Tutorial")]
 
@@ -137,6 +175,17 @@ public class GameplayTutorialController : MonoBehaviour
     private int observedGenerationVersion =
         -1;
 
+    private bool runIntroductionLearned;
+
+    private bool runIntroductionPending;
+
+    private bool runIntroductionRunning;
+
+    private int runIntroductionGenerationVersion =
+        -1;
+
+    private float runIntroductionReadyTime;
+
     private bool puzzleReplayTutorialLearned;
 
     private bool puzzleReplayTutorialStartedThisFloor;
@@ -231,8 +280,16 @@ public class GameplayTutorialController : MonoBehaviour
 
         DetectFloorChange();
 
-        if (diggerTutorialRunning ||
+        if (runIntroductionRunning ||
+            diggerTutorialRunning ||
             pulseTutorialRunning)
+        {
+            return;
+        }
+
+        TryStartRunIntroduction();
+
+        if (activeTutorialCoroutine != null)
         {
             return;
         }
@@ -261,6 +318,33 @@ public class GameplayTutorialController : MonoBehaviour
         observedGenerationVersion =
             dungeonGenerator.GenerationVersion;
 
+        if (runIntroductionPending &&
+            runIntroductionGenerationVersion < 0)
+        {
+            runIntroductionGenerationVersion =
+                observedGenerationVersion;
+
+            runIntroductionReadyTime =
+                Time.unscaledTime +
+                runIntroductionStartDelay;
+        }
+        else if (runIntroductionPending &&
+                 observedGenerationVersion !=
+                    runIntroductionGenerationVersion)
+        {
+            runIntroductionPending =
+                false;
+
+            runIntroductionLearned =
+                true;
+
+            if (playerVisionController != null)
+            {
+                playerVisionController
+                    .ClearTutorialFocusVisibility();
+            }
+        }
+
         puzzleReplayTutorialStartedThisFloor =
             false;
 
@@ -268,6 +352,242 @@ public class GameplayTutorialController : MonoBehaviour
             false;
 
         ClearPrompt();
+    }
+
+
+    private void TryStartRunIntroduction()
+    {
+        if (!runIntroductionPending ||
+            runIntroductionLearned ||
+            runIntroductionRunning ||
+            activeTutorialCoroutine != null ||
+            dungeonGenerator == null ||
+            dungeonGenerator.Grid == null ||
+            dungeonGenerator.ObjectiveManager == null ||
+            playerController == null ||
+            !playerController.IsAlive)
+        {
+            return;
+        }
+
+        if (observedGenerationVersion !=
+                runIntroductionGenerationVersion ||
+            Time.unscaledTime <
+                runIntroductionReadyTime)
+        {
+            return;
+        }
+
+        FloorObjectiveManager objectiveManager =
+            dungeonGenerator.ObjectiveManager;
+
+        if (objectiveManager.ObjectiveCells == null ||
+            objectiveManager.ObjectiveCells.Count == 0 ||
+            objectiveManager.RequiredSigils <= 0)
+        {
+            return;
+        }
+
+        Vector2Int sigilCell =
+            FindNearestObjectiveCell(
+                objectiveManager.ObjectiveCells
+            );
+
+        Vector2Int hatchCell =
+            dungeonGenerator.GetExitPosition();
+
+        runIntroductionPending =
+            false;
+
+        activeTutorialCoroutine =
+            StartCoroutine(
+                PlayRunIntroduction(
+                    sigilCell,
+                    hatchCell,
+                    objectiveManager.RequiredSigils
+                )
+            );
+    }
+
+
+    private Vector2Int FindNearestObjectiveCell(
+        IReadOnlyCollection<Vector2Int> objectiveCells)
+    {
+        Vector2Int playerCell =
+            playerController != null
+                ? playerController.GridPosition
+                : Vector2Int.zero;
+
+        Vector2Int selected =
+            Vector2Int.zero;
+
+        int bestDistance =
+            int.MaxValue;
+
+        bool found =
+            false;
+
+        foreach (Vector2Int cell in
+                 objectiveCells)
+        {
+            int distance =
+                Mathf.Abs(
+                    cell.x -
+                    playerCell.x
+                ) +
+                Mathf.Abs(
+                    cell.y -
+                    playerCell.y
+                );
+
+            if (!found ||
+                distance <
+                    bestDistance)
+            {
+                selected =
+                    cell;
+
+                bestDistance =
+                    distance;
+
+                found =
+                    true;
+            }
+        }
+
+        return selected;
+    }
+
+
+    private IEnumerator PlayRunIntroduction(
+        Vector2Int sigilCell,
+        Vector2Int hatchCell,
+        int requiredSigils)
+    {
+        runIntroductionRunning =
+            true;
+
+        LockPlayerMovement();
+
+        yield return null;
+
+        if (cameraController != null)
+        {
+            cameraController
+                .BeginTutorialSequence();
+        }
+
+        Vector3 sigilWorldPosition =
+            GridCellToWorld(
+                sigilCell,
+                -2.1f
+            );
+
+        if (playerVisionController != null)
+        {
+            playerVisionController
+                .SetTutorialFocusVisibility(
+                    sigilCell,
+                    runIntroductionRevealRadius
+                );
+        }
+
+        ShowPrompt(
+            $"COLLECT {requiredSigils} SIGILS\nTO UNLOCK THE HATCH",
+            false,
+            string.Empty,
+            true,
+            sigilWorldPosition
+        );
+
+        if (cameraController != null)
+        {
+            yield return
+                cameraController
+                    .PanTutorialSequenceTo(
+                        sigilWorldPosition
+                    );
+        }
+
+        if (runIntroductionSigilHoldDuration > 0f)
+        {
+            yield return
+                new WaitForSecondsRealtime(
+                    runIntroductionSigilHoldDuration
+                );
+        }
+
+        Vector3 hatchWorldPosition =
+            GridCellToWorld(
+                hatchCell,
+                -2f
+            );
+
+        if (playerVisionController != null)
+        {
+            playerVisionController
+                .SetTutorialFocusVisibility(
+                    hatchCell,
+                    runIntroductionRevealRadius
+                );
+        }
+
+        ShowPrompt(
+            "REACH THE HATCH\nTO DESCEND",
+            false,
+            string.Empty,
+            true,
+            hatchWorldPosition
+        );
+
+        if (cameraController != null)
+        {
+            yield return
+                cameraController
+                    .PanTutorialSequenceTo(
+                        hatchWorldPosition
+                    );
+        }
+
+        if (runIntroductionHatchHoldDuration > 0f)
+        {
+            yield return
+                new WaitForSecondsRealtime(
+                    runIntroductionHatchHoldDuration
+                );
+        }
+
+        ClearPrompt();
+
+        if (playerVisionController != null)
+        {
+            playerVisionController
+                .ClearTutorialFocusVisibility();
+        }
+
+        if (cameraController != null)
+        {
+            cameraController
+                .EndTutorialSequence(
+                    true
+                );
+        }
+
+        RestorePlayerMovement();
+
+        runIntroductionLearned =
+            true;
+
+        runIntroductionRunning =
+            false;
+
+        activeTutorialCoroutine =
+            null;
+
+        UnityEngine.Debug.Log(
+            "RUN INTRODUCTION COMPLETE - " +
+            "Sigil and hatch objectives shown."
+        );
     }
 
 
@@ -1379,9 +1699,10 @@ public class GameplayTutorialController : MonoBehaviour
 
 
     /// <summary>
-    /// Resets tutorial state at the start of a run.
+    /// Resets per-run tutorial state and optionally queues the opening objective introduction.
     /// </summary>
-    public void ResetTutorialsForNewRun()
+    public void ResetTutorialsForNewRun(
+        bool showRunIntroduction = true)
     {
         if (activeTutorialCoroutine != null)
         {
@@ -1406,6 +1727,27 @@ public class GameplayTutorialController : MonoBehaviour
 
         observedGenerationVersion =
             -1;
+
+        runIntroductionLearned =
+            !showRunIntroduction;
+
+        runIntroductionPending =
+            showRunIntroduction;
+
+        runIntroductionRunning =
+            false;
+
+        runIntroductionGenerationVersion =
+            -1;
+
+        runIntroductionReadyTime =
+            0f;
+
+        if (playerVisionController != null)
+        {
+            playerVisionController
+                .ClearTutorialFocusVisibility();
+        }
 
         puzzleReplayTutorialLearned =
             false;
@@ -1453,6 +1795,12 @@ public class GameplayTutorialController : MonoBehaviour
     {
         RestorePlayerMovement();
 
+        if (playerVisionController != null)
+        {
+            playerVisionController
+                .ClearTutorialFocusVisibility();
+        }
+
         ClearDiggerPreview();
 
         RestorePulseTutorialEnemy();
@@ -1466,6 +1814,9 @@ public class GameplayTutorialController : MonoBehaviour
                 true
             );
         }
+
+        runIntroductionRunning =
+            false;
 
         diggerTutorialRunning =
             false;
@@ -1511,6 +1862,12 @@ public class GameplayTutorialController : MonoBehaviour
         {
             pulseController =
                 FindObjectOfType<PlayerPulseController>();
+        }
+
+        if (playerVisionController == null)
+        {
+            playerVisionController =
+                FindObjectOfType<PlayerVisionController>();
         }
     }
 }

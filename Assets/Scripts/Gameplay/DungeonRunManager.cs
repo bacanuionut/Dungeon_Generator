@@ -49,7 +49,8 @@ public class DungeonRunManager : MonoBehaviour
         RunStatsManager.GameMode mode,
         int selectedBaseSeed,
         RunStatsManager.RunDifficulty difficulty,
-        int selectedTargetFloors)
+        int selectedTargetFloors,
+        bool showRunIntroduction = true)
     {
         ResolveReferences();
 
@@ -71,17 +72,22 @@ public class DungeonRunManager : MonoBehaviour
             selectedTargetFloors
         );
 
-        StartConfiguredRun();
+        StartConfiguredRun(
+            showRunIntroduction
+        );
     }
 
-    private void StartConfiguredRun()
+    private void StartConfiguredRun(
+        bool showRunIntroduction = true)
     {
         ResolveReferences();
 
         if (dungeonGenerator == null || runStatsManager == null)
             return;
 
-        gameplayTutorialController?.ResetTutorialsForNewRun();
+        gameplayTutorialController?.ResetTutorialsForNewRun(
+            showRunIntroduction
+        );
 
         currentFloor = 1;
         transitioning = false;

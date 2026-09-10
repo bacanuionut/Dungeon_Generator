@@ -5871,14 +5871,25 @@ MonoBehaviour:
   cameraController: {fileID: 1728126703}
   playerController: {fileID: 2142187895}
   shaperController: {fileID: 2142187900}
+  pulseController: {fileID: 0}
+  playerVisionController: {fileID: 0}
+  runIntroductionStartDelay: 0.45
+  runIntroductionSigilHoldDuration: 2
+  runIntroductionHatchHoldDuration: 2
+  runIntroductionRevealRadius: 2
   puzzleReplayFocusHoldDuration: 1.1
   diggerTargetSearchRadius: 8
   diggerTargetRetryDelay: 0.4
   diggerGhostCellDuration: 0.1
-  diggerGhostHoldDuration: 1.2
+  diggerGhostHoldDuration: 2
   diggerGhostCellScale: 0.84
   diggerGhostZ: -2.6
   diggerGhostColour: {r: 0.8, g: 0.35, b: 1, a: 0.38}
+  pulsePreviewStunDuration: 2
+  pulsePreviewExpandDuration: 0.3
+  pulsePreviewZ: -2.5
+  pulsePreviewColour: {r: 0.75, g: 0.9, b: 1, a: 0.28}
+  pulseTutorialStunColour: {r: 0.45, g: 0.72, b: 1, a: 1}
 --- !u!4 &1035674920
 Transform:
   m_ObjectHideFlags: 0
@@ -12017,6 +12028,7 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   runStatsManager: {fileID: 2142493819}
+  gameplayTutorialController: {fileID: 0}
   startingCharges: 2
   maximumCharges: 5
   deployKey: 113
