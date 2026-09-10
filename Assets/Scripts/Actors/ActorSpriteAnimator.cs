@@ -3,23 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Visual-only sprite animation for grid-based actors.
+/// Handles visual sprite animation for grid-based actors without changing
+/// their gameplay movement, AI, collision or pathfinding.
 ///
-/// IMPORTANT:
-/// This script does not control movement, AI, collision, damage or pathfinding.
-/// It watches the existing actor transform and, where available, the existing
-/// PlayerController / EnemyController facing direction.
-///
-/// The CraftPix Character/Enemy sheets used by this project are arranged as
-/// 32x32 actor frames even though the supplied TMX files describe them as
-/// groups of 16x16 tiles.
-///
-/// The first three 32-pixel rows are:
-/// Row 0 = down/front walk, 4 frames
-/// Row 1 = up/back walk,    4 frames
-/// Row 2 = side walk,       4 frames
-///
-/// Left/right share the side animation and use SpriteRenderer.flipX.
+/// CraftPix actor sheets are read as 32x32 frames. The first three rows
+/// provide down, up and side walking animations; left and right share the
+/// side row and use SpriteRenderer.flipX.
 /// </summary>
 [DisallowMultipleComponent]
 public class ActorSpriteAnimator : MonoBehaviour
@@ -47,7 +36,7 @@ public class ActorSpriteAnimator : MonoBehaviour
         public bool sideFramesFaceRight = true;
 
         [Tooltip(
-            "Final visual scale, independent of the old placeholder Quad scale."
+            "Final visual scale, independent of the actor root scale."
         )]
         [Min(0.05f)]
         public float visualScale = 1f;
@@ -73,33 +62,66 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     [Header("Animation")]
 
-    [Tooltip(
-        "TMX animations use 150 ms per frame, which is approximately 6.67 FPS."
-    )]
+    [Tooltip("Walking animation speed in frames per second.")]
     [Min(1f)]
     [SerializeField]
     private float walkFramesPerSecond = 6.67f;
 
     [Tooltip(
-        "How long a grid step continues to look like movement after the " +
-        "actor transform jumps to its next cell."
+        "How long the walking animation remains active after the latest " +
+        "grid movement."
     )]
     [Min(0.05f)]
     [SerializeField]
-    private float movementAnimationHold = 0.60f;
+    private float movementVisualHold = 0.18f;
+
+
+    [Header("Visual Movement")]
+
+    [Tooltip("Visual travel time used for the first player grid step.")]
+    [Min(0.03f)]
+    [SerializeField]
+    private float playerInitialStepDuration = 0.10f;
+
+    [Tooltip("Visual travel time used for the first normal-enemy grid step.")]
+    [Min(0.03f)]
+    [SerializeField]
+    private float enemyInitialStepDuration = 0.28f;
+
+    [Tooltip("Initial travel time for actors without a player or normal-enemy controller.")]
+    [Min(0.03f)]
+    [SerializeField]
+    private float otherInitialStepDuration = 0.20f;
 
     [Tooltip(
-        "Purely visual travel time between grid cells. Gameplay still moves " +
-        "instantly on the authoritative grid; only the sprite glides between " +
-        "the old and new cells."
+        "After consecutive steps, visual travel uses this fraction of the " +
+        "observed gameplay step interval."
     )]
+    [Range(0.50f, 0.98f)]
+    [SerializeField]
+    private float stepCadenceFraction = 0.88f;
+
+    [Tooltip("Lower limit for one visual grid-step interpolation.")]
+    [Min(0.02f)]
+    [SerializeField]
+    private float minimumVisualStepDuration = 0.06f;
+
+    [Tooltip("Upper limit for one visual grid-step interpolation.")]
     [Min(0.05f)]
     [SerializeField]
-    private float visualStepDuration = 0.55f;
+    private float maximumVisualStepDuration = 0.32f;
 
     [Tooltip(
-        "Movement larger than this is treated as a teleport/floor spawn and " +
-        "is not visually interpolated."
+        "A gap longer than this starts a new movement sequence instead of " +
+        "being treated as the actor's normal movement cadence."
+    )]
+    [Min(0.1f)]
+    [SerializeField]
+    private float cadenceResetDelay = 0.75f;
+
+    [Tooltip(
+        "Movement larger than this is treated as a teleport or floor spawn " +
+        "and is not visually interpolated."
     )]
     [Min(1f)]
     [SerializeField]
@@ -110,7 +132,7 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     [Tooltip(
         "Local Z offset of the sprite child. Negative keeps it in front of " +
-        "the old actor root in this project's top-down rendering."
+        "the actor root in this project's top-down rendering."
     )]
     [SerializeField]
     private float visualZOffset = -0.30f;
@@ -156,6 +178,12 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     private bool previousPositionRecorded;
 
+    private Vector3 renderedWorldPosition;
+
+    private Vector3 visualStepStartWorldPosition;
+
+    private Vector3 visualStepTargetWorldPosition;
+
     private Vector2Int facingDirection =
         Vector2Int.down;
 
@@ -163,13 +191,17 @@ public class ActorSpriteAnimator : MonoBehaviour
 
     private float nextFrameTime;
 
+    private float lastMovementDetectedTime = -1f;
+
+    private float activeVisualStepDuration;
+
     private int animationFrame;
 
     private bool visualStepInProgress;
 
     private float visualStepStartTime;
 
-    private Vector3 visualStepStartOffset;
+    private bool wasMovingLastFrame;
 
     private bool configured;
 
@@ -236,12 +268,8 @@ public class ActorSpriteAnimator : MonoBehaviour
         EnsureVisualObject();
 
 
-        /*
-         * Hide only the actor root's old placeholder renderer.
-         *
-         * We deliberately do NOT disable renderers on child objects because
-         * systems such as enemy vision cones may render separately.
-         */
+        // Only the root placeholder renderer is hidden. Child renderers can
+        // belong to independent visual systems such as enemy vision cones.
         if (oldRootRenderer != null &&
             oldRootRenderer !=
                 spriteRenderer)
@@ -266,8 +294,28 @@ public class ActorSpriteAnimator : MonoBehaviour
             true;
 
 
+        renderedWorldPosition =
+            GetBaseVisualWorldPosition();
+
+
+        visualStepStartWorldPosition =
+            renderedWorldPosition;
+
+
+        visualStepTargetWorldPosition =
+            renderedWorldPosition;
+
+
         movingUntilTime =
             0f;
+
+
+        lastMovementDetectedTime =
+            -1f;
+
+
+        activeVisualStepDuration =
+            GetInitialVisualStepDuration();
 
 
         visualStepInProgress =
@@ -276,6 +324,14 @@ public class ActorSpriteAnimator : MonoBehaviour
 
         animationFrame =
             0;
+
+
+        wasMovingLastFrame =
+            false;
+
+
+        visualObject.transform.position =
+            renderedWorldPosition;
 
 
         SetFacingFromExistingController();
@@ -331,25 +387,7 @@ public class ActorSpriteAnimator : MonoBehaviour
         }
 
 
-        /*
-         * PlayerController and EnemyController already expose the gameplay
-         * facing direction used by the vision systems. Reusing it keeps sprite
-         * orientation consistent with the torch/view cone.
-         */
         SetFacingFromExistingController();
-
-
-        UpdateMovementDetection();
-
-
-        bool moving =
-            Time.time <
-            movingUntilTime;
-
-
-        UpdateAnimationFrame(
-            moving
-        );
 
 
         UpdateStateTint();
@@ -377,7 +415,57 @@ public class ActorSpriteAnimator : MonoBehaviour
     }
 
 
-    private void UpdateMovementDetection()
+    private void LateUpdate()
+    {
+        if (!configured ||
+            frames == null ||
+            visualObject == null ||
+            spriteRenderer == null ||
+            activeSet == null)
+        {
+            return;
+        }
+
+
+        float now =
+            Time.time;
+
+
+        // Advance active interpolation before checking for a new grid move.
+        AdvanceVisualStep(now);
+
+
+        DetectGridMovement(now);
+
+
+        bool moving =
+            now <
+            movingUntilTime;
+
+
+        UpdateAnimationFrame(
+            moving,
+            now
+        );
+
+
+        UpdateStateTint();
+
+
+        AdvanceVisualStep(now);
+
+
+        visualObject.transform.position =
+            renderedWorldPosition;
+
+
+        wasMovingLastFrame =
+            moving;
+    }
+
+
+    private void DetectGridMovement(
+        float now)
     {
         Vector3 current =
             transform.position;
@@ -391,6 +479,9 @@ public class ActorSpriteAnimator : MonoBehaviour
             previousPositionRecorded =
                 true;
 
+            renderedWorldPosition =
+                GetBaseVisualWorldPosition();
+
             return;
         }
 
@@ -400,110 +491,130 @@ public class ActorSpriteAnimator : MonoBehaviour
             previousWorldPosition;
 
 
-        if (delta.sqrMagnitude >
+        if (delta.sqrMagnitude <=
             0.0001f)
         {
-            Vector2Int movementDirection =
-                Vector2Int.zero;
-
-
-            if (Mathf.Abs(delta.x) >
-                Mathf.Abs(delta.y))
-            {
-                movementDirection =
-                    delta.x >= 0f
-                        ? Vector2Int.right
-                        : Vector2Int.left;
-            }
-            else if (Mathf.Abs(delta.y) >
-                     0.0001f)
-            {
-                movementDirection =
-                    delta.y >= 0f
-                        ? Vector2Int.up
-                        : Vector2Int.down;
-            }
-
-
-            if (movementDirection !=
-                Vector2Int.zero)
-            {
-                SetFacing(
-                    movementDirection
-                );
-            }
-
-
-            float planarDistance =
-                new Vector2(
-                    delta.x,
-                    delta.y
-                ).magnitude;
-
-
-            /*
-             * Floor regeneration / spawning can move an actor many cells in
-             * one frame. That should snap immediately rather than making the
-             * sprite fly across the dungeon.
-             */
-            if (planarDistance <=
-                maximumAnimatedStepDistance)
-            {
-                Vector3 destinationBase =
-                    GetBaseVisualWorldPosition();
-
-
-                /*
-                 * The actor root has already jumped to the destination grid
-                 * cell. Start the visual sprite from wherever it was rendered
-                 * last frame, then glide it into the new root position.
-                 */
-                visualStepStartOffset =
-                    visualObject.transform.position -
-                    destinationBase;
-
-
-                visualStepStartTime =
-                    Time.time;
-
-
-                visualStepInProgress =
-                    true;
-
-
-                movingUntilTime =
-                    Time.time +
-                    Mathf.Max(
-                        movementAnimationHold,
-                        visualStepDuration
-                    );
-
-
-                /*
-                 * One grid movement now corresponds to one complete four-frame
-                 * walk cycle, so every new cell begins again at frame 0.
-                 */
-                animationFrame =
-                    0;
-
-
-                nextFrameTime =
-                    Time.time;
-            }
-            else
-            {
-                visualStepInProgress =
-                    false;
-
-
-                movingUntilTime =
-                    0f;
-
-
-                animationFrame =
-                    0;
-            }
+            return;
         }
+
+
+        Vector2Int movementDirection =
+            Vector2Int.zero;
+
+
+        if (Mathf.Abs(delta.x) >
+            Mathf.Abs(delta.y))
+        {
+            movementDirection =
+                delta.x >= 0f
+                    ? Vector2Int.right
+                    : Vector2Int.left;
+        }
+        else if (Mathf.Abs(delta.y) >
+                 0.0001f)
+        {
+            movementDirection =
+                delta.y >= 0f
+                    ? Vector2Int.up
+                    : Vector2Int.down;
+        }
+
+
+        if (movementDirection !=
+            Vector2Int.zero)
+        {
+            SetFacing(
+                movementDirection
+            );
+        }
+
+
+        float planarDistance =
+            new Vector2(
+                delta.x,
+                delta.y
+            ).magnitude;
+
+
+        Vector3 destination =
+            GetBaseVisualWorldPosition();
+
+
+        if (planarDistance >
+            maximumAnimatedStepDistance)
+        {
+            renderedWorldPosition =
+                destination;
+
+            visualStepStartWorldPosition =
+                destination;
+
+            visualStepTargetWorldPosition =
+                destination;
+
+            visualStepInProgress =
+                false;
+
+            movingUntilTime =
+                0f;
+
+            lastMovementDetectedTime =
+                -1f;
+
+            animationFrame =
+                0;
+
+            nextFrameTime =
+                0f;
+
+            previousWorldPosition =
+                current;
+
+            return;
+        }
+
+
+        activeVisualStepDuration =
+            CalculateVisualStepDuration(now);
+
+
+        visualStepStartWorldPosition =
+            renderedWorldPosition;
+
+
+        visualStepTargetWorldPosition =
+            destination;
+
+
+        visualStepStartTime =
+            now;
+
+
+        visualStepInProgress =
+            true;
+
+
+        movingUntilTime =
+            now +
+            Mathf.Max(
+                movementVisualHold,
+                activeVisualStepDuration
+            );
+
+
+        if (!wasMovingLastFrame)
+        {
+            animationFrame =
+                0;
+
+            nextFrameTime =
+                now +
+                GetAnimationFrameDuration();
+        }
+
+
+        lastMovementDetectedTime =
+            now;
 
 
         previousWorldPosition =
@@ -511,67 +622,109 @@ public class ActorSpriteAnimator : MonoBehaviour
     }
 
 
-    private void LateUpdate()
+    private float CalculateVisualStepDuration(
+        float now)
     {
-        if (!configured ||
-            visualObject == null ||
-            activeSet == null)
+        float initialDuration =
+            GetInitialVisualStepDuration();
+
+
+        if (lastMovementDetectedTime <
+            0f)
         {
-            return;
+            return initialDuration;
         }
 
 
-        Vector3 basePosition =
-            GetBaseVisualWorldPosition();
+        float observedInterval =
+            now -
+            lastMovementDetectedTime;
 
 
+        if (observedInterval <= 0f ||
+            observedInterval >
+                cadenceResetDelay)
+        {
+            return initialDuration;
+        }
+
+
+        return
+            Mathf.Clamp(
+                observedInterval *
+                    stepCadenceFraction,
+                minimumVisualStepDuration,
+                maximumVisualStepDuration
+            );
+    }
+
+
+    private float GetInitialVisualStepDuration()
+    {
+        float duration;
+
+
+        if (playerController != null)
+        {
+            duration =
+                playerInitialStepDuration;
+        }
+        else if (enemyController != null)
+        {
+            duration =
+                enemyInitialStepDuration;
+        }
+        else
+        {
+            duration =
+                otherInitialStepDuration;
+        }
+
+
+        return
+            Mathf.Clamp(
+                duration,
+                minimumVisualStepDuration,
+                maximumVisualStepDuration
+            );
+    }
+
+
+    private void AdvanceVisualStep(
+        float now)
+    {
         if (!visualStepInProgress)
         {
-            visualObject.transform.position =
-                basePosition;
-
             return;
         }
 
 
         float progress =
             Mathf.Clamp01(
-                (Time.time -
+                (now -
                  visualStepStartTime) /
                 Mathf.Max(
                     0.01f,
-                    visualStepDuration
+                    activeVisualStepDuration
                 )
             );
 
 
-        /*
-         * Use linear visual travel here. The gameplay remains grid based, but
-         * a constant visual speed makes the one-cell walk much easier to read
-         * than the previous eased movement, which could still feel like a
-         * snap near the ends.
-         */
-        Vector3 offset =
+        renderedWorldPosition =
             Vector3.Lerp(
-                visualStepStartOffset,
-                Vector3.zero,
+                visualStepStartWorldPosition,
+                visualStepTargetWorldPosition,
                 progress
             );
 
 
-        visualObject.transform.position =
-            basePosition +
-            offset;
-
-
         if (progress >= 1f)
         {
+            renderedWorldPosition =
+                visualStepTargetWorldPosition;
+
             visualStepInProgress =
                 false;
-
-
-            visualObject.transform.position =
-                basePosition;
         }
     }
 
@@ -590,12 +743,17 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
     private void UpdateAnimationFrame(
-        bool moving)
+        bool moving,
+        float now)
     {
         if (!moving)
         {
             animationFrame =
                 0;
+
+
+            nextFrameTime =
+                0f;
 
 
             ApplyCurrentSprite(
@@ -622,80 +780,45 @@ public class ActorSpriteAnimator : MonoBehaviour
         }
 
 
-        /*
-         * IMPORTANT:
-         *
-         * Do not advance the walk animation using an independent FPS timer.
-         *
-         * This project moves actors one complete grid cell at a time. With
-         * the old timer a 0.22-second visual step finished before a 4-frame
-         * 6.67 FPS animation could get through all four frames, so only one
-         * or two poses were visible.
-         *
-         * Instead, one grid step IS one complete walk cycle.
-         *
-         *   0% - 25%   -> frame 0
-         *  25% - 50%   -> frame 1
-         *  50% - 75%   -> frame 2
-         *  75% - 100%  -> frame 3
-         *
-         * Therefore every successful single-cell movement uses every frame
-         * regardless of frame rate.
-         */
-        float progress;
+        float frameDuration =
+            GetAnimationFrameDuration();
 
 
-        if (visualStepInProgress)
+        if (nextFrameTime <= 0f)
         {
-            progress =
-                Mathf.Clamp01(
-                    (Time.time -
-                     visualStepStartTime) /
-                    Mathf.Max(
-                        0.01f,
-                        visualStepDuration
-                    )
-                );
-        }
-        else
-        {
-            /*
-             * A tiny tail after positional interpolation keeps the final walk
-             * pose readable if Update and LateUpdate finish on neighbouring
-             * frames.
-             */
-            float tailDuration =
-                Mathf.Max(
-                    0.01f,
-                    movementAnimationHold -
-                    visualStepDuration
-                );
-
-
-            progress =
-                1f -
-                Mathf.Clamp01(
-                    (movingUntilTime -
-                     Time.time) /
-                    tailDuration
-                );
+            nextFrameTime =
+                now +
+                frameDuration;
         }
 
 
-        animationFrame =
-            Mathf.Clamp(
-                Mathf.FloorToInt(
-                    progress *
-                    frameCount
-                ),
-                0,
-                frameCount - 1
-            );
+        while (now >=
+               nextFrameTime)
+        {
+            animationFrame =
+                (animationFrame + 1) %
+                frameCount;
+
+
+            nextFrameTime +=
+                frameDuration;
+        }
 
 
         ApplyCurrentSprite(
             true
         );
+    }
+
+
+    private float GetAnimationFrameDuration()
+    {
+        return
+            1f /
+            Mathf.Max(
+                1f,
+                walkFramesPerSecond
+            );
     }
 
 
@@ -861,12 +984,8 @@ public class ActorSpriteAnimator : MonoBehaviour
 
 
     /// <summary>
-    /// Cancels the old placeholder object's inherited scale so the sprite-set
-    /// scale has a predictable meaning.
-    ///
-    /// Example: procedural enemies currently use a small Quad scale. Without
-    /// this correction the 32x32 actor sprite would inherit that placeholder
-    /// scale and become unnecessarily tiny.
+    /// Compensates for scale inherited from the actor root so each sprite set
+    /// keeps a predictable world-space size.
     /// </summary>
     private void ApplyWorldIndependentVisualScale()
     {
@@ -938,15 +1057,7 @@ public class ActorSpriteAnimator : MonoBehaviour
             );
 
 
-        /*
-         * CraftPix row order:
-         * 0 = down/front
-         * 1 = up/back
-         * 2 = side
-         *
-         * The previous version had rows 1 and 2 swapped, which is why an
-         * actor showed its back while moving left or right.
-         */
+        // CraftPix row order: 0 = down/front, 1 = up/back, 2 = side.
         created.Up =
             CreateMovementRow(
                 spriteSet,
