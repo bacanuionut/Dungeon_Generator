@@ -3,8 +3,8 @@
 /// <summary>
 /// Controls the player's limited Pulse Charges.
 ///
-/// Charges are deliberately placed in the player's facing direction
-/// rather than automatically centred on the player.
+/// Charges are placed in the player's facing direction rather than
+/// automatically centred on the player.
 /// </summary>
 public class PlayerPulseController : MonoBehaviour
 {
@@ -18,6 +18,9 @@ public class PlayerPulseController : MonoBehaviour
 
     [SerializeField]
     private RunStatsManager runStatsManager;
+
+    [SerializeField]
+    private GameplayTutorialController gameplayTutorialController;
 
     [Header("Pulse Inventory")]
 
@@ -69,7 +72,13 @@ public class PlayerPulseController : MonoBehaviour
         remainingCharges;
 
     public int MaximumCharges =>
-    maximumCharges;
+        maximumCharges;
+
+    public KeyCode DeployKey =>
+        deployKey;
+
+    public float BlastRadius =>
+        blastRadius;
 
 
     private void Start()
@@ -265,8 +274,7 @@ public class PlayerPulseController : MonoBehaviour
     /// <summary>
     /// Adds Pulse ammunition collected during exploration.
     ///
-    /// Returns the number of charges actually added. A return value of
-    /// zero means the player's inventory was already full.
+    /// Returns the number of charges actually added.
     /// </summary>
     public int AddCharges(
         int amount)
@@ -302,6 +310,17 @@ public class PlayerPulseController : MonoBehaviour
                 $"PULSE AMMO COLLECTED +{added}. " +
                 $"Current charges: {remainingCharges}/{maximumCharges}"
             );
+
+            if (gameplayTutorialController == null)
+            {
+                gameplayTutorialController =
+                    FindObjectOfType<GameplayTutorialController>();
+            }
+
+            if (gameplayTutorialController != null)
+            {
+                gameplayTutorialController.NotifyPulseCollected();
+            }
         }
 
 

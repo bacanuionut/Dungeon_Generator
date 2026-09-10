@@ -25,6 +25,9 @@ public class GameplayTutorialController : MonoBehaviour
     [SerializeField]
     private PlayerShaperController shaperController;
 
+    [SerializeField]
+    private PlayerPulseController pulseController;
+
 
     [Header("Puzzle Replay Tutorial")]
 
@@ -90,6 +93,47 @@ public class GameplayTutorialController : MonoBehaviour
         );
 
 
+    [Header("Pulse Tutorial")]
+
+    [Tooltip(
+        "How long the tutorial stun remains visible on the selected enemy."
+    )]
+    [Min(0.1f)]
+    [SerializeField]
+    private float pulsePreviewStunDuration =
+        2.0f;
+
+    [Tooltip(
+        "Time taken for the visual Pulse flash to expand."
+    )]
+    [Min(0.05f)]
+    [SerializeField]
+    private float pulsePreviewExpandDuration =
+        0.30f;
+
+    [SerializeField]
+    private float pulsePreviewZ =
+        -2.50f;
+
+    [SerializeField]
+    private Color pulsePreviewColour =
+        new Color(
+            0.75f,
+            0.90f,
+            1.00f,
+            0.28f
+        );
+
+    [SerializeField]
+    private Color pulseTutorialStunColour =
+        new Color(
+            0.45f,
+            0.72f,
+            1.00f,
+            1.00f
+        );
+
+
     private int observedGenerationVersion =
         -1;
 
@@ -114,6 +158,31 @@ public class GameplayTutorialController : MonoBehaviour
     private GameObject diggerPreviewRoot;
 
     private Material diggerPreviewMaterial;
+
+    private bool pulseTutorialLearned;
+
+    private bool pulseTutorialPending;
+
+    private bool pulseTutorialRunning;
+
+    private EnemyController pulseTutorialEnemy;
+
+    private bool pulseEnemyControllerWasEnabled;
+
+    private ActorSpriteAnimator pulseEnemyAnimator;
+
+    private bool pulseEnemyAnimatorWasEnabled;
+
+    private SpriteRenderer pulseEnemySpriteRenderer;
+
+    private Color pulseEnemyOriginalColour =
+        Color.white;
+
+    private bool pulseEnemyColourRecorded;
+
+    private GameObject pulsePreviewObject;
+
+    private Material pulsePreviewMaterial;
 
 
     private bool hasPrompt;
@@ -162,7 +231,8 @@ public class GameplayTutorialController : MonoBehaviour
 
         DetectFloorChange();
 
-        if (diggerTutorialRunning)
+        if (diggerTutorialRunning ||
+            pulseTutorialRunning)
         {
             return;
         }
@@ -170,6 +240,8 @@ public class GameplayTutorialController : MonoBehaviour
         UpdatePuzzleReplayTutorial();
 
         TryStartPendingDiggerTutorial();
+
+        TryStartPendingPulseTutorial();
     }
 
 
@@ -683,6 +755,536 @@ public class GameplayTutorialController : MonoBehaviour
     }
 
 
+
+    /// <summary>
+    /// Queues the Pulse demonstration after a Pulse charge is collected.
+    /// </summary>
+    public void NotifyPulseCollected()
+    {
+        if (pulseTutorialLearned ||
+            pulseTutorialPending ||
+            pulseTutorialRunning)
+        {
+            return;
+        }
+
+        pulseTutorialPending =
+            true;
+
+        UnityEngine.Debug.Log(
+            "PULSE TUTORIAL QUEUED - " +
+            "Pulse charge collected."
+        );
+    }
+
+
+    private void TryStartPendingPulseTutorial()
+    {
+        if (!pulseTutorialPending ||
+            pulseTutorialLearned ||
+            activeTutorialCoroutine != null ||
+            pulseController == null ||
+            playerController == null ||
+            !playerController.IsAlive)
+        {
+            return;
+        }
+
+        EnemyController target =
+            FindNearestPulseTutorialEnemy();
+
+        if (target == null)
+        {
+            return;
+        }
+
+        pulseTutorialPending =
+            false;
+
+        activeTutorialCoroutine =
+            StartCoroutine(
+                PlayPulseTutorial(
+                    target
+                )
+            );
+    }
+
+
+    private EnemyController FindNearestPulseTutorialEnemy()
+    {
+        EnemyController[] enemies =
+            FindObjectsOfType<EnemyController>();
+
+        if (enemies == null ||
+            enemies.Length == 0 ||
+            playerController == null)
+        {
+            return null;
+        }
+
+        Vector2Int playerCell =
+            playerController.GridPosition;
+
+        EnemyController nearest =
+            null;
+
+        int nearestDistance =
+            int.MaxValue;
+
+        foreach (EnemyController enemy in
+                 enemies)
+        {
+            if (enemy == null ||
+                !enemy.isActiveAndEnabled ||
+                enemy.CurrentState ==
+                    EnemyController.EnemyState.Stunned)
+            {
+                continue;
+            }
+
+            SpriteRenderer enemySprite =
+                enemy.GetComponentInChildren<SpriteRenderer>(
+                    true
+                );
+
+            if (enemySprite == null)
+            {
+                continue;
+            }
+
+            Vector2Int enemyCell =
+                enemy.GridPosition;
+
+            int distance =
+                Mathf.Abs(
+                    enemyCell.x -
+                    playerCell.x
+                ) +
+                Mathf.Abs(
+                    enemyCell.y -
+                    playerCell.y
+                );
+
+            if (distance <
+                nearestDistance)
+            {
+                nearest =
+                    enemy;
+
+                nearestDistance =
+                    distance;
+            }
+        }
+
+        return nearest;
+    }
+
+
+    private IEnumerator PlayPulseTutorial(
+        EnemyController target)
+    {
+        if (target == null)
+        {
+            activeTutorialCoroutine =
+                null;
+
+            yield break;
+        }
+
+        pulseTutorialRunning =
+            true;
+
+        Vector3 targetWorldPosition =
+            new Vector3(
+                target.GridPosition.x + 0.5f,
+                target.GridPosition.y + 0.5f,
+                pulsePreviewZ
+            );
+
+        string keyLabel =
+            pulseController != null
+                ? pulseController.DeployKey.ToString()
+                : "Q";
+
+        ShowPrompt(
+            "USE PULSE\nTO STUN NEARBY ENEMIES",
+            true,
+            keyLabel,
+            true,
+            targetWorldPosition
+        );
+
+        yield return null;
+
+        LockPlayerMovement();
+
+        PreparePulseTutorialEnemy(
+            target
+        );
+
+        float previewDuration =
+            pulsePreviewExpandDuration +
+            pulsePreviewStunDuration +
+            0.25f;
+
+        Coroutine cameraSequence =
+            null;
+
+        if (cameraController != null)
+        {
+            cameraSequence =
+                cameraController.PlayTutorialFocus(
+                    targetWorldPosition,
+                    previewDuration
+                );
+
+            yield return
+                new WaitForSecondsRealtime(
+                    cameraController
+                        .TutorialPanDuration
+                );
+        }
+
+        yield return
+            PlayPulseVisualPreview(
+                targetWorldPosition
+            );
+
+        if (cameraSequence != null)
+        {
+            yield return cameraSequence;
+        }
+
+        RestorePulseTutorialEnemy();
+
+        ClearPulsePreview();
+
+        ClearPrompt();
+
+        RestorePlayerMovement();
+
+        pulseTutorialLearned =
+            true;
+
+        pulseTutorialRunning =
+            false;
+
+        activeTutorialCoroutine =
+            null;
+
+        UnityEngine.Debug.Log(
+            "PULSE TUTORIAL LEARNED - " +
+            "Enemy stun demonstration shown."
+        );
+    }
+
+
+    private IEnumerator PlayPulseVisualPreview(
+        Vector3 centre)
+    {
+        CreatePulsePreviewMaterial();
+
+        if (pulsePreviewMaterial != null)
+        {
+            pulsePreviewObject =
+                GameObject.CreatePrimitive(
+                    PrimitiveType.Quad
+                );
+
+            pulsePreviewObject.name =
+                "Pulse Tutorial Preview";
+
+            pulsePreviewObject.transform.position =
+                centre;
+
+            pulsePreviewObject.transform.localScale =
+                new Vector3(
+                    0.20f,
+                    0.20f,
+                    1f
+                );
+
+            Collider collider =
+                pulsePreviewObject.GetComponent<Collider>();
+
+            if (collider != null)
+            {
+                Destroy(
+                    collider
+                );
+            }
+
+            Renderer renderer =
+                pulsePreviewObject.GetComponent<Renderer>();
+
+            if (renderer != null)
+            {
+                renderer.sharedMaterial =
+                    pulsePreviewMaterial;
+            }
+
+            float elapsed =
+                0f;
+
+            float radius =
+                pulseController != null
+                    ? pulseController.BlastRadius
+                    : 3.5f;
+
+            float fullScale =
+                Mathf.Max(
+                    0.5f,
+                    radius * 2f
+                );
+
+            while (elapsed <
+                   pulsePreviewExpandDuration)
+            {
+                elapsed +=
+                    Time.unscaledDeltaTime;
+
+                float progress =
+                    Mathf.Clamp01(
+                        elapsed /
+                        Mathf.Max(
+                            0.01f,
+                            pulsePreviewExpandDuration
+                        )
+                    );
+
+                float scale =
+                    Mathf.Lerp(
+                        0.20f,
+                        fullScale,
+                        Mathf.SmoothStep(
+                            0f,
+                            1f,
+                            progress
+                        )
+                    );
+
+                pulsePreviewObject.transform.localScale =
+                    new Vector3(
+                        scale,
+                        scale,
+                        1f
+                    );
+
+                yield return null;
+            }
+
+            pulsePreviewObject.transform.localScale =
+                new Vector3(
+                    fullScale,
+                    fullScale,
+                    1f
+                );
+        }
+
+        SetPulseTutorialEnemyTint(
+            true
+        );
+
+        if (pulsePreviewObject != null)
+        {
+            Destroy(
+                pulsePreviewObject
+            );
+
+            pulsePreviewObject =
+                null;
+        }
+
+        if (pulsePreviewStunDuration > 0f)
+        {
+            yield return
+                new WaitForSecondsRealtime(
+                    pulsePreviewStunDuration
+                );
+        }
+
+        SetPulseTutorialEnemyTint(
+            false
+        );
+    }
+
+
+    private void PreparePulseTutorialEnemy(
+        EnemyController target)
+    {
+        RestorePulseTutorialEnemy();
+
+        pulseTutorialEnemy =
+            target;
+
+        if (pulseTutorialEnemy == null)
+        {
+            return;
+        }
+
+        pulseEnemyControllerWasEnabled =
+            pulseTutorialEnemy.enabled;
+
+        pulseTutorialEnemy.enabled =
+            false;
+
+        pulseEnemyAnimator =
+            pulseTutorialEnemy.GetComponent<ActorSpriteAnimator>();
+
+        if (pulseEnemyAnimator != null)
+        {
+            pulseEnemyAnimatorWasEnabled =
+                pulseEnemyAnimator.enabled;
+
+            pulseEnemyAnimator.enabled =
+                false;
+        }
+
+        pulseEnemySpriteRenderer =
+            pulseTutorialEnemy.GetComponentInChildren<SpriteRenderer>(
+                true
+            );
+
+        if (pulseEnemySpriteRenderer != null)
+        {
+            pulseEnemyOriginalColour =
+                pulseEnemySpriteRenderer.color;
+
+            pulseEnemyColourRecorded =
+                true;
+        }
+    }
+
+
+    private void SetPulseTutorialEnemyTint(
+        bool stunned)
+    {
+        if (pulseEnemySpriteRenderer == null)
+        {
+            return;
+        }
+
+        if (stunned)
+        {
+            pulseEnemySpriteRenderer.color =
+                pulseTutorialStunColour;
+
+            return;
+        }
+
+        if (pulseEnemyColourRecorded)
+        {
+            pulseEnemySpriteRenderer.color =
+                pulseEnemyOriginalColour;
+        }
+        else
+        {
+            pulseEnemySpriteRenderer.color =
+                Color.white;
+        }
+    }
+
+
+    private void RestorePulseTutorialEnemy()
+    {
+        SetPulseTutorialEnemyTint(
+            false
+        );
+
+        if (pulseEnemyAnimator != null)
+        {
+            pulseEnemyAnimator.enabled =
+                pulseEnemyAnimatorWasEnabled;
+        }
+
+        if (pulseTutorialEnemy != null)
+        {
+            pulseTutorialEnemy.enabled =
+                pulseEnemyControllerWasEnabled;
+        }
+
+        pulseTutorialEnemy =
+            null;
+
+        pulseEnemyControllerWasEnabled =
+            false;
+
+        pulseEnemyAnimator =
+            null;
+
+        pulseEnemyAnimatorWasEnabled =
+            false;
+
+        pulseEnemySpriteRenderer =
+            null;
+
+        pulseEnemyColourRecorded =
+            false;
+    }
+
+
+    private void CreatePulsePreviewMaterial()
+    {
+        if (pulsePreviewMaterial != null)
+        {
+            pulsePreviewMaterial.color =
+                pulsePreviewColour;
+
+            return;
+        }
+
+        Shader shader =
+            Shader.Find(
+                "Sprites/Default"
+            );
+
+        if (shader == null)
+        {
+            shader =
+                Shader.Find(
+                    "Unlit/Color"
+                );
+        }
+
+        if (shader == null)
+        {
+            return;
+        }
+
+        pulsePreviewMaterial =
+            new Material(
+                shader
+            );
+
+        pulsePreviewMaterial.color =
+            pulsePreviewColour;
+    }
+
+
+    private void ClearPulsePreview()
+    {
+        if (pulsePreviewObject != null)
+        {
+            Destroy(
+                pulsePreviewObject
+            );
+
+            pulsePreviewObject =
+                null;
+        }
+
+        if (pulsePreviewMaterial != null)
+        {
+            Destroy(
+                pulsePreviewMaterial
+            );
+
+            pulsePreviewMaterial =
+                null;
+        }
+    }
+
+
     private Vector3 GridCellToWorld(
         Vector2Int cell,
         float z)
@@ -826,6 +1428,19 @@ public class GameplayTutorialController : MonoBehaviour
         nextDiggerTargetSearchTime =
             0f;
 
+        pulseTutorialLearned =
+            false;
+
+        pulseTutorialPending =
+            false;
+
+        pulseTutorialRunning =
+            false;
+
+        RestorePulseTutorialEnemy();
+
+        ClearPulsePreview();
+
         ClearPrompt();
 
         UnityEngine.Debug.Log(
@@ -840,6 +1455,10 @@ public class GameplayTutorialController : MonoBehaviour
 
         ClearDiggerPreview();
 
+        RestorePulseTutorialEnemy();
+
+        ClearPulsePreview();
+
         if (cameraController != null &&
             cameraController.TutorialFocusActive)
         {
@@ -849,6 +1468,9 @@ public class GameplayTutorialController : MonoBehaviour
         }
 
         diggerTutorialRunning =
+            false;
+
+        pulseTutorialRunning =
             false;
     }
 
@@ -883,6 +1505,12 @@ public class GameplayTutorialController : MonoBehaviour
         {
             shaperController =
                 FindObjectOfType<PlayerShaperController>();
+        }
+
+        if (pulseController == null)
+        {
+            pulseController =
+                FindObjectOfType<PlayerPulseController>();
         }
     }
 }
