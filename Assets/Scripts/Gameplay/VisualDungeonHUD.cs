@@ -41,6 +41,9 @@ public class VisualDungeonHUD : MonoBehaviour
     [SerializeField]
     private ResonancePuzzleManager resonancePuzzleManager;
 
+    [SerializeField]
+    private GameplayTutorialController gameplayTutorialController;
+
 
     [Header("Health")]
 
@@ -108,6 +111,64 @@ public class VisualDungeonHUD : MonoBehaviour
     [SerializeField]
     private UnityEngine.UI.Text interactionPromptText;
 
+    [Tooltip(
+        "RectTransform on the Interaction Prompt root. " +
+        "If left empty it is resolved automatically."
+    )]
+    [SerializeField]
+    private RectTransform interactionPromptRect;
+
+    [Tooltip(
+        "Layout Element on the Interaction Text child. " +
+        "This is what limits long messages so they wrap."
+    )]
+    [SerializeField]
+    private LayoutElement interactionPromptTextLayout;
+
+    [Tooltip(
+        "Camera used to convert generated world targets to HUD positions. " +
+        "If left empty Camera.main is used."
+    )]
+    [SerializeField]
+    private Camera promptWorldCamera;
+
+    [Tooltip("Maximum width of the text portion before it wraps.")]
+    [Min(120f)]
+    [SerializeField]
+    private float maximumPromptTextWidth =
+        420f;
+
+    [Tooltip(
+        "Screen-space gap kept between a visible world target and the nearest edge of the prompt."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float worldPromptTargetGap =
+        18f;
+
+    [Tooltip(
+        "Distance kept between a clamped world prompt and the screen edge."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float promptScreenEdgePadding =
+        24f;
+
+    [Tooltip(
+        "HUD RectTransforms which a world-attached prompt must never cover. " +
+        "Assign Player Status Panel, Warden Warning, Objective Panel and Progress Timeline."
+    )]
+    [SerializeField]
+    private RectTransform[] promptBlockingUiRects;
+
+    [Tooltip(
+        "Extra space kept between the contextual prompt and permanent HUD panels."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float promptUiClearance =
+        12f;
+
 
     [Header("Warden Warning")]
 
@@ -141,10 +202,30 @@ public class VisualDungeonHUD : MonoBehaviour
 
     private float nextRefreshTime;
 
+    private bool currentPromptUsesWorldPosition;
+
+    private Vector3 currentPromptWorldPosition;
+
+    private Vector2 defaultPromptAnchoredPosition;
+
+    private bool defaultPromptPositionRecorded;
+
+    private string previousPromptMessage =
+        string.Empty;
+
+    private string previousPromptKey =
+        string.Empty;
+
+    private bool previousPromptKeycapVisible;
+
 
     private void Start()
     {
         ResolveReferences();
+
+        ResolvePromptUiReferences();
+
+        RecordDefaultPromptPosition();
 
         if (pulseKeyText != null)
         {
@@ -175,6 +256,24 @@ public class VisualDungeonHUD : MonoBehaviour
             refreshInterval;
 
         RefreshAll();
+    }
+
+
+    private void LateUpdate()
+    {
+        /*
+         * Data can still refresh at the normal HUD interval, but a prompt
+         * attached to a world target needs to follow the moving camera
+         * every rendered frame.
+         */
+        if (currentPromptUsesWorldPosition &&
+            interactionPromptRoot != null &&
+            interactionPromptRoot.activeSelf)
+        {
+            PositionPromptAtWorldTarget(
+                currentPromptWorldPosition
+            );
+        }
     }
 
 
@@ -352,32 +451,40 @@ public class VisualDungeonHUD : MonoBehaviour
             return;
 
 
+        /*
+         * Tutorial prompts have first priority while a tutorial is active.
+         * They use the same small prompt presentation rather than a second
+         * large HUD panel.
+         */
+        if (gameplayTutorialController != null &&
+            gameplayTutorialController.HasPrompt)
+        {
+            ShowInteractionPrompt(
+                gameplayTutorialController.PromptText,
+                gameplayTutorialController.PromptUsesKeycap,
+                gameplayTutorialController.PromptKeyLabel,
+                gameplayTutorialController.PromptHasWorldTarget,
+                gameplayTutorialController.PromptWorldPosition
+            );
+
+            return;
+        }
+
+
+        /*
+         * Normal Resonance interaction now represents actual lever input.
+         * The replay-panel explanation is owned by the tutorial controller.
+         */
         if (resonancePuzzleManager != null &&
             resonancePuzzleManager.HasInteractionMessage)
         {
-            interactionPromptRoot.SetActive(
-                true
+            ShowInteractionPrompt(
+                resonancePuzzleManager.CurrentInteractionMessage,
+                resonancePuzzleManager.CurrentInteractionUsesKeycap,
+                resonancePuzzleManager.CurrentInteractionKeyLabel,
+                resonancePuzzleManager.HasInteractionWorldPosition,
+                resonancePuzzleManager.CurrentInteractionWorldPosition
             );
-
-            if (interactionKeycapRoot != null)
-            {
-                interactionKeycapRoot.SetActive(
-                    true
-                );
-            }
-
-            if (interactionKeyText != null)
-            {
-                interactionKeyText.text =
-                    "E";
-            }
-
-            if (interactionPromptText != null)
-            {
-                interactionPromptText.text =
-                    resonancePuzzleManager
-                        .CurrentInteractionMessage;
-            }
 
             return;
         }
@@ -386,31 +493,930 @@ public class VisualDungeonHUD : MonoBehaviour
         if (exitHatchController != null &&
             exitHatchController.HasProximityMessage)
         {
-            interactionPromptRoot.SetActive(
-                true
+            ShowInteractionPrompt(
+                exitHatchController.CurrentProximityMessage,
+                false,
+                string.Empty,
+                false,
+                Vector3.zero
             );
-
-            if (interactionKeycapRoot != null)
-            {
-                interactionKeycapRoot.SetActive(
-                    false
-                );
-            }
-
-            if (interactionPromptText != null)
-            {
-                interactionPromptText.text =
-                    exitHatchController
-                        .CurrentProximityMessage;
-            }
 
             return;
         }
 
 
+        HideInteractionPrompt();
+    }
+
+
+    private void ShowInteractionPrompt(
+        string message,
+        bool showKeycap,
+        string keyLabel,
+        bool useWorldPosition,
+        Vector3 worldPosition)
+    {
+        interactionPromptRoot.SetActive(
+            true
+        );
+
+
+        if (interactionKeycapRoot != null)
+        {
+            interactionKeycapRoot.SetActive(
+                showKeycap
+            );
+        }
+
+
+        if (interactionKeyText != null &&
+            showKeycap)
+        {
+            interactionKeyText.text =
+                keyLabel;
+        }
+
+
+        bool contentChanged =
+            previousPromptMessage != message ||
+            previousPromptKeycapVisible != showKeycap ||
+            previousPromptKey != keyLabel;
+
+
+        if (interactionPromptText != null)
+        {
+            interactionPromptText.text =
+                message;
+
+            interactionPromptText.horizontalOverflow =
+                HorizontalWrapMode.Wrap;
+
+            interactionPromptText.verticalOverflow =
+                VerticalWrapMode.Overflow;
+        }
+
+
+        previousPromptMessage =
+            message;
+
+        previousPromptKeycapVisible =
+            showKeycap;
+
+        previousPromptKey =
+            keyLabel;
+
+
+        if (contentChanged)
+        {
+            RebuildPromptLayout();
+        }
+
+
+        currentPromptUsesWorldPosition =
+            useWorldPosition;
+
+        currentPromptWorldPosition =
+            worldPosition;
+
+
+        if (useWorldPosition)
+        {
+            PositionPromptAtWorldTarget(
+                worldPosition
+            );
+        }
+        else
+        {
+            RestoreDefaultPromptPosition();
+        }
+    }
+
+
+    private void HideInteractionPrompt()
+    {
+        currentPromptUsesWorldPosition =
+            false;
+
         interactionPromptRoot.SetActive(
             false
         );
+    }
+
+
+    private void RebuildPromptLayout()
+    {
+        ResolvePromptUiReferences();
+
+
+        if (interactionPromptText == null ||
+            interactionPromptRect == null)
+        {
+            return;
+        }
+
+
+        if (interactionPromptTextLayout != null)
+        {
+            /*
+             * Let short messages use their natural width.
+             * Cap longer messages so Unity Text wraps them to another line.
+             */
+            float naturalWidth =
+                interactionPromptText.preferredWidth;
+
+            interactionPromptTextLayout.preferredWidth =
+                Mathf.Min(
+                    naturalWidth,
+                    maximumPromptTextWidth
+                );
+
+            interactionPromptTextLayout.preferredHeight =
+                -1f;
+        }
+
+
+        Canvas.ForceUpdateCanvases();
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(
+            interactionPromptRect
+        );
+
+
+        /*
+         * After the width has been constrained, ask Text for the height
+         * required by the wrapped lines and rebuild once more.
+         */
+        if (interactionPromptTextLayout != null)
+        {
+            interactionPromptTextLayout.preferredHeight =
+                interactionPromptText.preferredHeight;
+        }
+
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(
+            interactionPromptRect
+        );
+    }
+
+
+    private void PositionPromptAtWorldTarget(
+        Vector3 worldPosition)
+    {
+        ResolvePromptUiReferences();
+
+
+        if (interactionPromptRect == null ||
+            promptWorldCamera == null)
+        {
+            return;
+        }
+
+
+        RectTransform parentRect =
+            interactionPromptRect.parent
+                as RectTransform;
+
+
+        if (parentRect == null)
+        {
+            return;
+        }
+
+
+        Vector3 screenPoint =
+            promptWorldCamera.WorldToScreenPoint(
+                worldPosition
+            );
+
+
+        Canvas canvas =
+            interactionPromptRect.GetComponentInParent<Canvas>();
+
+        Camera uiCamera =
+            null;
+
+
+        if (canvas != null &&
+            canvas.renderMode !=
+                RenderMode.ScreenSpaceOverlay)
+        {
+            uiCamera =
+                canvas.worldCamera;
+        }
+
+
+        Vector2 targetLocalPoint;
+
+
+        if (!RectTransformUtility
+                .ScreenPointToLocalPointInRectangle(
+                    parentRect,
+                    (Vector2)screenPoint,
+                    uiCamera,
+                    out targetLocalPoint
+                ))
+        {
+            return;
+        }
+
+
+        float halfWidth =
+            interactionPromptRect.rect.width *
+            0.5f;
+
+        float halfHeight =
+            interactionPromptRect.rect.height *
+            0.5f;
+
+
+        float minimumX =
+            parentRect.rect.xMin +
+            halfWidth +
+            promptScreenEdgePadding;
+
+        float maximumX =
+            parentRect.rect.xMax -
+            halfWidth -
+            promptScreenEdgePadding;
+
+        float minimumY =
+            parentRect.rect.yMin +
+            halfHeight +
+            promptScreenEdgePadding;
+
+        float maximumY =
+            parentRect.rect.yMax -
+            halfHeight -
+            promptScreenEdgePadding;
+
+
+        bool targetVisibleOnScreen =
+            screenPoint.z > 0f &&
+            screenPoint.x >= 0f &&
+            screenPoint.x <= Screen.width &&
+            screenPoint.y >= 0f &&
+            screenPoint.y <= Screen.height;
+
+
+        Vector2 desiredPosition;
+
+
+        if (targetVisibleOnScreen)
+        {
+            /*
+             * When the actual target is visible, put the prompt diagonally
+             * beside it rather than directly over it. This leaves the replay
+             * panel / lever itself clear so the player never has to walk
+             * through a large UI box to reach the interaction point.
+             *
+             * The preferred corner points toward the centre of the screen,
+             * which normally gives the most room. If that corner is occupied
+             * by permanent HUD, the other corners are tried automatically.
+             */
+            desiredPosition =
+                ChooseVisibleTargetCorner(
+                    targetLocalPoint,
+                    parentRect,
+                    minimumX,
+                    maximumX,
+                    minimumY,
+                    maximumY
+                );
+        }
+        else
+        {
+            /*
+             * For an off-screen target, keep the existing sticky directional
+             * behaviour. The target position is clamped to the screen edge.
+             */
+            desiredPosition =
+                targetLocalPoint;
+
+
+            if (minimumX <= maximumX)
+            {
+                desiredPosition.x =
+                    Mathf.Clamp(
+                        desiredPosition.x,
+                        minimumX,
+                        maximumX
+                    );
+            }
+
+
+            if (minimumY <= maximumY)
+            {
+                desiredPosition.y =
+                    Mathf.Clamp(
+                        desiredPosition.y,
+                        minimumY,
+                        maximumY
+                    );
+            }
+        }
+
+
+        desiredPosition =
+            AvoidBlockingUi(
+                desiredPosition,
+                parentRect,
+                minimumX,
+                maximumX,
+                minimumY,
+                maximumY
+            );
+
+
+        interactionPromptRect.anchoredPosition =
+            desiredPosition;
+    }
+
+
+    private Vector2 ChooseVisibleTargetCorner(
+        Vector2 targetLocalPoint,
+        RectTransform parentRect,
+        float minimumX,
+        float maximumX,
+        float minimumY,
+        float maximumY)
+    {
+        float halfWidth =
+            interactionPromptRect.rect.width *
+            0.5f;
+
+        float halfHeight =
+            interactionPromptRect.rect.height *
+            0.5f;
+
+
+        float horizontalOffset =
+            halfWidth +
+            worldPromptTargetGap;
+
+        float verticalOffset =
+            halfHeight +
+            worldPromptTargetGap;
+
+
+        /*
+         * Prefer the corner which points back toward screen centre.
+         */
+        float preferredXSign =
+            targetLocalPoint.x <=
+                parentRect.rect.center.x
+                ? 1f
+                : -1f;
+
+        float preferredYSign =
+            targetLocalPoint.y <=
+                parentRect.rect.center.y
+                ? 1f
+                : -1f;
+
+
+        Vector2[] candidates =
+        {
+            targetLocalPoint +
+                new Vector2(
+                    preferredXSign * horizontalOffset,
+                    preferredYSign * verticalOffset
+                ),
+
+            targetLocalPoint +
+                new Vector2(
+                    -preferredXSign * horizontalOffset,
+                    preferredYSign * verticalOffset
+                ),
+
+            targetLocalPoint +
+                new Vector2(
+                    preferredXSign * horizontalOffset,
+                    -preferredYSign * verticalOffset
+                ),
+
+            targetLocalPoint +
+                new Vector2(
+                    -preferredXSign * horizontalOffset,
+                    -preferredYSign * verticalOffset
+                )
+        };
+
+
+        Vector2 bestFallback =
+            candidates[0];
+
+        float bestFallbackMovement =
+            float.MaxValue;
+
+
+        foreach (Vector2 rawCandidate in candidates)
+        {
+            Vector2 clampedCandidate =
+                rawCandidate;
+
+
+            if (minimumX <= maximumX)
+            {
+                clampedCandidate.x =
+                    Mathf.Clamp(
+                        clampedCandidate.x,
+                        minimumX,
+                        maximumX
+                    );
+            }
+
+
+            if (minimumY <= maximumY)
+            {
+                clampedCandidate.y =
+                    Mathf.Clamp(
+                        clampedCandidate.y,
+                        minimumY,
+                        maximumY
+                    );
+            }
+
+
+            Rect candidateRect =
+                new Rect(
+                    clampedCandidate.x - halfWidth,
+                    clampedCandidate.y - halfHeight,
+                    halfWidth * 2f,
+                    halfHeight * 2f
+                );
+
+
+            bool candidateWasClamped =
+                (clampedCandidate - rawCandidate)
+                .sqrMagnitude > 0.01f;
+
+
+            if (!candidateWasClamped &&
+                !OverlapsAnyBlockingUi(
+                    candidateRect,
+                    parentRect))
+            {
+                return clampedCandidate;
+            }
+
+
+            float fallbackMovement =
+                (clampedCandidate - rawCandidate)
+                .sqrMagnitude;
+
+
+            if (!OverlapsAnyBlockingUi(
+                    candidateRect,
+                    parentRect) &&
+                fallbackMovement <
+                    bestFallbackMovement)
+            {
+                bestFallbackMovement =
+                    fallbackMovement;
+
+                bestFallback =
+                    clampedCandidate;
+            }
+        }
+
+
+        /*
+         * Rare cramped-screen fallback. AvoidBlockingUi() still gets a final
+         * chance to move this away from permanent HUD after this method.
+         */
+        if (bestFallbackMovement <
+            float.MaxValue)
+        {
+            return bestFallback;
+        }
+
+
+        Vector2 finalFallback =
+            candidates[0];
+
+
+        if (minimumX <= maximumX)
+        {
+            finalFallback.x =
+                Mathf.Clamp(
+                    finalFallback.x,
+                    minimumX,
+                    maximumX
+                );
+        }
+
+
+        if (minimumY <= maximumY)
+        {
+            finalFallback.y =
+                Mathf.Clamp(
+                    finalFallback.y,
+                    minimumY,
+                    maximumY
+                );
+        }
+
+
+        return finalFallback;
+    }
+
+
+    private Vector2 AvoidBlockingUi(
+        Vector2 desiredPosition,
+        RectTransform parentRect,
+        float minimumX,
+        float maximumX,
+        float minimumY,
+        float maximumY)
+    {
+        if (promptBlockingUiRects == null ||
+            promptBlockingUiRects.Length == 0 ||
+            interactionPromptRect == null)
+        {
+            return desiredPosition;
+        }
+
+
+        Vector2 resolvedPosition =
+            desiredPosition;
+
+        float halfWidth =
+            interactionPromptRect.rect.width *
+            0.5f;
+
+        float halfHeight =
+            interactionPromptRect.rect.height *
+            0.5f;
+
+
+        /*
+         * A few passes are enough when two reserved HUD areas are close
+         * together, for example the Warden block near the objective panel.
+         */
+        for (int pass = 0;
+             pass < 4;
+             pass++)
+        {
+            bool movedThisPass =
+                false;
+
+
+            foreach (RectTransform blockingRectTransform
+                     in promptBlockingUiRects)
+            {
+                if (blockingRectTransform == null ||
+                    !blockingRectTransform.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+
+                Rect blockingRect =
+                    GetRectInParentSpace(
+                        blockingRectTransform,
+                        parentRect
+                    );
+
+
+                blockingRect.xMin -=
+                    promptUiClearance;
+
+                blockingRect.xMax +=
+                    promptUiClearance;
+
+                blockingRect.yMin -=
+                    promptUiClearance;
+
+                blockingRect.yMax +=
+                    promptUiClearance;
+
+
+                Rect promptRect =
+                    new Rect(
+                        resolvedPosition.x - halfWidth,
+                        resolvedPosition.y - halfHeight,
+                        halfWidth * 2f,
+                        halfHeight * 2f
+                    );
+
+
+                if (!promptRect.Overlaps(
+                        blockingRect))
+                {
+                    continue;
+                }
+
+
+                Vector2[] candidates =
+                {
+                    new Vector2(
+                        blockingRect.xMin - halfWidth,
+                        resolvedPosition.y
+                    ),
+
+                    new Vector2(
+                        blockingRect.xMax + halfWidth,
+                        resolvedPosition.y
+                    ),
+
+                    new Vector2(
+                        resolvedPosition.x,
+                        blockingRect.yMin - halfHeight
+                    ),
+
+                    new Vector2(
+                        resolvedPosition.x,
+                        blockingRect.yMax + halfHeight
+                    )
+                };
+
+
+                float bestDistance =
+                    float.MaxValue;
+
+                Vector2 bestPosition =
+                    resolvedPosition;
+
+                bool foundClearCandidate =
+                    false;
+
+
+                foreach (Vector2 rawCandidate
+                         in candidates)
+                {
+                    Vector2 candidate =
+                        new Vector2(
+                            minimumX <= maximumX
+                                ? Mathf.Clamp(
+                                    rawCandidate.x,
+                                    minimumX,
+                                    maximumX
+                                )
+                                : rawCandidate.x,
+
+                            minimumY <= maximumY
+                                ? Mathf.Clamp(
+                                    rawCandidate.y,
+                                    minimumY,
+                                    maximumY
+                                )
+                                : rawCandidate.y
+                        );
+
+
+                    Rect candidateRect =
+                        new Rect(
+                            candidate.x - halfWidth,
+                            candidate.y - halfHeight,
+                            halfWidth * 2f,
+                            halfHeight * 2f
+                        );
+
+
+                    if (OverlapsAnyBlockingUi(
+                            candidateRect,
+                            parentRect))
+                    {
+                        continue;
+                    }
+
+
+                    float distance =
+                        (candidate - desiredPosition)
+                        .sqrMagnitude;
+
+
+                    if (distance < bestDistance)
+                    {
+                        bestDistance =
+                            distance;
+
+                        bestPosition =
+                            candidate;
+
+                        foundClearCandidate =
+                            true;
+                    }
+                }
+
+
+                if (foundClearCandidate)
+                {
+                    resolvedPosition =
+                        bestPosition;
+
+                    movedThisPass =
+                        true;
+                }
+            }
+
+
+            if (!movedThisPass)
+            {
+                break;
+            }
+        }
+
+
+        return resolvedPosition;
+    }
+
+
+    private bool OverlapsAnyBlockingUi(
+        Rect promptRect,
+        RectTransform parentRect)
+    {
+        if (promptBlockingUiRects == null)
+        {
+            return false;
+        }
+
+
+        foreach (RectTransform blockingRectTransform
+                 in promptBlockingUiRects)
+        {
+            if (blockingRectTransform == null ||
+                !blockingRectTransform.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+
+            Rect blockingRect =
+                GetRectInParentSpace(
+                    blockingRectTransform,
+                    parentRect
+                );
+
+
+            blockingRect.xMin -=
+                promptUiClearance;
+
+            blockingRect.xMax +=
+                promptUiClearance;
+
+            blockingRect.yMin -=
+                promptUiClearance;
+
+            blockingRect.yMax +=
+                promptUiClearance;
+
+
+            if (promptRect.Overlaps(
+                    blockingRect))
+            {
+                return true;
+            }
+        }
+
+
+        return false;
+    }
+
+
+    private Rect GetRectInParentSpace(
+        RectTransform sourceRect,
+        RectTransform parentRect)
+    {
+        Vector3[] worldCorners =
+            new Vector3[4];
+
+        sourceRect.GetWorldCorners(
+            worldCorners
+        );
+
+
+        Vector3 firstLocalCorner =
+            parentRect.InverseTransformPoint(
+                worldCorners[0]
+            );
+
+
+        float minimumX =
+            firstLocalCorner.x;
+
+        float maximumX =
+            firstLocalCorner.x;
+
+        float minimumY =
+            firstLocalCorner.y;
+
+        float maximumY =
+            firstLocalCorner.y;
+
+
+        for (int i = 1;
+             i < worldCorners.Length;
+             i++)
+        {
+            Vector3 localCorner =
+                parentRect.InverseTransformPoint(
+                    worldCorners[i]
+                );
+
+
+            minimumX =
+                Mathf.Min(
+                    minimumX,
+                    localCorner.x
+                );
+
+            maximumX =
+                Mathf.Max(
+                    maximumX,
+                    localCorner.x
+                );
+
+            minimumY =
+                Mathf.Min(
+                    minimumY,
+                    localCorner.y
+                );
+
+            maximumY =
+                Mathf.Max(
+                    maximumY,
+                    localCorner.y
+                );
+        }
+
+
+        return Rect.MinMaxRect(
+            minimumX,
+            minimumY,
+            maximumX,
+            maximumY
+        );
+    }
+
+
+    private void ResolvePromptUiReferences()
+    {
+        if (interactionPromptRect == null &&
+            interactionPromptRoot != null)
+        {
+            interactionPromptRect =
+                interactionPromptRoot
+                    .GetComponent<RectTransform>();
+        }
+
+
+        if (interactionPromptTextLayout == null &&
+            interactionPromptText != null)
+        {
+            interactionPromptTextLayout =
+                interactionPromptText
+                    .GetComponent<LayoutElement>();
+        }
+
+
+        if (promptWorldCamera == null)
+        {
+            promptWorldCamera =
+                Camera.main;
+        }
+    }
+
+
+    private void RecordDefaultPromptPosition()
+    {
+        if (defaultPromptPositionRecorded)
+        {
+            return;
+        }
+
+
+        ResolvePromptUiReferences();
+
+
+        if (interactionPromptRect == null)
+        {
+            return;
+        }
+
+
+        defaultPromptAnchoredPosition =
+            interactionPromptRect.anchoredPosition;
+
+        defaultPromptPositionRecorded =
+            true;
+    }
+
+
+    private void RestoreDefaultPromptPosition()
+    {
+        RecordDefaultPromptPosition();
+
+
+        if (interactionPromptRect == null ||
+            !defaultPromptPositionRecorded)
+        {
+            return;
+        }
+
+
+        interactionPromptRect.anchoredPosition =
+            defaultPromptAnchoredPosition;
     }
 
 
@@ -518,6 +1524,14 @@ public class VisualDungeonHUD : MonoBehaviour
             resonancePuzzleManager =
                 FindObjectOfType<ResonancePuzzleManager>();
         }
+
+        if (gameplayTutorialController == null)
+        {
+            gameplayTutorialController =
+                FindObjectOfType<GameplayTutorialController>();
+        }
+
+        ResolvePromptUiReferences();
     }
 
 

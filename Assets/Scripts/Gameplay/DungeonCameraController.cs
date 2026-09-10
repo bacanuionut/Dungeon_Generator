@@ -1,11 +1,14 @@
-﻿using System.Diagnostics;
+﻿using System.Collections;
+using System.Diagnostics;
 using UnityEngine;
 
 /// <summary>
-/// Controls the two main dungeon camera modes.
+/// Controls the main dungeon camera modes.
 ///
 /// Normal gameplay follows the player at a close zoom.
 /// Overview mode frames the complete generated dungeon.
+/// Tutorial focus can temporarily pan to a generated world target,
+/// then return immediately to the player.
 /// </summary>
 public class DungeonCameraController : MonoBehaviour
 {
@@ -47,15 +50,30 @@ public class DungeonCameraController : MonoBehaviour
     private float zoomSpeed = 6f;
 
 
+    [Header("Tutorial Focus")]
+
+    [Tooltip("Time taken to pan from the player to a tutorial target.")]
+    [Min(0.10f)]
+    [SerializeField]
+    private float tutorialPanDuration = 0.75f;
+
+
     private bool overviewMode;
 
     private Vector3 overviewCentre;
 
     private float overviewCameraSize;
 
+    private bool tutorialFocusActive;
+
+    private Coroutine tutorialFocusCoroutine;
+
 
     public bool OverviewMode =>
         overviewMode;
+
+    public bool TutorialFocusActive =>
+        tutorialFocusActive;
 
 
     private void Awake()
@@ -73,6 +91,16 @@ public class DungeonCameraController : MonoBehaviour
         if (targetCamera == null ||
             dungeonGenerator == null ||
             playerController == null)
+        {
+            return;
+        }
+
+
+        /*
+         * A tutorial focus sequence owns the camera while active.
+         * Normal follow and Tab overview input are ignored until it ends.
+         */
+        if (tutorialFocusActive)
         {
             return;
         }
@@ -127,6 +155,12 @@ public class DungeonCameraController : MonoBehaviour
 
     private void ToggleOverview()
     {
+        if (tutorialFocusActive)
+        {
+            return;
+        }
+
+
         overviewMode =
             !overviewMode;
 
@@ -259,11 +293,186 @@ public class DungeonCameraController : MonoBehaviour
 
 
     /// <summary>
+    /// Starts a short tutorial camera focus.
+    ///
+    /// The camera pans to the supplied generated world position,
+    /// waits there briefly, then snaps back to the player.
+    ///
+    /// The returned Coroutine can be yielded by the tutorial controller.
+    /// </summary>
+    public Coroutine PlayTutorialFocus(
+        Vector3 worldPosition,
+        float holdDuration)
+    {
+        if (targetCamera == null ||
+            playerController == null)
+        {
+            return null;
+        }
+
+
+        if (tutorialFocusCoroutine != null)
+        {
+            StopCoroutine(
+                tutorialFocusCoroutine
+            );
+
+            tutorialFocusCoroutine = null;
+        }
+
+
+        tutorialFocusCoroutine =
+            StartCoroutine(
+                TutorialFocusRoutine(
+                    worldPosition,
+                    Mathf.Max(0f, holdDuration)
+                )
+            );
+
+
+        return tutorialFocusCoroutine;
+    }
+
+
+    private IEnumerator TutorialFocusRoutine(
+        Vector3 worldPosition,
+        float holdDuration)
+    {
+        tutorialFocusActive = true;
+        overviewMode = false;
+
+
+        Vector3 startPosition =
+            transform.position;
+
+        Vector3 targetPosition =
+            new Vector3(
+                worldPosition.x,
+                worldPosition.y,
+                transform.position.z
+            );
+
+
+        float startCameraSize =
+            targetCamera.orthographicSize;
+
+        float elapsed =
+            0f;
+
+
+        while (elapsed <
+               tutorialPanDuration)
+        {
+            elapsed +=
+                Time.unscaledDeltaTime;
+
+
+            float progress =
+                tutorialPanDuration > 0f
+                    ? Mathf.Clamp01(
+                        elapsed /
+                        tutorialPanDuration
+                    )
+                    : 1f;
+
+
+            progress =
+                Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    progress
+                );
+
+
+            transform.position =
+                Vector3.Lerp(
+                    startPosition,
+                    targetPosition,
+                    progress
+                );
+
+
+            targetCamera.orthographicSize =
+                Mathf.Lerp(
+                    startCameraSize,
+                    gameplayCameraSize,
+                    progress
+                );
+
+
+            yield return null;
+        }
+
+
+        transform.position =
+            targetPosition;
+
+        targetCamera.orthographicSize =
+            gameplayCameraSize;
+
+
+        if (holdDuration > 0f)
+        {
+            yield return
+                new WaitForSecondsRealtime(
+                    holdDuration
+                );
+        }
+
+
+        PlaceCameraOnPlayer();
+
+
+        tutorialFocusActive = false;
+        tutorialFocusCoroutine = null;
+    }
+
+
+    /// <summary>
+    /// Cancels any active tutorial focus.
+    ///
+    /// Used when a run/floor changes while a tutorial camera sequence
+    /// is still active.
+    /// </summary>
+    public void CancelTutorialFocus(
+        bool snapToPlayer)
+    {
+        if (tutorialFocusCoroutine != null)
+        {
+            StopCoroutine(
+                tutorialFocusCoroutine
+            );
+
+            tutorialFocusCoroutine = null;
+        }
+
+
+        tutorialFocusActive = false;
+
+
+        if (snapToPlayer)
+        {
+            PlaceCameraOnPlayer();
+        }
+    }
+
+
+    /// <summary>
     /// Immediately places the camera on the player.
     ///
     /// Useful after a new procedural floor has been generated.
     /// </summary>
     public void SnapToPlayer()
+    {
+        CancelTutorialFocus(
+            false
+        );
+
+        PlaceCameraOnPlayer();
+    }
+
+
+    private void PlaceCameraOnPlayer()
     {
         if (playerController == null ||
             targetCamera == null)

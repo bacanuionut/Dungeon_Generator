@@ -25,6 +25,9 @@ public class WardenManager : MonoBehaviour
     private DungeonRunManager runManager;
 
     [SerializeField]
+    private RunStatsManager runStatsManager;
+
+    [SerializeField]
     private PlayerController playerController;
 
     [SerializeField]
@@ -104,6 +107,8 @@ public class WardenManager : MonoBehaviour
     private bool runInitialised;
 
     private bool runFinished;
+
+    private bool previousRunActive;
 
 
     // ------------------------------------------------------------
@@ -216,14 +221,76 @@ public class WardenManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        previousRunActive =
+            runStatsManager != null &&
+            runStatsManager.RunActive;
+    }
 
     private void Update()
     {
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+
         if (dungeonGenerator == null ||
             runManager == null ||
             playerController == null ||
             terrainModifier == null)
         {
+            return;
+        }
+
+        bool runActive =
+        runStatsManager.RunActive;
+
+
+        /*
+         * NEW RUN DETECTION
+         *
+         * The Warden must begin from a completely fresh pursuit state
+         * every time a real run starts.
+         *
+         * This also catches Restart when both the old and new runs are
+         * on Floor 1, which floor-number comparison cannot detect.
+         */
+        if (runActive &&
+            !previousRunActive)
+        {
+            InitialiseRun();
+
+            observedGenerationVersion =
+                dungeonGenerator.GenerationVersion;
+
+            previousRunActive =
+                true;
+
+            return;
+        }
+
+
+        /*
+         * Warden time must NOT progress while sitting on:
+         * - the start menu;
+         * - the run-end screen;
+         * - any other state where there is no active run.
+         */
+        if (!runActive)
+        {
+            previousRunActive =
+                false;
+
             return;
         }
 
@@ -234,6 +301,9 @@ public class WardenManager : MonoBehaviour
         if (runManager.RunComplete)
         {
             HandleRunComplete();
+
+            previousRunActive =
+                false;
 
             return;
         }

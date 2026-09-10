@@ -232,8 +232,20 @@ public class ResonancePuzzleManager : MonoBehaviour
     private Coroutine replayPanelCoroutine;
 
     private bool hasInteractionMessage;
+
     private string currentInteractionMessage =
         string.Empty;
+
+    private bool currentInteractionUsesKeycap;
+
+    private string currentInteractionKeyLabel =
+        string.Empty;
+
+    private bool hasInteractionWorldPosition;
+
+    private Vector3 currentInteractionWorldPosition;
+
+    private bool replayPanelActivatedThisFloor;
 
     private static Sprite whitePixelSprite;
 
@@ -243,6 +255,49 @@ public class ResonancePuzzleManager : MonoBehaviour
 
     public string CurrentInteractionMessage =>
         currentInteractionMessage;
+
+    public bool CurrentInteractionUsesKeycap =>
+        currentInteractionUsesKeycap;
+
+    public string CurrentInteractionKeyLabel =>
+        currentInteractionKeyLabel;
+
+    public bool HasInteractionWorldPosition =>
+        hasInteractionWorldPosition;
+
+    public Vector3 CurrentInteractionWorldPosition =>
+        currentInteractionWorldPosition;
+
+    public bool PlayerCurrentlyInsidePuzzleRoom =>
+        puzzleRoom != null &&
+        playerController != null &&
+        puzzleRoom.Contains(
+            playerController.GridPosition
+        );
+
+    public bool HasReplayPanel =>
+        replayTileRenderer != null;
+
+    public Vector3 ReplayPanelWorldPosition =>
+        replayTileRenderer != null
+            ? replayTileRenderer.transform.position
+            : new Vector3(
+                replayTileCell.x + 0.5f,
+                replayTileCell.y + 0.5f,
+                replayTileZ
+            );
+
+    public bool ReplayPanelActivatedThisFloor =>
+        replayPanelActivatedThisFloor;
+
+    public bool InitialSequenceShown =>
+        initialSequenceShown;
+
+    public bool IsShowingSequence =>
+        showingSequence;
+
+    public bool PuzzleSolved =>
+        puzzleSolved;
 
 
     private void Update()
@@ -395,6 +450,7 @@ public class ResonancePuzzleManager : MonoBehaviour
         initialSequenceShown = false;
         playerWasInsideRoom = false;
         previousPlayerCellRecorded = false;
+        replayPanelActivatedThisFloor = false;
 
         UnityEngine.Debug.Log(
             "========== RESONANCE PUZZLE ==========\n" +
@@ -1431,6 +1487,9 @@ public class ResonancePuzzleManager : MonoBehaviour
 
     private void PressReplayPanel()
     {
+        replayPanelActivatedThisFloor =
+            true;
+
         if (replayTileRenderer == null)
         {
             return;
@@ -1671,6 +1730,13 @@ public class ResonancePuzzleManager : MonoBehaviour
             return;
         }
 
+        /*
+         * Only real button-driven interactions belong here now.
+         *
+         * The replay-panel explanation is a one-run tutorial handled by
+         * GameplayTutorialController, so it no longer creates a permanent
+         * proximity message or a misleading E keycap.
+         */
         if (acceptingInput &&
             !showingSequence &&
             leverCoroutine == null)
@@ -1680,26 +1746,39 @@ public class ResonancePuzzleManager : MonoBehaviour
 
             if (nearest != null)
             {
-                hasInteractionMessage = true;
+                hasInteractionMessage =
+                    true;
+
                 currentInteractionMessage =
-                    "Press E to use the " +
-                    nearest.ColourName +
-                    " lever.";
-                return;
+                    "PULL " +
+                    nearest.ColourName.ToUpperInvariant() +
+                    " LEVER";
+
+                currentInteractionUsesKeycap =
+                    true;
+
+                currentInteractionKeyLabel =
+                    "E";
+
+                hasInteractionWorldPosition =
+                    true;
+
+
+                if (nearest.Renderer != null)
+                {
+                    currentInteractionWorldPosition =
+                        nearest.Renderer.transform.position;
+                }
+                else
+                {
+                    currentInteractionWorldPosition =
+                        new Vector3(
+                            nearest.Cell.x + 0.5f,
+                            nearest.Cell.y + 0.5f,
+                            leverZ
+                        );
+                }
             }
-        }
-
-        int replayDistance =
-            Mathf.Abs(playerCell.x - replayTileCell.x) +
-            Mathf.Abs(playerCell.y - replayTileCell.y);
-
-        if (replayDistance <= 1 &&
-            !showingSequence &&
-            !puzzleSolved)
-        {
-            hasInteractionMessage = true;
-            currentInteractionMessage =
-                "Step on the floor panel to replay the clue.";
         }
     }
 
@@ -2094,8 +2173,23 @@ public class ResonancePuzzleManager : MonoBehaviour
 
     private void ClearInteractionMessage()
     {
-        hasInteractionMessage = false;
-        currentInteractionMessage = string.Empty;
+        hasInteractionMessage =
+            false;
+
+        currentInteractionMessage =
+            string.Empty;
+
+        currentInteractionUsesKeycap =
+            false;
+
+        currentInteractionKeyLabel =
+            string.Empty;
+
+        hasInteractionWorldPosition =
+            false;
+
+        currentInteractionWorldPosition =
+            Vector3.zero;
     }
 
 
@@ -2140,6 +2234,7 @@ public class ResonancePuzzleManager : MonoBehaviour
         initialSequenceShown = false;
         playerWasInsideRoom = false;
         previousPlayerCellRecorded = false;
+        replayPanelActivatedThisFloor = false;
 
         ClearInteractionMessage();
     }
