@@ -2037,7 +2037,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &362622828
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2391,7 +2391,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 20}
+  m_SizeDelta: {x: 0, y: 45}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &404868308
 MonoBehaviour:
@@ -2657,11 +2657,11 @@ MonoBehaviour:
   gapBetweenFlashes: 0.18
   leverFrameDuration: 0.08
   flameFramesPerSecond: 9
+  interactionKey: 101
   leverInteractionRange: 1
   minimumReplayRowsBelowTopWall: 2
   maximumReplayRowsBelowTopWall: 4
   leverZ: -1.93
-  leverMarkerZ: -1.94
   replayTileZ: -1.82
   replayPanelScale: 0.9
   torchMountZ: -1.9
@@ -2802,8 +2802,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 10, y: 0}
-  m_SizeDelta: {x: 20, y: 20}
+  m_AnchoredPosition: {x: 20, y: 0}
+  m_SizeDelta: {x: 40, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &458976042
 MonoBehaviour:
@@ -4356,8 +4356,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 5, y: -0.5}
-  m_SizeDelta: {x: -30, y: -3}
+  m_AnchoredPosition: {x: 20, y: 0}
+  m_SizeDelta: {x: -60, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &710080764
 MonoBehaviour:
@@ -4400,6 +4400,82 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 710080762}
   m_CullTransparentMesh: 0
+--- !u!1 &711746066
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 711746068}
+  - component: {fileID: 711746067}
+  m_Layer: 0
+  m_Name: Game Audio Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &711746067
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 711746066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af03fdc844d8e874cac9426d85febccc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dungeonGenerator: {fileID: 1044558306}
+  runStatsManager: {fileID: 2142493819}
+  playerController: {fileID: 2142187895}
+  pulseController: {fileID: 2142187899}
+  shaperController: {fileID: 2142187900}
+  terrainModifier: {fileID: 1983990455}
+  wardenManager: {fileID: 2071083704}
+  puzzleManager: {fileID: 438204753}
+  backgroundMusic: {fileID: 8300000, guid: 3b12e30c377587d46989f4ef128054d4, type: 3}
+  wardenMusic: {fileID: 8300000, guid: 7500e0d4a7fbf194eb3b5a3d9fe6055b, type: 3}
+  musicVolume: 0.55
+  musicCrossfadeDuration: 0.75
+  playerHurtSound: {fileID: 8300000, guid: a3722cb65278a6a4885fd24a2b118b1f, type: 3}
+  playerDeathSound: {fileID: 8300000, guid: 84071ced54be5b64797b069ce8353e3a, type: 3}
+  coinPickupSound: {fileID: 8300000, guid: 376dcf321934d384fa51cba35b48a8a3, type: 3}
+  keyPickupSound: {fileID: 8300000, guid: 9a3e07f6933a73b4aa70c54ffb22360b, type: 3}
+  utilityPickupSound: {fileID: 8300000, guid: 6b411ce2798a2c5459a501ba41f81732, type: 3}
+  pulseUseSound: {fileID: 8300000, guid: 4f8858892f0480f47a98bb4fce3891e2, type: 3}
+  diggerUseSound: {fileID: 8300000, guid: dffedfadd1b5e7f4b921116c4509f31a, type: 3}
+  hatchOpenSound: {fileID: 8300000, guid: 21e66b856879485408cd66523c93b9c3, type: 3}
+  enemy1AttackSound: {fileID: 8300000, guid: d815f3d97d18b2e49a931cd204b4b231, type: 3}
+  enemy2AttackSound: {fileID: 8300000, guid: bce01df6f301dff40932fee5a4bd30dc, type: 3}
+  enemy3AttackSound: {fileID: 8300000, guid: a3722cb65278a6a4885fd24a2b118b1f, type: 3}
+  wardenAttackSound: {fileID: 8300000, guid: a5c9f220b3a6bbe45bd768732e5b956a, type: 3}
+  wardenArrivalSound: {fileID: 8300000, guid: 8b4a5c139f1c73949a3d90a623ac9c30, type: 3}
+  leverSound: {fileID: 8300000, guid: 07b016d356d265b40b062298d3902593, type: 3}
+  puzzleCompleteSound: {fileID: 8300000, guid: b396754d9fb2c29498226ad45421292b, type: 3}
+  soundEffectVolume: 0.9
+  backgroundMusicSource: {fileID: 0}
+  wardenMusicSource: {fileID: 0}
+  soundEffectSource: {fileID: 0}
+  diggerLoopSource: {fileID: 0}
+  actorDiscoveryInterval: 0.2
+--- !u!4 &711746068
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 711746066}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 461.45248, y: 268.35327, z: -1017.56104}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 21
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &727097786
 GameObject:
   m_ObjectHideFlags: 0
@@ -5243,10 +5319,10 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   runStatsManager: {fileID: 2142493819}
   gameplayTutorialController: {fileID: 1035674919}
-  playerPulseController: {fileID: 0}
-  playerShaperController: {fileID: 0}
-  adaptiveDifficultyDirector: {fileID: 0}
-  floorTransitionDelay: 0.75
+  playerPulseController: {fileID: 2142187899}
+  playerShaperController: {fileID: 2142187900}
+  adaptiveDifficultyDirector: {fileID: 2135172139}
+  floorTransitionDelay: 0.4
   currentFloor: 1
   transitioning: 0
 --- !u!4 &872445782
@@ -5874,22 +5950,25 @@ MonoBehaviour:
   cameraController: {fileID: 1728126703}
   playerController: {fileID: 2142187895}
   shaperController: {fileID: 2142187900}
-  pulseController: {fileID: 0}
-  playerVisionController: {fileID: 0}
-  wardenManager: {fileID: 0}
+  pulseController: {fileID: 2142187899}
+  playerVisionController: {fileID: 2142187898}
+  wardenManager: {fileID: 2071083704}
+  runStatsManager: {fileID: 2142493819}
   runIntroductionStartDelay: 0.45
-  runIntroductionSigilHoldDuration: 2
-  runIntroductionHatchHoldDuration: 2
+  runIntroductionSigilHoldDuration: 3.5
+  runIntroductionHatchHoldDuration: 3.5
   runIntroductionRevealRadius: 2
+  easyWalkthroughHoldDuration: 10
+  easyWalkthroughSkipKey: 32
   puzzleReplayFocusHoldDuration: 1.1
   diggerTargetSearchRadius: 8
   diggerTargetRetryDelay: 0.4
   diggerGhostCellDuration: 0.1
-  diggerGhostHoldDuration: 2
+  diggerGhostHoldDuration: 3.5
   diggerGhostCellScale: 0.84
   diggerGhostZ: -2.6
   diggerGhostColour: {r: 0.8, g: 0.35, b: 1, a: 0.38}
-  pulsePreviewStunDuration: 2
+  pulsePreviewStunDuration: 3.5
   pulsePreviewExpandDuration: 0.3
   pulsePreviewZ: -2.5
   pulsePreviewColour: {r: 0.75, g: 0.9, b: 1, a: 0.28}
@@ -6034,6 +6113,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44ba752fb5fa7564eb701695261eebfe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  regenerateKey: 286
   dungeonWidth: 80
   dungeonHeight: 50
   minimumPartitionSize: 10
@@ -6593,7 +6673,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1146740853
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8007,7 +8087,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1414305778
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8024,8 +8104,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 408}
-  m_SizeDelta: {x: -50, y: -867.8468}
+  m_AnchoredPosition: {x: 0, y: 407.5}
+  m_SizeDelta: {x: -50, y: -815}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1414305779
 MonoBehaviour:
@@ -8176,13 +8256,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   requiredSigils: 3
-  sigilScale: 0.45
-  sigilColour: {r: 0, g: 1, b: 1, a: 1}
   keySprite: {fileID: 1126344992095758660, guid: 31174ffbf862f9947ab34e30d1ce4b92,
     type: 3}
-  keyScale: 0.85
+  sigilScale: 0.9
+  sigilColour: {r: 0, g: 1, b: 1, a: 1}
   exitObject: {fileID: 2144170878}
-  runStatsManager: {fileID: 2142493819}
 --- !u!4 &1429068667
 Transform:
   m_ObjectHideFlags: 0
@@ -9471,7 +9549,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 28}
+  m_SizeDelta: {x: 0, y: 45}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!1 &1628025814
 GameObject:
@@ -10490,7 +10568,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1812715558
 RectTransform:
   m_ObjectHideFlags: 0
@@ -12033,11 +12111,12 @@ MonoBehaviour:
   dungeonGenerator: {fileID: 1044558306}
   playerController: {fileID: 2142187895}
   runStatsManager: {fileID: 2142493819}
-  gameplayTutorialController: {fileID: 0}
+  gameplayTutorialController: {fileID: 1035674919}
   startingCharges: 2
   maximumCharges: 5
   deployKey: 113
   placementDistance: 2
+  deploymentCooldown: 0.75
   fuseDuration: 1
   blastRadius: 3.5
   normalEnemyStunDuration: 15
@@ -12058,7 +12137,7 @@ MonoBehaviour:
   playerController: {fileID: 2142187895}
   terrainModifier: {fileID: 1983990455}
   runStatsManager: {fileID: 2142493819}
-  gameplayTutorialController: {fileID: 0}
+  gameplayTutorialController: {fileID: 1035674919}
   startingCharges: 1
   maximumCharges: 3
   shaperKey: 102
@@ -12133,7 +12212,7 @@ MonoBehaviour:
   easyStartingPulseCharges: 3
   normalStartingPulseCharges: 1
   hardStartingPulseCharges: 0
-  easyStartingDiggerCharges: 3
+  easyStartingDiggerCharges: 2
   normalStartingDiggerCharges: 1
   hardStartingDiggerCharges: 0
   easyEnemyMovementDelay: 0.6
@@ -12211,12 +12290,12 @@ MonoBehaviour:
   - {fileID: 6340381744373260812, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
   - {fileID: 879488825467366222, guid: 86cd5f88c5a9dc148acc8c91d4dab4d5, type: 3}
   shaftColour: {r: 0.02, g: 0.02, b: 0.04, a: 1}
-  shaftSize: 0.9
+  shaftSize: 0.82
   shaftYOffset: -0.45
-  shaftZOffset: 0.05
+  shaftZOffset: 0.1
   frameDuration: 0.1
   activationRangeTiles: 2
-  lockedMessage: The descent hatch is sealed. Collect all Anchor Sigils to open it.
+  lockedMessage: The descent hatch is sealed. Collect all keys to open it.
 --- !u!212 &2144170880
 SpriteRenderer:
   m_ObjectHideFlags: 0

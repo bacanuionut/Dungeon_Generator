@@ -107,6 +107,9 @@ public class PlayerShaperController : MonoBehaviour
     public int RemainingCharges =>
         remainingCharges;
 
+    public KeyCode DiggerKey =>
+        shaperKey;
+
     public event System.Action<int> ChargesChanged;
 
 

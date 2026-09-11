@@ -44,6 +44,11 @@ public class PlayerPulseController : MonoBehaviour
     [SerializeField]
     private int placementDistance = 2;
 
+    [Tooltip("Minimum time between successful Pulse deployments.")]
+    [Min(0f)]
+    [SerializeField]
+    private float deploymentCooldown = 0.75f;
+
 
     [Header("Pulse Effect")]
 
@@ -66,6 +71,8 @@ public class PlayerPulseController : MonoBehaviour
     private int remainingCharges;
 
     private bool initialised;
+
+    private float nextDeploymentTime;
 
 
     public int RemainingCharges =>
@@ -114,6 +121,9 @@ public class PlayerPulseController : MonoBehaviour
         initialised =
             true;
 
+        nextDeploymentTime =
+            0f;
+
         UnityEngine.Debug.Log(
             $"PULSE CHARGES: {remainingCharges}"
         );
@@ -155,6 +165,12 @@ public class PlayerPulseController : MonoBehaviour
                 "NO PULSE CHARGES REMAINING"
             );
 
+            return;
+        }
+
+        if (Time.time <
+            nextDeploymentTime)
+        {
             return;
         }
 
@@ -215,6 +231,10 @@ public class PlayerPulseController : MonoBehaviour
         DeployPulse(
             selectedCell
         );
+
+        nextDeploymentTime =
+            Time.time +
+            Mathf.Max(0f, deploymentCooldown);
     }
 
 

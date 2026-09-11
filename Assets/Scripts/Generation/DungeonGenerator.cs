@@ -15,6 +15,12 @@ using UnityEngine;
 /// </summary>
 public class DungeonGenerator : MonoBehaviour
 {
+
+    [Header("Debug Controls")]
+
+    [SerializeField]
+    private KeyCode regenerateKey = KeyCode.F5;
+
     [Header("Dungeon Size")]
     [SerializeField]
     [Min(20)]
@@ -301,9 +307,7 @@ public class DungeonGenerator : MonoBehaviour
 
     private void Update()
     {
-        // Allows quick testing without stopping Play Mode.
-        // Press R to regenerate the dungeon.
-        if (Input.GetKeyDown(KeyCode.R))
+        if (Input.GetKeyDown(regenerateKey))
         {
             if (useRandomSeed)
             {

@@ -34,6 +34,9 @@ public class GameplayTutorialController : MonoBehaviour
     [SerializeField]
     private WardenManager wardenManager;
 
+    [SerializeField]
+    private RunStatsManager runStatsManager;
+
 
     [Header("Run Introduction")]
 
@@ -46,7 +49,7 @@ public class GameplayTutorialController : MonoBehaviour
         0.45f;
 
     [Tooltip(
-        "How long the first Sigil remains framed before moving to the hatch."
+        "How long the first key remains framed before moving to the hatch."
     )]
     [Min(0f)]
     [SerializeField]
@@ -68,6 +71,24 @@ public class GameplayTutorialController : MonoBehaviour
     [SerializeField]
     private int runIntroductionRevealRadius =
         2;
+
+
+    [Header("Easy Walkthrough")]
+
+    [Tooltip(
+        "How long the basic controls walkthrough remains visible on Easy."
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float easyWalkthroughHoldDuration =
+        7.5f;
+
+    [Tooltip(
+        "Key used to skip the Easy controls walkthrough."
+    )]
+    [SerializeField]
+    private KeyCode easyWalkthroughSkipKey =
+        KeyCode.Space;
 
 
     [Header("Puzzle Replay Tutorial")]
@@ -510,7 +531,7 @@ public class GameplayTutorialController : MonoBehaviour
         }
 
         ShowPrompt(
-            $"COLLECT {requiredSigils} SIGILS\nTO UNLOCK THE HATCH",
+            $"COLLECT {requiredSigils} KEYS\nTO UNLOCK THE HATCH",
             false,
             string.Empty,
             true,
@@ -590,6 +611,55 @@ public class GameplayTutorialController : MonoBehaviour
                 );
         }
 
+        if (runStatsManager != null &&
+            runStatsManager.CurrentDifficulty ==
+                RunStatsManager.RunDifficulty.Easy)
+        {
+            string pulseKey =
+                pulseController != null
+                    ? pulseController.DeployKey.ToString()
+                    : "Q";
+
+            string diggerKey =
+                shaperController != null
+                    ? shaperController.DiggerKey.ToString()
+                    : "F";
+
+            string skipKey =
+                easyWalkthroughSkipKey.ToString();
+
+            ShowPrompt(
+                "USE ARROWS OR W A S D TO MOVE\n" +
+                "STAY OUT OF ENEMY VIEW\n" +
+                $"PRESS {pulseKey} TO THROW A PULSE AND STUN ENEMIES BRIEFLY\n" +
+                $"PRESS {diggerKey} TO USE THE DIGGER AND OPEN A PATH BETWEEN ROOMS\n" +
+                "DON'T LET THE WARDEN CATCH YOU\n\n" +
+                $"PRESS {skipKey} TO SKIP",
+                false,
+                string.Empty,
+                false,
+                Vector3.zero
+            );
+
+            float walkthroughEndTime =
+                Time.unscaledTime +
+                Mathf.Max(0f, easyWalkthroughHoldDuration);
+
+            while (Time.unscaledTime <
+                   walkthroughEndTime)
+            {
+                if (Input.GetKeyDown(
+                        easyWalkthroughSkipKey))
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            ClearPrompt();
+        }
+
         RestorePlayerMovement();
 
         runIntroductionLearned =
@@ -603,7 +673,7 @@ public class GameplayTutorialController : MonoBehaviour
 
         UnityEngine.Debug.Log(
             "RUN INTRODUCTION COMPLETE - " +
-            "Sigil and hatch objectives shown."
+            "Key and hatch objectives shown."
         );
     }
 
@@ -2047,6 +2117,12 @@ public class GameplayTutorialController : MonoBehaviour
         {
             wardenManager =
                 FindObjectOfType<WardenManager>();
+        }
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
         }
     }
 }

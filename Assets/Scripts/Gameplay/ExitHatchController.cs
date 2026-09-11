@@ -3,13 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Controls the visual and proximity behaviour of the procedural floor exit.
-///
-/// Collecting the required Anchor Sigils makes the hatch eligible to open,
-/// but it remains visibly closed until the player approaches within the
-/// configured tile range.
-///
-/// The proximity message is exposed through public properties so the same
-/// state can later be displayed through the final GUI instead of the Console.
+/// Collecting the required keys makes the hatch eligible to open, but it
+/// remains closed until the player approaches within the configured range.
 /// </summary>
 [RequireComponent(typeof(SpriteRenderer))]
 public class ExitHatchController : MonoBehaviour
@@ -29,21 +24,24 @@ public class ExitHatchController : MonoBehaviour
     [SerializeField]
     private Sprite[] openingFrames;
 
-    [Header("Hatch Shaft")]
 
+    [Header("Hatch Shaft")]
 
     [SerializeField]
     private Color shaftColour =
-    new Color(0.02f, 0.02f, 0.04f, 1f);
+        new Color(0.02f, 0.02f, 0.04f, 1f);
 
     [SerializeField]
-    private float shaftSize = 0.90f;
+    private float shaftSize = 0.82f;
 
+    [Tooltip("Vertical offset of the dark opening relative to the hatch.")]
     [SerializeField]
     private float shaftYOffset = -0.45f;
 
+    [Tooltip("Local Z offset used to keep the shaft behind the hatch sprite.")]
     [SerializeField]
-    private float shaftZOffset = 0.05f;
+    private float shaftZOffset = 0.10f;
+
 
     [Header("Animation")]
 
@@ -61,21 +59,17 @@ public class ExitHatchController : MonoBehaviour
     [SerializeField]
     private int activationRangeTiles = 2;
 
-    [Tooltip(
-        "Temporary Console text. Later the GUI can display " +
-        "CurrentProximityMessage instead.")]
     [TextArea(2, 4)]
     [SerializeField]
     private string lockedMessage =
         "The descent hatch is sealed. Collect all keys to open it.";
 
 
+    private SpriteRenderer spriteRenderer;
     private SpriteRenderer shaftRenderer;
+    private Coroutine openingRoutine;
 
     private static Sprite whitePixelSprite;
-
-    private SpriteRenderer spriteRenderer;
-    private Coroutine openingRoutine;
 
     private bool objectiveComplete;
     private bool isOpen;
@@ -136,8 +130,6 @@ public class ExitHatchController : MonoBehaviour
 
         playerWasInRange = true;
 
-        // Once the objective is complete, proximity opens the hatch.
-        // Collecting the final Sigil somewhere else does NOT open it remotely.
         if (objectiveComplete)
         {
             ClearProximityMessage();
@@ -148,10 +140,14 @@ public class ExitHatchController : MonoBehaviour
         ShowLockedProximityMessage();
     }
 
+
     private void EnsureShaftRenderer()
     {
         if (shaftRenderer != null)
+        {
+            UpdateShaftTransform();
             return;
+        }
 
         Transform existing =
             transform.Find("Exit Shaft");
@@ -160,26 +156,24 @@ public class ExitHatchController : MonoBehaviour
         {
             shaftRenderer =
                 existing.GetComponent<SpriteRenderer>();
-
-            if (shaftRenderer != null)
-                return;
         }
 
-        GameObject shaft =
-            new GameObject("Exit Shaft");
+        if (shaftRenderer == null)
+        {
+            GameObject shaft =
+                new GameObject("Exit Shaft");
 
-        shaft.transform.SetParent(transform);
-        shaft.transform.localPosition =
-            new Vector3(
-                0f,
-                shaftYOffset,
-                shaftZOffset
+            shaft.transform.SetParent(
+                transform,
+                false
             );
-        shaft.transform.localScale =
-            new Vector3(shaftSize, shaftSize, 1f);
 
-        shaftRenderer =
-            shaft.AddComponent<SpriteRenderer>();
+            shaftRenderer =
+                shaft.AddComponent<SpriteRenderer>();
+        }
+
+        shaftRenderer.gameObject.layer =
+            gameObject.layer;
 
         shaftRenderer.sprite =
             GetWhitePixelSprite();
@@ -192,38 +186,88 @@ public class ExitHatchController : MonoBehaviour
             shaftRenderer.sortingLayerID =
                 spriteRenderer.sortingLayerID;
 
+            // The shaft uses the same sorting order as the hatch and sits
+            // slightly farther from the camera. This keeps it above the floor
+            // while still allowing the hatch sprite to render over it.
             shaftRenderer.sortingOrder =
                 spriteRenderer.sortingOrder;
         }
+
+        UpdateShaftTransform();
     }
+
+
+    private void UpdateShaftTransform()
+    {
+        if (shaftRenderer == null)
+        {
+            return;
+        }
+
+        shaftRenderer.transform.localPosition =
+            new Vector3(
+                0f,
+                shaftYOffset,
+                shaftZOffset
+            );
+
+        shaftRenderer.transform.localScale =
+            new Vector3(
+                shaftSize,
+                shaftSize,
+                1f
+            );
+    }
+
 
     private void SetShaftVisible(bool visible)
     {
-        if (shaftRenderer == null)
-            return;
+        EnsureShaftRenderer();
 
-        shaftRenderer.enabled =
-            visible;
+        if (shaftRenderer != null)
+        {
+            shaftRenderer.gameObject.SetActive(visible);
+            shaftRenderer.enabled = visible;
+
+            if (visible)
+            {
+                UpdateShaftTransform();
+
+                UnityEngine.Debug.Log(
+                    "EXIT SHAFT VISIBLE - " +
+                    $"world position {shaftRenderer.transform.position}, " +
+                    $"layer {shaftRenderer.gameObject.layer}, " +
+                    $"sorting order {shaftRenderer.sortingOrder}."
+                );
+            }
+        }
     }
+
 
     private Sprite GetWhitePixelSprite()
     {
         if (whitePixelSprite != null)
+        {
             return whitePixelSprite;
+        }
 
-        whitePixelSprite = Sprite.Create(
-            Texture2D.whiteTexture,
-            new Rect(0f, 0f, 1f, 1f),
-            new Vector2(0.5f, 0.5f),
-            1f
-        );
+        whitePixelSprite =
+            Sprite.Create(
+                Texture2D.whiteTexture,
+                new Rect(0f, 0f, 1f, 1f),
+                new Vector2(0.5f, 0.5f),
+                1f
+            );
+
+        whitePixelSprite.name =
+            "Exit Shaft Pixel";
 
         return whitePixelSprite;
     }
 
+
     /// <summary>
-    /// Restores the hatch to the closed state for a newly generated floor.
-    /// DungeonGenerator remains responsible for positioning the object.
+    /// Restores the hatch to its closed state for a newly generated floor.
     /// </summary>
     public void ResetForNewFloor()
     {
@@ -241,9 +285,8 @@ public class ExitHatchController : MonoBehaviour
         requiredSigils = 0;
         lastLoggedCollectedSigils = -1;
 
-        SetShaftVisible(false);
-
         ClearProximityMessage();
+        SetShaftVisible(false);
 
         if (spriteRenderer == null)
         {
@@ -259,7 +302,6 @@ public class ExitHatchController : MonoBehaviour
 
     /// <summary>
     /// Receives the current floor objective progress.
-    /// Meeting the requirement does not itself open the hatch.
     /// </summary>
     public void SetObjectiveProgress(
         int collected,
@@ -281,8 +323,6 @@ public class ExitHatchController : MonoBehaviour
             requiredSigils > 0 &&
             collectedSigils >= requiredSigils;
 
-        // If the player is already standing beside the hatch when the final
-        // Sigil is collected, Update() will open it on the next frame.
         if (playerWasInRange && !objectiveComplete)
         {
             ShowLockedProximityMessage();
@@ -291,9 +331,7 @@ public class ExitHatchController : MonoBehaviour
 
 
     /// <summary>
-    /// Compatibility method for systems that only know the boolean state.
-    /// True means the objective requirement is complete, not that the hatch
-    /// should open immediately from anywhere on the floor.
+    /// Compatibility method for systems that only provide the completed state.
     /// </summary>
     public void SetUnlocked(bool unlocked)
     {
@@ -330,7 +368,6 @@ public class ExitHatchController : MonoBehaviour
 
     private Vector2Int GetHatchGridPosition()
     {
-        // DungeonGenerator positions the hatch at cell centre + 0.5.
         return new Vector2Int(
             Mathf.FloorToInt(transform.position.x),
             Mathf.FloorToInt(transform.position.y)
@@ -351,8 +388,6 @@ public class ExitHatchController : MonoBehaviour
 
         hasProximityMessage = true;
 
-        // Do not spam the Console every frame. Log once when entering the
-        // range and again only if objective progress changes while nearby.
         if (lastLoggedCollectedSigils == collectedSigils)
         {
             return;
@@ -411,7 +446,6 @@ public class ExitHatchController : MonoBehaviour
             openingRoutine = null;
             yield break;
         }
-        
 
         WaitForSeconds wait =
             new WaitForSeconds(
@@ -441,7 +475,7 @@ public class ExitHatchController : MonoBehaviour
 
         UnityEngine.Debug.Log(
             "EXIT HATCH OPENED - " +
-            "Anchor Sigils complete and player entered " +
+            "all keys collected and player entered " +
             $"the {activationRangeTiles}-tile activation range."
         );
     }

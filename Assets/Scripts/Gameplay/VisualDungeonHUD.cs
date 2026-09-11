@@ -218,6 +218,11 @@ public class VisualDungeonHUD : MonoBehaviour
 
     private bool previousPromptKeycapVisible;
 
+    private string temporaryPromptMessage =
+        string.Empty;
+
+    private float temporaryPromptEndTime;
+
 
     private void Start()
     {
@@ -232,13 +237,17 @@ public class VisualDungeonHUD : MonoBehaviour
         if (pulseKeyText != null)
         {
             pulseKeyText.text =
-                pulseKeyLabel;
+                pulseController != null
+                    ? pulseController.DeployKey.ToString()
+                    : pulseKeyLabel;
         }
 
         if (diggerKeyText != null)
         {
             diggerKeyText.text =
-                diggerKeyLabel;
+                shaperController != null
+                    ? shaperController.DiggerKey.ToString()
+                    : diggerKeyLabel;
         }
 
         RefreshAll();
@@ -473,9 +482,29 @@ public class VisualDungeonHUD : MonoBehaviour
         }
 
 
+        if (!string.IsNullOrEmpty(temporaryPromptMessage))
+        {
+            if (Time.unscaledTime <
+                temporaryPromptEndTime)
+            {
+                ShowInteractionPrompt(
+                    temporaryPromptMessage,
+                    false,
+                    string.Empty,
+                    false,
+                    Vector3.zero
+                );
+
+                return;
+            }
+
+            temporaryPromptMessage =
+                string.Empty;
+        }
+
         /*
-         * Normal Resonance interaction now represents actual lever input.
-         * The replay-panel explanation is owned by the tutorial controller.
+         * Normal Resonance interaction represents actual lever input.
+         * The replay-panel explanation is handled by the tutorial controller.
          */
         if (resonancePuzzleManager != null &&
             resonancePuzzleManager.HasInteractionMessage)
@@ -508,6 +537,24 @@ public class VisualDungeonHUD : MonoBehaviour
 
 
         HideInteractionPrompt();
+    }
+
+
+    public void ShowTemporaryMessage(
+        string message,
+        float duration = 1.75f)
+    {
+        if (string.IsNullOrEmpty(message))
+        {
+            return;
+        }
+
+        temporaryPromptMessage =
+            message;
+
+        temporaryPromptEndTime =
+            Time.unscaledTime +
+            Mathf.Max(0.1f, duration);
     }
 
 

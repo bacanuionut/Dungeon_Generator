@@ -22,6 +22,7 @@ public class ResourcePickup : MonoBehaviour
     private PlayerController playerController;
     private PlayerPulseController pulseController;
     private PlayerShaperController shaperController;
+    private VisualDungeonHUD visualDungeonHUD;
 
     private GameObject visualObject;
     private bool collected;
@@ -293,6 +294,29 @@ public class ResourcePickup : MonoBehaviour
          */
         if (actuallyAdded <= 0)
         {
+            if (visualDungeonHUD == null)
+            {
+                visualDungeonHUD =
+                    FindObjectOfType<VisualDungeonHUD>();
+            }
+
+            if (visualDungeonHUD != null)
+            {
+                string message =
+                    resourceType == ResourceType.Pulse
+                        ? "PULSE INVENTORY FULL\nUSE A PULSE BEFORE PICKING THIS UP"
+                        : "DIGGER INVENTORY FULL\nUSE A DIGGER BEFORE PICKING THIS UP";
+
+                visualDungeonHUD.ShowTemporaryMessage(
+                    message,
+                    1.75f
+                );
+            }
+
+            UnityEngine.Debug.Log(
+                $"RESOURCE PICKUP NOT COLLECTED - {resourceType} inventory full."
+            );
+
             return;
         }
 

@@ -298,7 +298,7 @@ public class PlayerController : MonoBehaviour
     /// generated exit position.
     ///
     /// The descent shaft remains locked until all required
-    /// Anchor Sigils have been collected.
+    /// keys have been collected.
     /// </summary>
     private void CheckForExit()
     {
@@ -321,7 +321,7 @@ public class PlayerController : MonoBehaviour
         {
             UnityEngine.Debug.Log(
                 "DESCENT SHAFT LOCKED - " +
-                $"Anchor Sigils: " +
+                $"Keys: " +
                 $"{objectiveManager.CollectedSigils}/" +
                 $"{objectiveManager.RequiredSigils}"
             );

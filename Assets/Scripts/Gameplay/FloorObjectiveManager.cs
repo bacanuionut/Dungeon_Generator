@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Controls the procedural objective for one generated floor.
 ///
-/// Anchor Sigils are placed in selected generated rooms. Collecting all of
+/// Keys are placed in selected generated rooms. Collecting all of
 /// them satisfies the descent requirement, but the exit hatch remains closed
 /// until the player later approaches it within its configured proximity range.
 /// </summary>
@@ -14,12 +15,18 @@ public class FloorObjectiveManager : MonoBehaviour
 {
     [Header("Objective Settings")]
 
-    [Tooltip("Target number of Anchor Sigils to place on each generated floor.")]
+    [Tooltip("Target number of keys to place on each generated floor.")]
     [SerializeField]
     private int requiredSigils = 3;
 
 
     [Header("Display")]
+
+    [FormerlySerializedAs("sigilSprite")]
+    [FormerlySerializedAs("objectiveSprite")]
+    [Tooltip("Sprite used for keys placed on the dungeon floor.")]
+    [SerializeField]
+    private Sprite keySprite;
 
     [SerializeField]
     private float sigilScale = 0.45f;
@@ -27,22 +34,12 @@ public class FloorObjectiveManager : MonoBehaviour
     [SerializeField]
     private Color sigilColour = Color.cyan;
 
-    [Header("Key Visual")]
-
-    [SerializeField]
-    private Sprite keySprite;
-
-    [SerializeField]
-    private float keyScale = 0.85f;
 
     [Header("References")]
 
     [Tooltip("The same Exit Hatch object referenced by DungeonGenerator.")]
     [SerializeField]
     private GameObject exitObject;
-
-    [SerializeField]
-    private RunStatsManager runStatsManager;
 
 
     private GameObject objectiveParent;
@@ -57,8 +54,8 @@ public class FloorObjectiveManager : MonoBehaviour
     private int collectedSigils;
 
     // Kept separate from the Inspector target. This prevents one unusual
-    // floor that can only place two Sigils from permanently reducing later
-    // floors to two Sigils as well.
+    // floor that can only place two keys from permanently reducing later
+    // floors to two keys as well.
     private int activeRequiredSigils;
 
 
@@ -104,7 +101,7 @@ public class FloorObjectiveManager : MonoBehaviour
 
 
     /// <summary>
-    /// Creates the floor's Anchor Sigils after dungeon generation
+    /// Creates the floor's keys after dungeon generation
     /// and validation have completed.
     /// </summary>
     public void GenerateObjectives(
@@ -200,8 +197,8 @@ public class FloorObjectiveManager : MonoBehaviour
         UnityEngine.Debug.Log(
             "========== FLOOR OBJECTIVE ==========\n" +
             $"Seed: {generator.CurrentSeed}\n" +
-            $"Anchor Sigils placed: {activeRequiredSigils}\n" +
-            $"Anchor Sigils collected: {collectedSigils}/{activeRequiredSigils}\n" +
+            $"Keys placed: {activeRequiredSigils}\n" +
+            $"Keys collected: {collectedSigils}/{activeRequiredSigils}\n" +
             $"Descent requirement complete: {ExitUnlocked}\n" +
             "Hatch opening requires player proximity: YES\n" +
             "====================================="
@@ -245,7 +242,7 @@ public class FloorObjectiveManager : MonoBehaviour
                     distances[candidate] * 20f;
 
                 // After the first choice, favour rooms that are
-                // spatially separated from the Sigils already chosen.
+                // spatially separated from the keys already chosen.
                 if (selected.Count > 0)
                 {
                     int minimumSeparation =
@@ -357,51 +354,105 @@ public class FloorObjectiveManager : MonoBehaviour
 
 
     private void CreateSigil(
-    Vector2Int gridPosition)
+        Vector2Int gridPosition)
     {
-        GameObject sigil =
-            new GameObject(
-                $"Key ({gridPosition.x}, {gridPosition.y})"
+        GameObject sigil;
+
+        if (keySprite != null)
+        {
+            sigil =
+                new GameObject(
+                    $"Key ({gridPosition.x}, {gridPosition.y})"
+                );
+
+            sigil.transform.SetParent(
+                objectiveParent.transform
             );
 
-        sigil.transform.SetParent(
-            objectiveParent.transform
-        );
+            sigil.transform.position =
+                new Vector3(
+                    gridPosition.x + 0.5f,
+                    gridPosition.y + 0.5f,
+                    -2.1f
+                );
 
-        sigil.transform.position =
-            new Vector3(
-                gridPosition.x + 0.5f,
-                gridPosition.y + 0.5f,
-                -2.1f
+            sigil.transform.localScale =
+                new Vector3(
+                    sigilScale,
+                    sigilScale,
+                    1f
+                );
+
+            SpriteRenderer renderer =
+                sigil.AddComponent<SpriteRenderer>();
+
+            renderer.sprite =
+                keySprite;
+
+            renderer.color =
+                Color.white;
+
+            CollectibleVisualAnimator animator =
+                sigil.AddComponent<CollectibleVisualAnimator>();
+
+            animator.SetVisualTarget(
+                sigil.transform
             );
 
-        sigil.transform.localScale =
-            new Vector3(
-                keyScale,
-                keyScale,
-                1f
+            animator.ConfigureAsKey();
+        }
+        else
+        {
+            sigil =
+                GameObject.CreatePrimitive(
+                    PrimitiveType.Quad
+                );
+
+            sigil.name =
+                $"Key ({gridPosition.x}, {gridPosition.y})";
+
+            sigil.transform.SetParent(
+                objectiveParent.transform
             );
 
+            sigil.transform.position =
+                new Vector3(
+                    gridPosition.x + 0.5f,
+                    gridPosition.y + 0.5f,
+                    -2.1f
+                );
 
-        SpriteRenderer renderer =
-            sigil.AddComponent<SpriteRenderer>();
+            sigil.transform.localScale =
+                new Vector3(
+                    sigilScale,
+                    sigilScale,
+                    1f
+                );
 
-        renderer.sprite =
-            keySprite;
+            Collider sigilCollider =
+                sigil.GetComponent<Collider>();
 
-        renderer.color =
-            Color.white;
+            if (sigilCollider != null)
+            {
+                Destroy(sigilCollider);
+            }
 
+            Renderer renderer =
+                sigil.GetComponent<Renderer>();
 
-        CollectibleVisualAnimator animator =
-            sigil.AddComponent<CollectibleVisualAnimator>();
+            if (renderer != null)
+            {
+                renderer.material.color =
+                    sigilColour;
+            }
 
-        animator.ConfigureAsKey();
+            UnityEngine.Debug.LogWarning(
+                "KEY VISUAL - Key Sprite is not assigned on FloorObjectiveManager. " +
+                "Using the fallback coloured square."
+            );
+        }
 
-
-        sigilsByCell[
-            gridPosition
-        ] =
+        sigilsByCell[gridPosition] =
             sigil;
 
         objectiveCells.Add(
@@ -409,9 +460,8 @@ public class FloorObjectiveManager : MonoBehaviour
         );
     }
 
-
     /// <summary>
-    /// Attempts to collect an Anchor Sigil from the player's cell.
+    /// Attempts to collect a key from the player's cell.
     /// </summary>
     public bool TryCollectSigil(
         Vector2Int gridPosition)
@@ -439,19 +489,6 @@ public class FloorObjectiveManager : MonoBehaviour
         }
 
         collectedSigils++;
-
-        if (runStatsManager == null)
-        {
-            runStatsManager =
-                FindObjectOfType<RunStatsManager>();
-        }
-
-        if (runStatsManager != null)
-        {
-            runStatsManager.RecordKeyCollected(
-                1
-            );
-        }
 
         UnityEngine.Debug.Log(
             "KEY COLLECTED - " +

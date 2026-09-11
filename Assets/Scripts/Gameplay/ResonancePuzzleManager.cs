@@ -95,6 +95,10 @@ public class ResonancePuzzleManager : MonoBehaviour
 
     [Header("Interaction")]
 
+    [Tooltip("Key used to interact with puzzle levers.")]
+    [SerializeField]
+    private KeyCode interactionKey = KeyCode.E;
+
     [Min(0)]
     [SerializeField]
     private int leverInteractionRange = 1;
@@ -117,9 +121,6 @@ public class ResonancePuzzleManager : MonoBehaviour
 
     [SerializeField]
     private float leverZ = -1.93f;
-
-    [SerializeField]
-    private float leverMarkerZ = -1.94f;
 
     [SerializeField]
     private float replayTileZ = -1.82f;
@@ -365,7 +366,7 @@ public class ResonancePuzzleManager : MonoBehaviour
             acceptingInput &&
             !showingSequence &&
             leverCoroutine == null &&
-            Input.GetKeyDown(KeyCode.E))
+            Input.GetKeyDown(interactionKey))
         {
             TryActivateNearbyLever(playerCell);
         }
@@ -1758,7 +1759,7 @@ public class ResonancePuzzleManager : MonoBehaviour
                     true;
 
                 currentInteractionKeyLabel =
-                    "E";
+                    interactionKey.ToString();
 
                 hasInteractionWorldPosition =
                     true;
