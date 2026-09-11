@@ -48,7 +48,7 @@ public class PlayerController : MonoBehaviour
     // Direction the player is currently facing.
     //
     // This is deliberately separate from the player's position because
-    // facing will later control torch visibility, Pulse Charge placement
+    // facing controls torch visibility, Pulse Charge placement
     // and Shaper targeting.
     private Vector2Int facingDirection =
         Vector2Int.down;
@@ -435,8 +435,8 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// Creates a small marker showing the direction the player is facing.
     ///
-    /// Facing is gameplay data because it will later control torch
-    /// visibility, Pulse Charge placement and Shaper targeting.
+    /// Facing is gameplay data because it controls torch visibility,
+    /// Pulse Charge placement and Shaper targeting.
     /// </summary>
     private void CreateFacingIndicator()
     {

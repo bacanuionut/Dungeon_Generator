@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 
 public class DungeonRunManager : MonoBehaviour
@@ -10,6 +10,7 @@ public class DungeonRunManager : MonoBehaviour
     [SerializeField] private PlayerPulseController playerPulseController;
     [SerializeField] private PlayerShaperController playerShaperController;
     [SerializeField] private AdaptiveDifficultyDirector adaptiveDifficultyDirector;
+    [SerializeField] private PlaytestTelemetryManager playtestTelemetryManager;
 
     [Header("Floor Transition")]
     [Min(0f)]
@@ -99,6 +100,8 @@ public class DungeonRunManager : MonoBehaviour
         playerPulseController?.ResetInventoryForNewRun();
         playerShaperController?.ResetInventoryForNewRun();
 
+        playtestTelemetryManager?.BeginNewRunTracking();
+
         int firstFloorSeed =
             CalculateFloorSeed(currentFloor);
 
@@ -111,10 +114,17 @@ public class DungeonRunManager : MonoBehaviour
             "================================="
         );
 
+        playtestTelemetryManager?.BeginFloorGeneration(
+            currentFloor,
+            firstFloorSeed
+        );
+
         dungeonGenerator.GenerateRunFloor(
             firstFloorSeed,
             currentFloor
         );
+
+        playtestTelemetryManager?.FinishFloorGeneration();
     }
 
     public void CompleteCurrentFloor()
@@ -128,6 +138,10 @@ public class DungeonRunManager : MonoBehaviour
         {
             return;
         }
+
+        playtestTelemetryManager?.CompleteCurrentFloor(
+            true
+        );
 
         runStatsManager.RecordFloorCompleted(1);
 
@@ -184,10 +198,17 @@ public class DungeonRunManager : MonoBehaviour
             "==============================="
         );
 
+        playtestTelemetryManager?.BeginFloorGeneration(
+            currentFloor,
+            nextFloorSeed
+        );
+
         dungeonGenerator.GenerateRunFloor(
             nextFloorSeed,
             currentFloor
         );
+
+        playtestTelemetryManager?.FinishFloorGeneration();
 
         transitioning = false;
     }
@@ -273,6 +294,12 @@ public class DungeonRunManager : MonoBehaviour
         {
             adaptiveDifficultyDirector =
                 FindObjectOfType<AdaptiveDifficultyDirector>();
+        }
+
+        if (playtestTelemetryManager == null)
+        {
+            playtestTelemetryManager =
+                FindObjectOfType<PlaytestTelemetryManager>();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
@@ -40,6 +40,9 @@ public class FloorObjectiveManager : MonoBehaviour
     [Tooltip("The same Exit Hatch object referenced by DungeonGenerator.")]
     [SerializeField]
     private GameObject exitObject;
+
+    [SerializeField]
+    private RunStatsManager runStatsManager;
 
 
     private GameObject objectiveParent;
@@ -489,6 +492,17 @@ public class FloorObjectiveManager : MonoBehaviour
         }
 
         collectedSigils++;
+
+        if (runStatsManager == null)
+        {
+            runStatsManager =
+                FindObjectOfType<RunStatsManager>();
+        }
+
+        if (runStatsManager != null)
+        {
+            runStatsManager.RecordKeyCollected(1);
+        }
 
         UnityEngine.Debug.Log(
             "KEY COLLECTED - " +

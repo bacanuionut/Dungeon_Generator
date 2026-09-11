@@ -174,7 +174,7 @@ public class WardenManager : MonoBehaviour
     /// Approximate seconds before the Warden completes its current
     /// abstract floor.
     ///
-    /// Mainly useful during testing and later evaluation.
+    /// Mainly useful for runtime diagnostics and evaluation.
     /// </summary>
     public float SecondsUntilNextFloor
     {
@@ -468,7 +468,7 @@ public class WardenManager : MonoBehaviour
         /*
          * A floor number going backwards means a new run has started.
          *
-         * This gives us a safe reset if a restart feature returns the
+         * This provides a safe reset if a restart returns the
          * player from a later floor to Floor 1.
          */
         if (currentPlayerFloor <

@@ -79,7 +79,7 @@ public class DungeonVisualTheme
 
 
     // ============================================================
-    // FUTURE ENVIRONMENTAL GENERATION
+    // ENVIRONMENTAL GENERATION
     // ============================================================
 
     public float EnvironmentalDetailAmount;

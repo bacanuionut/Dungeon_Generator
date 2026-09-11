@@ -73,10 +73,10 @@ public class GameplayTutorialController : MonoBehaviour
         2;
 
 
-    [Header("Easy Walkthrough")]
+    [Header("Controls Walkthrough")]
 
     [Tooltip(
-        "How long the basic controls walkthrough remains visible on Easy."
+        "How long the basic controls walkthrough remains visible."
     )]
     [Min(0f)]
     [SerializeField]
@@ -84,7 +84,7 @@ public class GameplayTutorialController : MonoBehaviour
         7.5f;
 
     [Tooltip(
-        "Key used to skip the Easy controls walkthrough."
+        "Key used to skip the controls walkthrough."
     )]
     [SerializeField]
     private KeyCode easyWalkthroughSkipKey =
@@ -611,9 +611,11 @@ public class GameplayTutorialController : MonoBehaviour
                 );
         }
 
-        if (runStatsManager != null &&
-            runStatsManager.CurrentDifficulty ==
-                RunStatsManager.RunDifficulty.Easy)
+        //if (runStatsManager != null &&
+        //    runStatsManager.CurrentDifficulty ==
+        //        RunStatsManager.RunDifficulty.Easy)
+
+            if (runStatsManager != null)
         {
             string pulseKey =
                 pulseController != null

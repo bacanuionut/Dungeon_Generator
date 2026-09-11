@@ -39,8 +39,8 @@ public static class DungeonVisualThemeGenerator
      * across an entire run without storing additional state.
      *
      * IMPORTANT:
-     * If the floor seed spacing is changed in DungeonRunManager later,
-     * change this value to match.
+     * FloorSeedStride must match the deterministic floor-seed spacing
+     * used by DungeonRunManager.
      */
     private const int FloorSeedStride =
         1009;

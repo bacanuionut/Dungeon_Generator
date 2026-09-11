@@ -577,7 +577,7 @@ public class DungeonTerrainModifier : MonoBehaviour
     /// <summary>
     /// Determines the local direction of the hidden guide.
     ///
-    /// At a corner we favour the direction the path is about to travel,
+    /// At a corner, the direction the path is about to travel is favoured,
     /// allowing the grown shape to naturally flow around bends.
     /// </summary>
     private Vector2Int DetermineGuideDirection(
@@ -686,9 +686,9 @@ public class DungeonTerrainModifier : MonoBehaviour
 
             /*
              * The tunnel can cut through environmental clutter as well as
-             * terrain. Exact growth cells are always cleared. At the entrance
-             * and destination we also clear directly neighbouring solid props
-             * so a table, sack cluster or crate cannot cap the new opening.
+             * terrain. Exact growth cells are always cleared. Directly neighbouring
+             * solid props are also cleared at the entrance and destination so a
+             * table, sack cluster or crate cannot cap the new opening.
              */
             environmentalPropsDestroyed +=
                 ClearEnvironmentalPropsForGrowthStep(

@@ -11,8 +11,8 @@ public class DungeonGraph
 {
     /// <summary>
     /// Represents one logical connection between two rooms.
-    /// CorridorGenerator will later convert this connection into
-    /// an actual corridor path.
+    /// CorridorGenerator converts this connection into an
+    /// actual corridor path.
     /// </summary>
     public class RoomConnection
     {

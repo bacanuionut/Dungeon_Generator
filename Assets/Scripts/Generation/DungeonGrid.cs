@@ -8,8 +8,8 @@ using UnityEngine;
 /// was generated. DungeonGrid converts those results into a simple
 /// collection of walkable floor cells.
 ///
-/// Keeping this representation separate from rendering means the
-/// dungeon data can later be used by other systems such as:
+/// Keeping this representation separate from rendering allows the
+/// dungeon data to be used by systems such as:
 /// - rendering
 /// - player movement
 /// - pathfinding
@@ -38,7 +38,7 @@ public class DungeonGrid
         new HashSet<Vector2Int>();
 
     // Floor created during gameplay rather than during initial generation.
-    // This will be used by both the player's Shaper and later the main enemy.
+    // Used by both the player's Shaper and the Warden.
     private readonly HashSet<Vector2Int> dynamicFloorCells =
         new HashSet<Vector2Int>();
 

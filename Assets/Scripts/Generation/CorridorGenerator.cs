@@ -36,7 +36,7 @@ public class CorridorGenerator
 
         /// <summary>
         /// Number of grid cells making up this corridor.
-        /// Useful later when collecting dungeon metrics.
+        /// Used when collecting dungeon metrics.
         /// </summary>
         public int Length => Cells.Count;
     }

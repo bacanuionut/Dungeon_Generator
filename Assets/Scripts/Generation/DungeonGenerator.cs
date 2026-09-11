@@ -10,8 +10,8 @@ using UnityEngine;
 /// generation parameters in the Unity Inspector.
 ///
 /// Individual generation algorithms are kept in separate classes.
-/// For Iteration 1, DungeonGenerator coordinates BSPNode objects
-/// rather than performing the partition calculations itself.
+/// DungeonGenerator coordinates BSPNode objects rather than
+/// performing the partition calculations itself.
 /// </summary>
 public class DungeonGenerator : MonoBehaviour
 {
@@ -249,7 +249,7 @@ public class DungeonGenerator : MonoBehaviour
     /// Keeping seed and depth separate is important because:
     ///
     /// - seed controls reproducible procedural generation;
-    /// - depth can influence visual deterioration and future difficulty;
+    /// - depth can influence visual deterioration and difficulty adjustment;
     /// - Survival mode can continue beyond a fixed number of floors.
     /// </summary>
     public void GenerateRunFloor(
@@ -278,11 +278,10 @@ public class DungeonGenerator : MonoBehaviour
 
 
     /// <summary>
-    /// Temporary backwards-compatible overload.
-    ///
-    /// Existing systems which currently provide only a seed can continue
-    /// working until DungeonRunManager is updated to also provide depth.
+    /// Backwards-compatible overload for callers that provide only a seed.
+    /// The current floor depth is retained.
     /// </summary>
+    
     public void GenerateRunFloor(
         int floorSeed)
     {
@@ -373,7 +372,7 @@ public class DungeonGenerator : MonoBehaviour
         // Recursively divide the dungeon.
         SplitRecursively(rootNode);
 
-        // Cache the final partitions for later room generation.
+        // Cache the final partitions before room generation.
         leafNodes.Clear();
         rootNode.GetLeafNodes(leafNodes);
 
@@ -650,7 +649,7 @@ public class DungeonGenerator : MonoBehaviour
     /// Green rectangles represent BSP leaf partitions.
     /// Yellow rectangles represent generated rooms.
     ///
-    /// Gizmos allow us to inspect the algorithm without creating
+    /// Gizmos allow the algorithm to be inspected without creating
     /// permanent rendering objects purely for debugging.
     /// </summary>
     private void OnDrawGizmos()
@@ -797,8 +796,8 @@ public class DungeonGenerator : MonoBehaviour
     /// <summary>
     /// Performs basic checks on generated rooms.
     ///
-    /// More extensive validation will later be moved into DungeonValidator,
-    /// but this gives Iteration 1 an immediate automated correctness check.
+    /// Performs immediate room-level checks before the wider validation
+    /// handled by DungeonValidator.
     /// </summary>
     private bool ValidateRooms()
     {

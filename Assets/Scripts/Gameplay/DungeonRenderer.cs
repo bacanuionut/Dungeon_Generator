@@ -123,7 +123,8 @@ public class DungeonRenderer : MonoBehaviour
      * Across the visual-theme system these pools use ALL eight verified
      * compatible small floor-detail tiles from the existing renderer.
      *
-     * We no longer choose all eight indiscriminately on every floor.
+     * Each floor now selects from a theme-specific subset rather than
+     * choosing all eight indiscriminately.
      */
 
 
