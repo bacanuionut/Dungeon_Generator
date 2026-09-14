@@ -114,7 +114,7 @@ The project was also tested as a WebGL build for external playtesting.
 
 
 
-The WebGL can be accessed her: https://bacanuionut.itch.io/procedural-dungeon-generator-cm3070-playtest
+The WebGL can be accessed here: https://bacanuionut.itch.io/procedural-dungeon-generator-cm3070-playtest
 
 
 
